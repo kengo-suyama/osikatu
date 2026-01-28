@@ -1,0 +1,21 @@
+# ===== Laravel =====
+laravel/vendor/
+laravel/.env
+laravel/storage/*
+!laravel/storage/.gitignore
+
+# ===== Frontend (Next.js) =====
+frontend/node_modules/
+frontend/.next/
+frontend/out/
+frontend/.env.local
+frontend/.env.*
+
+# ===== OS / Editor =====
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+
+# ===== Logs =====
+*.log
