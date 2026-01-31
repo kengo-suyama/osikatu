@@ -33,17 +33,17 @@ export default function QuickLogDialog() {
     <ToastProvider>
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogTrigger asChild>
-          <Button className="w-full">���O��ǉ�</Button>
+          <Button className="w-full">クイックログを追加</Button>
         </DialogTrigger>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>�����̃��O</DialogTitle>
+            <DialogTitle>クイックログ</DialogTitle>
           </DialogHeader>
           <div className="space-y-2">
-            <Input placeholder="�^�C�g��" />
-            <Textarea placeholder="����" rows={3} />
+            <Input placeholder="タイトル" />
+            <Textarea placeholder="メモ" rows={3} />
             <Button className="w-full" onClick={handleSave}>
-              �ۑ�
+              保存
             </Button>
           </div>
         </DialogContent>
@@ -51,8 +51,8 @@ export default function QuickLogDialog() {
 
       <Toast open={toastOpen} onOpenChange={setToastOpen}>
         <div className="space-y-1">
-          <ToastTitle>�ۑ����܂���</ToastTitle>
-          <ToastDescription>���O��ǉ����܂����B</ToastDescription>
+          <ToastTitle>保存しました</ToastTitle>
+          <ToastDescription>ログを追加しました。</ToastDescription>
         </div>
       </Toast>
       <ToastViewport />

@@ -1,4 +1,4 @@
-﻿<?php
+<?php
 
 declare(strict_types=1);
 
@@ -8,17 +8,17 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\StoreMediaLinkRequest;
 use App\Http\Resources\MediaLinkResource;
 use App\Models\MediaLink;
+use App\Support\ApiResponse;
+use App\Support\CurrentUser;
 
 class MediaLinkController extends Controller
 {
     public function store(StoreMediaLinkRequest $request)
     {
         $mediaLink = MediaLink::create($request->validated() + [
-            'user_id' => $request->user()->id,
+            'user_id' => CurrentUser::id(),
         ]);
 
-        return (new MediaLinkResource($mediaLink))
-            ->response()
-            ->setStatusCode(201);
+        return ApiResponse::success(new MediaLinkResource($mediaLink), null, 201);
     }
 }

@@ -1,4 +1,4 @@
-﻿<?php
+<?php
 
 declare(strict_types=1);
 
@@ -9,6 +9,8 @@ use App\Http\Requests\StoreGoodRequest;
 use App\Http\Requests\UpdateGoodRequest;
 use App\Http\Resources\GoodResource;
 use App\Models\Good;
+use App\Support\ApiResponse;
+use App\Support\CurrentUser;
 use Illuminate\Http\Request;
 
 class GoodController extends Controller
@@ -16,7 +18,7 @@ class GoodController extends Controller
     public function index(Request $request)
     {
         $query = Good::query()
-            ->where('user_id', $request->user()->id);
+            ->where('user_id', CurrentUser::id());
 
         $oshiId = $request->query('oshi_id');
         if (!empty($oshiId)) {
@@ -25,48 +27,46 @@ class GoodController extends Controller
 
         $goods = $query->orderByDesc('purchase_date')->get();
 
-        return GoodResource::collection($goods);
+        return ApiResponse::success(GoodResource::collection($goods));
     }
 
     public function store(StoreGoodRequest $request)
     {
         $good = Good::create($request->validated() + [
-            'user_id' => $request->user()->id,
+            'user_id' => CurrentUser::id(),
         ]);
 
-        return (new GoodResource($good))
-            ->response()
-            ->setStatusCode(201);
+        return ApiResponse::success(new GoodResource($good), null, 201);
     }
 
     public function show(Request $request, int $id)
     {
         $good = Good::query()
-            ->where('user_id', $request->user()->id)
+            ->where('user_id', CurrentUser::id())
             ->findOrFail($id);
 
-        return new GoodResource($good);
+        return ApiResponse::success(new GoodResource($good));
     }
 
     public function update(UpdateGoodRequest $request, int $id)
     {
         $good = Good::query()
-            ->where('user_id', $request->user()->id)
+            ->where('user_id', CurrentUser::id())
             ->findOrFail($id);
 
         $good->update($request->validated());
 
-        return new GoodResource($good);
+        return ApiResponse::success(new GoodResource($good));
     }
 
     public function destroy(Request $request, int $id)
     {
         $good = Good::query()
-            ->where('user_id', $request->user()->id)
+            ->where('user_id', CurrentUser::id())
             ->findOrFail($id);
 
         $good->delete();
 
-        return response()->noContent();
+        return ApiResponse::success(null);
     }
 }

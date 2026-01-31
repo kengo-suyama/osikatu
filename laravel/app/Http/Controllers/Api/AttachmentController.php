@@ -1,4 +1,4 @@
-﻿<?php
+<?php
 
 declare(strict_types=1);
 
@@ -8,6 +8,8 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\StoreAttachmentRequest;
 use App\Http\Resources\AttachmentResource;
 use App\Models\Attachment;
+use App\Support\ApiResponse;
+use App\Support\CurrentUser;
 use Illuminate\Http\Request;
 
 class AttachmentController extends Controller
@@ -17,30 +19,28 @@ class AttachmentController extends Controller
         $relatedClass = $request->relatedModelClass();
 
         $related = $relatedClass::query()
-            ->where('user_id', $request->user()->id)
+            ->where('user_id', CurrentUser::id())
             ->findOrFail($request->validated('related_id'));
 
         $attachment = Attachment::create([
-            'user_id' => $request->user()->id,
+            'user_id' => CurrentUser::id(),
             'related_type' => $relatedClass,
             'related_id' => $related->id,
             'file_path' => $request->validated('file_path'),
             'file_type' => $request->validated('file_type'),
         ]);
 
-        return (new AttachmentResource($attachment))
-            ->response()
-            ->setStatusCode(201);
+        return ApiResponse::success(new AttachmentResource($attachment), null, 201);
     }
 
     public function destroy(Request $request, int $id)
     {
         $attachment = Attachment::query()
-            ->where('user_id', $request->user()->id)
+            ->where('user_id', CurrentUser::id())
             ->findOrFail($id);
 
         $attachment->delete();
 
-        return response()->noContent();
+        return ApiResponse::success(null);
     }
 }

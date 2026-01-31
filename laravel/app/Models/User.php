@@ -1,4 +1,4 @@
-﻿<?php
+<?php
 
 declare(strict_types=1);
 
@@ -8,7 +8,6 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
-use Laravel\Sanctum\HasApiTokens;
 
 /**
  * @property int $id
@@ -28,7 +27,6 @@ use Laravel\Sanctum\HasApiTokens;
  */
 class User extends Authenticatable
 {
-    use HasApiTokens;
     use HasFactory;
     use Notifiable;
 
@@ -36,6 +34,8 @@ class User extends Authenticatable
         'name',
         'email',
         'password',
+        'plan',
+        'trial_ends_at',
     ];
 
     protected $hidden = [
@@ -46,6 +46,7 @@ class User extends Authenticatable
     protected $casts = [
         'email_verified_at' => 'datetime',
         'password' => 'hashed',
+        'trial_ends_at' => 'datetime',
     ];
 
     public function oshis(): HasMany

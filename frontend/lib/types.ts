@@ -1,62 +1,324 @@
-export type ApiListResponse<T> = {
-  data: T[];
+export type ISODate = string; // "YYYY-MM-DD"
+export type ISODateTime = string; // ISO 8601
+
+export type Plan = "free" | "premium" | "plus";
+
+export type ApiSuccess<T, M = unknown> = {
+  success: {
+    data: T;
+    meta?: M;
+  };
 };
 
-export type ApiItemResponse<T> = {
-  data: T;
+export type ApiError = {
+  error: {
+    code: string;
+    message: string;
+    details?: unknown;
+  };
 };
 
-export type ApiMeta = {
-  current_page: number;
-  last_page: number;
-  total: number;
+export type ApiEnvelope<T> = ApiSuccess<T>;
+
+export type ApiErrorEnvelope = ApiError;
+
+/** ---- User / Auth ---- */
+export type CelebrationStyle = "sparkle" | "idol" | "kawaii";
+export type CelebrationIntensity = "low" | "mid" | "high" | "max";
+
+export type CelebrationPrefs = {
+  enabled: boolean;
+  style: CelebrationStyle;
+  intensity: CelebrationIntensity;
+  muteAfterShown: boolean; // 1日1回だけ自動表示にして、以後は手動ボタンで再演出
 };
 
-export type ApiPaginatedResponse<T> = {
-  data: T[];
-  meta: ApiMeta;
+export type UserProfile = {
+  birthday?: ISODate | null;
+  celebrationPrefs?: CelebrationPrefs;
 };
 
-export type Oshi = {
-  id: string;
+export type UserDTO = {
+  id: number;
   name: string;
-  color?: string;
+  email: string;
+  plan: Plan;
+  profile?: UserProfile;
+};
+
+export type AuthResponse = {
+  token: string;
+  user: UserDTO;
+};
+
+export type MeDto = {
+  id: number;
+  name: string;
+  email: string;
+  plan: Plan;
+  effectivePlan: Plan;
+  trialEndsAt: ISODateTime | null;
+  trialActive?: boolean;
+  trialRemainingDays?: number;
+};
+
+/** ---- Circles ---- */
+export type CircleDTO = {
+  id: number;
+  name: string;
+  description: string | null;
+  oshiLabel?: string | null;
+  oshiTag: string | null;
+  oshiTags?: string[];
+  isPublic?: boolean;
+  joinPolicy?: "request" | "instant";
+  iconUrl: string | null;
+  maxMembers: number | null;
+  memberCount: number;
+  planRequired?: Plan;
+  lastActivityAt?: ISODateTime | null;
+  createdAt: ISODateTime;
+  updatedAt: ISODateTime;
+};
+
+export type InviteType = "code" | "link";
+
+export type CircleInviteDTO = {
+  id: number;
+  circleId: number;
+  type: InviteType;
+  code: string | null; // 8 chars
+  inviteUrl: string | null;
+  expiresAt: ISODateTime | null;
+  createdAt: ISODateTime;
+};
+
+/** ---- Feed ---- */
+export type UserMiniDTO = { id: number; name: string };
+
+export type PostMediaDTO = {
+  id: number;
+  type: "image";
+  url: string | null;
+};
+
+export type CirclePostDTO = {
+  id: number;
+  circleId: number;
+  author: UserMiniDTO;
+  body: string;
+  tags: string[];
+  media: PostMediaDTO[];
+  likeCount: number;
+  likedByMe: boolean;
+  isPinned: boolean;
+  createdAt: ISODateTime;
+};
+
+/** ---- MVP DTO (Circle/Invite/Post) ---- */
+export type CircleDto = {
+  id: number;
+  name: string;
+  description: string | null;
+  oshiLabel?: string | null;
+  oshiTag: string | null;
+  oshiTags?: string[];
+  isPublic?: boolean;
+  joinPolicy?: "request" | "instant";
+  iconUrl: string | null;
+  maxMembers: number | null;
+  memberCount: number;
+  planRequired?: Plan;
+  lastActivityAt?: string | null;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type InviteDto = {
+  id: number;
+  circleId: number;
+  code: string;
+  expiresAt: string | null;
+  maxUses: number | null;
+  usedCount: number;
+  createdAt: string;
+};
+
+export type PostAuthorDto = {
+  id: number;
+  name: string;
   avatarUrl?: string | null;
 };
 
-export type Log = {
-  id: string;
+export type PostMediaDto = {
+  id: number;
+  type: "image" | "video";
+  url: string;
+};
+
+export type PostDto = {
+  id: number;
+  circleId: number;
+  author: PostAuthorDto;
+  postType?: "post" | "chat" | "system";
+  body: string;
+  tags: string[];
+  media: PostMediaDto[];
+  likeCount: number;
+  likedByMe: boolean;
+  isPinned: boolean;
+  pinKind?: "reminder" | "deadline" | "info" | null;
+  pinDueAt?: string | null;
+  ackCount?: number;
+  ackedByMe?: boolean;
+  createdAt: string;
+};
+
+/** ---- Oshi DTO (API) ---- */
+export type OshiDto = {
+  id: number;
+  name: string;
+  nickname: string | null;
+  birthday: string | null;
+  heightCm: number | null;
+  weightKg: number | null;
+  bloodType: string | null;
+  accentColor: string | null;
+  origin: string | null;
+  role: string | null;
+  charmPoint: string | null;
+  quote: string | null;
+  hobbies: string[];
+  likes: string[];
+  dislikes: string[];
+  skills: string[];
+  favoriteFoods: string[];
+  weakPoints: string[];
+  supplyTags: string[];
+  anniversaries: any[];
+  links: any[];
+  customFields: any[];
+  memo: string | null;
+  imageUrl: string | null;
+  updatedAt: string | null;
+};
+
+export type CursorMeta = { nextCursor: string | null };
+
+/** ---- Owner Dashboard ---- */
+export type Role = "owner" | "admin" | "member";
+
+export type MemberBriefDto = {
+  id: number;
+  nickname: string | null;
+  avatarUrl: string | null;
+  initial: string | null;
+  role: Role;
+};
+
+export type OwnerDashboardCountsDto = {
+  unconfirmed: number;
+  unpaid: number;
+  rsvpPending: number;
+};
+
+export type UnpaidMemberDto = {
+  member: MemberBriefDto;
+  amountYen: number;
+};
+
+export type OwnerDashboardDto = {
+  circleId: number;
+  myRole: Role;
+  nextDeadline: {
+    kind: string;
+    title: string;
+    at: ISODateTime;
+    remainingMinutes: number;
+  } | null;
+  counts: OwnerDashboardCountsDto;
+  unconfirmedMembers: MemberBriefDto[];
+  unpaidMembers: UnpaidMemberDto[];
+  rsvpPendingMembers: MemberBriefDto[];
+  joinRequests?: JoinRequestDto[];
+  pinnedPost?: PostDto | null;
+};
+
+export type JoinRequestDto = {
+  id: number;
+  member: MemberBriefDto;
+  message?: string | null;
+  status: "pending" | "approved" | "rejected";
+  requestedAt?: string | null;
+};
+
+/** ---- Pins ---- */
+export type PinType = "deadline" | "result" | "payment" | "ticket" | "note";
+
+export type CirclePinDTO = {
+  id: number;
+  circleId: number;
+  type: PinType;
   title: string;
-  note?: string | null;
-  date: string;
-  time?: string | null;
-  oshiId?: string | null;
+  dueAt: ISODateTime | null;
+  isDone: boolean;
+  payload: Record<string, unknown> | null;
+  createdAt: ISODateTime;
+  pinnedAt: ISODateTime;
 };
 
-export type Money = {
-  id: string;
+/** ---- Events ---- */
+export type CircleEventType =
+  | "live"
+  | "stream"
+  | "lottery"
+  | "payment"
+  | "ticket"
+  | "trip"
+  | "goods";
+export type Importance = "high" | "med" | "low";
+
+export type CircleEventDTO = {
+  id: number;
+  circleId: number;
+  type: CircleEventType;
   title: string;
-  amount: number;
-  date: string;
-  category?: string | null;
-  oshiId?: string | null;
+  startAt: ISODateTime;
+  endAt: ISODateTime | null;
+  importance: Importance;
+  note: string | null;
+  createdAt: ISODateTime;
 };
 
-export type Schedule = {
-  id: string;
+/** ---- Todos ---- */
+export type CircleTodoDTO = {
+  id: number;
+  circleId: number;
   title: string;
-  date: string;
-  place: string;
-  oshiId?: string | null;
+  done: boolean;
+  dueAt: ISODateTime | null;
+  createdAt: ISODateTime;
 };
 
-export type HomeSummary = {
-  todayTime: string;
-  todaySpend: string;
-  logs: Log[];
-};
+/** ---- Celebration (UI演出) ---- */
+export type CelebrationKind =
+  | "oshi_birthday"
+  | "user_birthday"
+  | "christmas"
+  | "newyear"
+  | "valentine"
+  | "whiteday"
+  | "anniversary"; // 任意記念日（推し/ユーザー/サークル）
 
-export type MoneySummary = {
-  items: Money[];
-  chart: number[];
+export type CelebrationTheme = {
+  kind: CelebrationKind;
+  title: string;
+  subtitle?: string;
+  style: CelebrationStyle;
+  intensity: CelebrationIntensity;
+  // “一度だけ自動で出す”判定用キー（例: celebration:christmas:2026-12-25）
+  onceKey: string;
+  // 期間イベント（年末年始など）の開始/終了
+  activeFrom: ISODateTime;
+  activeTo: ISODateTime;
 };

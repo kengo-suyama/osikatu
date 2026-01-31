@@ -1,0 +1,15 @@
+{
+  "name": "osikatu",
+  "private": true,
+  "scripts": {
+    "readme:gen": "node ./scripts/generate-readme.mjs",
+    "hooks:enable": "simple-git-hooks",
+    "hooks:disable": "simple-git-hooks --uninstall"
+  },
+  "devDependencies": {
+    "simple-git-hooks": "^2.11.1"
+  },
+  "simple-git-hooks": {
+    "pre-commit": "node ./scripts/generate-readme.mjs"
+  }
+}

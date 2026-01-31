@@ -7,6 +7,47 @@
 <a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/l/laravel/framework" alt="License"></a>
 </p>
 
+## Osikatu Local Setup (Laravel)
+
+Run these from `C:\laragon\www\osikatu\laravel`:
+
+```powershell
+composer install
+cp .env.example .env
+php artisan key:generate
+```
+
+Laragon (MySQL) .env template:
+
+```
+DB_CONNECTION=mysql
+DB_HOST=127.0.0.1
+DB_PORT=3306
+DB_DATABASE=osikatu
+DB_USERNAME=root
+DB_PASSWORD=
+```
+
+If root access is blocked, create a dedicated user (optional):
+
+```sql
+CREATE DATABASE osikatu CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+CREATE USER 'osikatu_user'@'localhost' IDENTIFIED BY 'password';
+GRANT ALL PRIVILEGES ON osikatu.* TO 'osikatu_user'@'localhost';
+FLUSH PRIVILEGES;
+```
+
+Then run:
+
+```powershell
+php artisan config:clear
+php artisan migrate
+php artisan storage:link
+php artisan serve --port=8000
+```
+
+Note: `vendor/` is not committed. Always run `composer install` locally.
+
 ## About Laravel
 
 Laravel is a web application framework with expressive, elegant syntax. We believe development must be an enjoyable and creative experience to be truly fulfilling. Laravel takes the pain out of development by easing common tasks used in many web projects, such as:

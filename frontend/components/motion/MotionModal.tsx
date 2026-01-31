@@ -25,7 +25,7 @@ export default function MotionModal({
         <div className="fixed inset-0 z-50">
           <motion.button
             type="button"
-            aria-label="•Â‚¶‚é"
+            aria-label="ï¿½Â‚ï¿½ï¿½ï¿½"
             className="absolute inset-0 bg-black/40 backdrop-blur-sm"
             onClick={() => onOpenChange(false)}
             variants={modalOverlayVariants}

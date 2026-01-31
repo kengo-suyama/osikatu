@@ -2,24 +2,30 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Calendar, ClipboardList, Home, Settings, Wallet } from "lucide-react";
+import {
+  CalendarDays,
+  ClipboardList,
+  Home,
+  Settings,
+  Wallet,
+} from "lucide-react";
 
 import { cn } from "@/lib/utils";
 
 const items = [
-  { href: "/home", label: "Home", icon: Home },
-  { href: "/log", label: "Log", icon: ClipboardList },
-  { href: "/money", label: "Money", icon: Wallet },
-  { href: "/schedule", label: "Schedule", icon: Calendar },
-  { href: "/settings", label: "Settings", icon: Settings },
+  { href: "/home", label: "ホーム", icon: Home },
+  { href: "/log", label: "ログ", icon: ClipboardList },
+  { href: "/money", label: "お金", icon: Wallet },
+  { href: "/schedule", label: "予定", icon: CalendarDays },
+  { href: "/settings", label: "設定", icon: Settings },
 ];
 
 export default function BottomNavigation() {
   const pathname = usePathname();
 
   return (
-    <nav className="fixed bottom-0 left-0 right-0 z-40 border-t bg-background">
-      <div className="mx-auto grid max-w-screen-sm grid-cols-5">
+    <nav className="fixed bottom-0 left-0 right-0 z-40 border-t bg-background/80 backdrop-blur">
+      <div className="mx-auto grid max-w-[430px] grid-cols-5 px-2 py-1">
         {items.map(({ href, label, icon: Icon }) => {
           const active = pathname === href;
           return (
@@ -27,11 +33,18 @@ export default function BottomNavigation() {
               key={href}
               href={href}
               className={cn(
-                "flex flex-col items-center gap-1 py-2 text-xs",
+                "flex flex-col items-center gap-1 rounded-md px-2 py-2 text-[11px] font-medium transition",
                 active ? "text-primary" : "text-muted-foreground"
               )}
             >
-              <Icon className="h-5 w-5" />
+              <span
+                className={cn(
+                  "rounded-full p-1.5",
+                  active ? "bg-primary/10" : "bg-transparent"
+                )}
+              >
+                <Icon className="h-5 w-5" />
+              </span>
               <span>{label}</span>
             </Link>
           );

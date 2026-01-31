@@ -7,27 +7,38 @@ import {
   LineElement,
   PointElement,
   Tooltip,
+  Filler,
 } from "chart.js";
 import { Line } from "react-chartjs-2";
 
-ChartJS.register(CategoryScale, LinearScale, LineElement, PointElement, Tooltip);
+ChartJS.register(CategoryScale, LinearScale, LineElement, PointElement, Tooltip, Filler);
 
 export default function SpendLineChart({ data }: { data: number[] }) {
   return (
     <Line
       data={{
-        labels: ["ŒŽ", "‰Î", "…", "–Ø", "‹à", "“y", "“ú"],
+        labels: ["æœˆ", "ç«", "æ°´", "æœ¨", "é‡‘", "åœŸ", "æ—¥"],
         datasets: [
           {
-            label: "Žxo",
+            label: "æ”¯å‡º",
             data,
             borderColor: "#22c55e",
             backgroundColor: "rgba(34, 197, 94, 0.2)",
+            fill: true,
             tension: 0.35,
+            pointRadius: 2,
           },
         ],
       }}
-      options={{ responsive: true, plugins: { legend: { display: false } } }}
+      options={{
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: { legend: { display: false } },
+        scales: {
+          x: { grid: { display: false } },
+          y: { grid: { color: "rgba(148, 163, 184, 0.2)" }, ticks: { display: false } },
+        },
+      }}
     />
   );
 }

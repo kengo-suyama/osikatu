@@ -1,12 +1,19 @@
-import "./globals.css";
 import type { Metadata } from "next";
+import { Plus_Jakarta_Sans } from "next/font/google";
+
+import "./globals.css";
 import { ThemeProvider } from "./providers";
-import Header from "@/components/layout/Header";
-import BottomNavigation from "@/components/layout/BottomNavigation";
+import AppShell from "@/components/layout/AppShell";
+
+const jakarta = Plus_Jakarta_Sans({
+  subsets: ["latin"],
+  display: "swap",
+  variable: "--font-jakarta",
+});
 
 export const metadata: Metadata = {
-  title: "„‚µŠˆx‰‡",
-  description: "„‚µŠˆx‰‡ƒAƒvƒŠ",
+  title: "Osikatu",
+  description: "æ¨ã—æ´»ã‚’è¨˜éŒ²ã—ã¦è‚²ã¦ã‚‹ãƒ¢ãƒã‚¤ãƒ«ã‚¢ãƒ—ãƒª",
 };
 
 export default function RootLayout({
@@ -16,15 +23,9 @@ export default function RootLayout({
 }) {
   return (
     <html lang="ja" suppressHydrationWarning>
-      <body>
+      <body className={`${jakarta.className} min-h-screen bg-background text-foreground`}>
         <ThemeProvider>
-          <div className="min-h-dvh bg-background text-foreground">
-            <Header />
-            <main className="mx-auto max-w-screen-sm px-4 pb-24 pt-4">
-              {children}
-            </main>
-            <BottomNavigation />
-          </div>
+          <AppShell>{children}</AppShell>
         </ThemeProvider>
       </body>
     </html>

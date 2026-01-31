@@ -1,4 +1,4 @@
-﻿<?php
+<?php
 
 declare(strict_types=1);
 
@@ -9,6 +9,8 @@ use App\Http\Requests\StoreScheduleRequest;
 use App\Http\Requests\UpdateScheduleRequest;
 use App\Http\Resources\ScheduleResource;
 use App\Models\Schedule;
+use App\Support\ApiResponse;
+use App\Support\CurrentUser;
 use Illuminate\Http\Request;
 
 class ScheduleController extends Controller
@@ -16,7 +18,7 @@ class ScheduleController extends Controller
     public function index(Request $request)
     {
         $query = Schedule::query()
-            ->where('user_id', $request->user()->id);
+            ->where('user_id', CurrentUser::id());
 
         $oshiId = $request->query('oshi_id');
         if (!empty($oshiId)) {
@@ -25,48 +27,46 @@ class ScheduleController extends Controller
 
         $schedules = $query->orderBy('start_datetime')->get();
 
-        return ScheduleResource::collection($schedules);
+        return ApiResponse::success(ScheduleResource::collection($schedules));
     }
 
     public function store(StoreScheduleRequest $request)
     {
         $schedule = Schedule::create($request->validated() + [
-            'user_id' => $request->user()->id,
+            'user_id' => CurrentUser::id(),
         ]);
 
-        return (new ScheduleResource($schedule))
-            ->response()
-            ->setStatusCode(201);
+        return ApiResponse::success(new ScheduleResource($schedule), null, 201);
     }
 
     public function show(Request $request, int $id)
     {
         $schedule = Schedule::query()
-            ->where('user_id', $request->user()->id)
+            ->where('user_id', CurrentUser::id())
             ->findOrFail($id);
 
-        return new ScheduleResource($schedule);
+        return ApiResponse::success(new ScheduleResource($schedule));
     }
 
     public function update(UpdateScheduleRequest $request, int $id)
     {
         $schedule = Schedule::query()
-            ->where('user_id', $request->user()->id)
+            ->where('user_id', CurrentUser::id())
             ->findOrFail($id);
 
         $schedule->update($request->validated());
 
-        return new ScheduleResource($schedule);
+        return ApiResponse::success(new ScheduleResource($schedule));
     }
 
     public function destroy(Request $request, int $id)
     {
         $schedule = Schedule::query()
-            ->where('user_id', $request->user()->id)
+            ->where('user_id', CurrentUser::id())
             ->findOrFail($id);
 
         $schedule->delete();
 
-        return response()->noContent();
+        return ApiResponse::success(null);
     }
 }

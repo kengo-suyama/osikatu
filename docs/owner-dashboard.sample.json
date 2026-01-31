@@ -1,0 +1,38 @@
+{
+  "success": {
+    "data": {
+      "circleId": 1,
+      "myRole": "owner",
+      "nextDeadline": {
+        "kind": "notice",
+        "title": "入金期限（○○公演）",
+        "at": "2026-02-02T23:59:00+09:00",
+        "remainingMinutes": 3210
+      },
+      "counts": {
+        "unconfirmed": 3,
+        "unpaid": 2,
+        "rsvpPending": 4
+      },
+      "unconfirmedMembers": [
+        { "id": 11, "nickname": "Aoi", "avatarUrl": null, "initial": "A", "role": "member" },
+        {
+          "id": 12,
+          "nickname": "Miki",
+          "avatarUrl": "http://localhost:8000/storage/avatars/miki.png",
+          "initial": null,
+          "role": "member"
+        }
+      ],
+      "unpaidMembers": [
+        {
+          "member": { "id": 12, "nickname": "Miki", "avatarUrl": null, "initial": "M", "role": "member" },
+          "amountYen": 6800
+        }
+      ],
+      "rsvpPendingMembers": [
+        { "id": 13, "nickname": "Ren", "avatarUrl": null, "initial": "R", "role": "member" }
+      ]
+    }
+  }
+}

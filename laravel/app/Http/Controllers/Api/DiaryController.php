@@ -1,4 +1,4 @@
-﻿<?php
+<?php
 
 declare(strict_types=1);
 
@@ -9,6 +9,8 @@ use App\Http\Requests\StoreDiaryRequest;
 use App\Http\Requests\UpdateDiaryRequest;
 use App\Http\Resources\DiaryResource;
 use App\Models\Diary;
+use App\Support\ApiResponse;
+use App\Support\CurrentUser;
 use Illuminate\Http\Request;
 
 class DiaryController extends Controller
@@ -16,7 +18,7 @@ class DiaryController extends Controller
     public function index(Request $request)
     {
         $query = Diary::query()
-            ->where('user_id', $request->user()->id);
+            ->where('user_id', CurrentUser::id());
 
         $oshiId = $request->query('oshi_id');
         if (!empty($oshiId)) {
@@ -25,48 +27,46 @@ class DiaryController extends Controller
 
         $diaries = $query->orderByDesc('diary_date')->get();
 
-        return DiaryResource::collection($diaries);
+        return ApiResponse::success(DiaryResource::collection($diaries));
     }
 
     public function store(StoreDiaryRequest $request)
     {
         $diary = Diary::create($request->validated() + [
-            'user_id' => $request->user()->id,
+            'user_id' => CurrentUser::id(),
         ]);
 
-        return (new DiaryResource($diary))
-            ->response()
-            ->setStatusCode(201);
+        return ApiResponse::success(new DiaryResource($diary), null, 201);
     }
 
     public function show(Request $request, int $id)
     {
         $diary = Diary::query()
-            ->where('user_id', $request->user()->id)
+            ->where('user_id', CurrentUser::id())
             ->findOrFail($id);
 
-        return new DiaryResource($diary);
+        return ApiResponse::success(new DiaryResource($diary));
     }
 
     public function update(UpdateDiaryRequest $request, int $id)
     {
         $diary = Diary::query()
-            ->where('user_id', $request->user()->id)
+            ->where('user_id', CurrentUser::id())
             ->findOrFail($id);
 
         $diary->update($request->validated());
 
-        return new DiaryResource($diary);
+        return ApiResponse::success(new DiaryResource($diary));
     }
 
     public function destroy(Request $request, int $id)
     {
         $diary = Diary::query()
-            ->where('user_id', $request->user()->id)
+            ->where('user_id', CurrentUser::id())
             ->findOrFail($id);
 
         $diary->delete();
 
-        return response()->noContent();
+        return ApiResponse::success(null);
     }
 }

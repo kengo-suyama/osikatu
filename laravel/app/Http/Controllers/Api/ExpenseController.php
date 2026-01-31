@@ -1,4 +1,4 @@
-﻿<?php
+<?php
 
 declare(strict_types=1);
 
@@ -10,6 +10,8 @@ use App\Http\Requests\StoreExpenseRequest;
 use App\Http\Requests\UpdateExpenseRequest;
 use App\Http\Resources\ExpenseResource;
 use App\Models\Expense;
+use App\Support\ApiResponse;
+use App\Support\CurrentUser;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -19,7 +21,7 @@ class ExpenseController extends Controller
     public function index(Request $request)
     {
         $query = Expense::query()
-            ->where('user_id', $request->user()->id);
+            ->where('user_id', CurrentUser::id());
 
         $oshiId = $request->query('oshi_id');
         if (!empty($oshiId)) {
@@ -28,49 +30,47 @@ class ExpenseController extends Controller
 
         $expenses = $query->orderByDesc('expense_date')->get();
 
-        return ExpenseResource::collection($expenses);
+        return ApiResponse::success(ExpenseResource::collection($expenses));
     }
 
     public function store(StoreExpenseRequest $request)
     {
         $expense = Expense::create($request->validated() + [
-            'user_id' => $request->user()->id,
+            'user_id' => CurrentUser::id(),
         ]);
 
-        return (new ExpenseResource($expense))
-            ->response()
-            ->setStatusCode(201);
+        return ApiResponse::success(new ExpenseResource($expense), null, 201);
     }
 
     public function show(Request $request, int $id)
     {
         $expense = Expense::query()
-            ->where('user_id', $request->user()->id)
+            ->where('user_id', CurrentUser::id())
             ->findOrFail($id);
 
-        return new ExpenseResource($expense);
+        return ApiResponse::success(new ExpenseResource($expense));
     }
 
     public function update(UpdateExpenseRequest $request, int $id)
     {
         $expense = Expense::query()
-            ->where('user_id', $request->user()->id)
+            ->where('user_id', CurrentUser::id())
             ->findOrFail($id);
 
         $expense->update($request->validated());
 
-        return new ExpenseResource($expense);
+        return ApiResponse::success(new ExpenseResource($expense));
     }
 
     public function destroy(Request $request, int $id)
     {
         $expense = Expense::query()
-            ->where('user_id', $request->user()->id)
+            ->where('user_id', CurrentUser::id())
             ->findOrFail($id);
 
         $expense->delete();
 
-        return response()->noContent();
+        return ApiResponse::success(null);
     }
 
     public function summary(ExpenseSummaryRequest $request)
@@ -84,7 +84,7 @@ class ExpenseController extends Controller
         $end = $start->copy()->endOfMonth();
 
         $query = Expense::query()
-            ->where('user_id', $request->user()->id)
+            ->where('user_id', CurrentUser::id())
             ->whereBetween('expense_date', [$start->toDateString(), $end->toDateString()]);
 
         if (!empty($oshiId)) {
@@ -104,14 +104,22 @@ class ExpenseController extends Controller
             ->orderByDesc('total_amount')
             ->get();
 
-        return response()->json([
+        $byOshi = $byOshi->map(static function ($row) {
+            return [
+                'oshiId' => $row->oshi_id,
+                'oshiName' => $row->oshi_name,
+                'totalAmount' => (int) $row->total_amount,
+            ];
+        })->values();
+
+        return ApiResponse::success([
             'month' => $start->format('Y-m'),
             'period' => [
                 'start' => $start->toDateString(),
                 'end' => $end->toDateString(),
             ],
-            'total_amount' => (int) $totalAmount,
-            'by_oshi' => $byOshi,
+            'totalAmount' => (int) $totalAmount,
+            'byOshi' => $byOshi,
         ]);
     }
 }

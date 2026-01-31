@@ -2,13 +2,18 @@
 
 import { useState } from "react";
 
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import type { Oshi } from "@/lib/types";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
-const oshis: Oshi[] = [
-  { id: "1", name: "‚³‚­‚ç" },
-  { id: "2", name: "‚ê‚¢" },
-  { id: "3", name: "‚ ‚¨‚¢" },
+const oshis = [
+  { id: "1", name: "è’¼æœ¨ã‚½ãƒ©" },
+  { id: "2", name: "ä¼Šè—¤ãƒŸãƒŠ" },
+  { id: "3", name: "åŠ è—¤ãƒ¬ã‚¤" },
 ];
 
 export default function HeaderOshiSwitcher() {
@@ -16,8 +21,8 @@ export default function HeaderOshiSwitcher() {
 
   return (
     <Select value={value} onValueChange={setValue}>
-      <SelectTrigger className="h-9 w-[120px]">
-        <SelectValue placeholder="„‚µ‚ð‘I‘ð" />
+      <SelectTrigger className="h-9 w-[120px] text-xs">
+        <SelectValue placeholder="æŽ¨ã—ã‚’é¸ã¶" />
       </SelectTrigger>
       <SelectContent>
         {oshis.map((oshi) => (

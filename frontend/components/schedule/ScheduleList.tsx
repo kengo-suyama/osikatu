@@ -2,7 +2,7 @@
 
 import MotionCard from "@/components/motion/MotionCard";
 import { MotionFeed, MotionFeedItem } from "@/components/motion/MotionFeed";
-import type { Schedule } from "@/lib/types";
+import type { Schedule } from "@/lib/uiTypes";
 
 export default function ScheduleList({ list }: { list: Schedule[] }) {
   return (

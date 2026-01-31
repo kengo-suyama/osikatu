@@ -1,4 +1,4 @@
-﻿<?php
+<?php
 
 declare(strict_types=1);
 
@@ -9,59 +9,120 @@ use App\Http\Requests\StoreOshiRequest;
 use App\Http\Requests\UpdateOshiRequest;
 use App\Http\Resources\OshiResource;
 use App\Models\Oshi;
+use App\Models\User;
+use App\Support\ApiResponse;
+use App\Support\CurrentUser;
+use App\Support\PlanGate;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Validator;
 
 class OshiController extends Controller
 {
     public function index(Request $request)
     {
         $oshis = Oshi::query()
-            ->where('user_id', $request->user()->id)
+            ->where('user_id', CurrentUser::id())
             ->orderByDesc('id')
             ->get();
 
-        return OshiResource::collection($oshis);
+        return ApiResponse::success(OshiResource::collection($oshis));
     }
 
     public function store(StoreOshiRequest $request)
     {
-        $oshi = Oshi::create($request->validated() + [
-            'user_id' => $request->user()->id,
-        ]);
+        $user = User::query()->find(CurrentUser::id());
+        if (!$user) {
+            return ApiResponse::error('USER_NOT_FOUND', 'User not found.', null, 404);
+        }
 
-        return (new OshiResource($oshi))
-            ->response()
-            ->setStatusCode(201);
+        if (!PlanGate::hasPremium($user)) {
+            $count = Oshi::query()
+                ->where('user_id', $user->id)
+                ->count();
+
+            if ($count >= 1) {
+                return ApiResponse::error('PLAN_LIMIT', 'Free plan allows only 1 oshi.', [
+                    'limit' => 1,
+                    'current' => $count,
+                ], 403);
+            }
+        }
+
+        $payload = $this->mapOshiPayload($request->validated());
+        $oshi = Oshi::create($payload + ['user_id' => CurrentUser::id()]);
+
+        return ApiResponse::success(new OshiResource($oshi), null, 201);
     }
 
     public function show(Request $request, int $id)
     {
         $oshi = Oshi::query()
-            ->where('user_id', $request->user()->id)
+            ->where('user_id', CurrentUser::id())
             ->findOrFail($id);
 
-        return new OshiResource($oshi);
+        return ApiResponse::success(new OshiResource($oshi));
     }
 
     public function update(UpdateOshiRequest $request, int $id)
     {
         $oshi = Oshi::query()
-            ->where('user_id', $request->user()->id)
+            ->where('user_id', CurrentUser::id())
             ->findOrFail($id);
 
-        $oshi->update($request->validated());
+        $payload = $this->mapOshiPayload($request->validated());
+        $oshi->update($payload);
 
-        return new OshiResource($oshi);
+        return ApiResponse::success(new OshiResource($oshi));
+    }
+
+    public function uploadImage(Request $request, int $id)
+    {
+        $oshi = Oshi::query()
+            ->where('user_id', CurrentUser::id())
+            ->findOrFail($id);
+
+        $validator = Validator::make($request->all(), [
+            'image' => ['required', 'image', 'max:5120'],
+        ]);
+
+        if ($validator->fails()) {
+            return ApiResponse::error('VALIDATION_ERROR', 'Validation failed', $validator->errors(), 422);
+        }
+
+        $file = $request->file('image');
+        $path = $file->store('oshis', 'public');
+
+        $oshi->update(['image_path' => $path]);
+
+        return ApiResponse::success(new OshiResource($oshi));
     }
 
     public function destroy(Request $request, int $id)
     {
         $oshi = Oshi::query()
-            ->where('user_id', $request->user()->id)
+            ->where('user_id', CurrentUser::id())
             ->findOrFail($id);
 
         $oshi->delete();
 
-        return response()->noContent();
+        return ApiResponse::success(null);
+    }
+
+    private function mapOshiPayload(array $data): array
+    {
+        $payload = [];
+        if (array_key_exists('name', $data)) {
+            $payload['name'] = $data['name'];
+        }
+        if (array_key_exists('category', $data)) {
+            $payload['category'] = $data['category'];
+        }
+        if (array_key_exists('accentColor', $data)) {
+            $payload['color'] = $data['accentColor'];
+        }
+        if (array_key_exists('memo', $data)) {
+            $payload['memo'] = $data['memo'];
+        }
+        return $payload;
     }
 }
