@@ -8,6 +8,12 @@
 - Next.js App Router + Tailwind + shadcn/ui + Framer Motion で構築
 - Laravel REST API 連携を前提に拡張
 
+## 採用担当向けの見どころ
+- **課金/トライアル設計**: Free/Premium/Plus + 7日トライアルで心理的負担を最小化
+- **運営負荷の削減**: OwnerDashboardで未確認/未払い/出欠未回答を一目で把握
+- **拡散導線**: 招待コード + SNSテンプレ + 公開サークル検索の循環設計
+- **安全設計**: 参加リクエスト（承認制）で若年層向けの安心運営
+
 ## Screenshots (390px)
 ### Home
 - 推しヒーロー（画像） + Quick Actions + 供給Tabs + 次の締切 + Moneyスナップ + ミニFeed
@@ -39,6 +45,27 @@
 - `/laravel` ... Laravel API backend
 
 ## Frontend
+### 最短セットアップ（Laragon + rewrites）
+```powershell
+# Laravel (API)
+cd C:\laragon\www\osikatu\laravel
+composer install
+php artisan migrate
+php artisan db:seed --class=OwnerDashboardDemoSeeder
+php artisan serve --host=127.0.0.1 --port=8000
+
+# Next.js (rewrites)
+cd C:\laragon\www\osikatu\frontend
+npm install
+npm run dev -- -p 3000
+```
+
+疎通確認:
+```powershell
+curl.exe -i http://127.0.0.1:8000/api/circles
+curl.exe -i http://127.0.0.1:3000/api/circles
+```
+
 ### セットアップ（開発サーバ）
 ```powershell
 cd C:\laragon\www\osikatu\frontend
@@ -141,6 +168,14 @@ NEXT_PUBLIC_API_BASE_URL=http://localhost:8000
 ```
 
 ### デモ用シード & 確認
+シード内容（README用）
+- Owner（Plus）1名 + Admin 1名 + Member複数
+- 重要連絡 / 未確認 / 未払い / 出欠データ
+- 公開サークル + 招待コード導線
+- サークル内チャット（post_type=chat）サンプル
+- 参加リクエスト（承認待ち）サンプル
+- ピン投稿の既読/未読サンプル
+
 ```powershell
 cd C:\laragon\www\osikatu\laravel
 composer install
@@ -243,6 +278,38 @@ https://osikatu.app
 ### 注意
 - ハッシュタグは2〜3個まで、URLは末尾に置く
 - Freeは参加サークル1つまで（trial中は増えます）
+
+## デモ用X投稿テンプレ（採用担当向け）
+```
+推し活サークル運営のPoCを作りました🌸
+入金/出欠/チャット/通知まで一括で管理できます。
+
+デモ: https://osikatu.app
+#推し活 #プロダクト開発
+```
+
+### 別案（短く刺さる）
+```
+推し活サークル運営を最小工数にするアプリを作りました。
+参加・出欠・入金・チャットまで1画面で完結。
+
+https://osikatu.app
+#推し活 #プロダクト開発
+```
+
+### 別案（UX強調）
+```
+Freeで個人モード→招待で7日トライアル→運営はPlus。
+押し付けない課金導線まで作り込んだ推し活アプリです。
+
+https://osikatu.app
+#推し活 #UX設計
+```
+
+## デモ導線（採用担当向け）
+- Home → 公開サークル検索 → 参加リクエスト → 承認で参加
+- OwnerDashboard → 未確認/未払い/出欠未回答の把握 → 一括リマインド
+- 参加後 `/circles/{id}/chat` で合流（Freeは月30メッセージ）
 
 ## README 自動生成
 ### 使い方
