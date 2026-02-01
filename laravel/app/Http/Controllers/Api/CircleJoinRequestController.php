@@ -13,6 +13,7 @@ use App\Models\User;
 use App\Support\ApiResponse;
 use App\Support\CurrentUser;
 use App\Support\MeProfileResolver;
+use App\Support\OperationLogService;
 use App\Support\PlanGate;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
@@ -91,6 +92,14 @@ class CircleJoinRequestController extends Controller
                 'reviewed_at' => now(),
             ]);
 
+            Circle::query()
+                ->where('id', $circleModel->id)
+                ->update(['last_activity_at' => now()]);
+
+            OperationLogService::log($request, 'join_request.approve', $circleModel->id, [
+                'mode' => 'instant',
+            ]);
+
             return ApiResponse::success($this->formatJoinRequest($approved), null, 201);
         }
 
@@ -111,6 +120,7 @@ class CircleJoinRequestController extends Controller
         ]);
 
         $this->notifyJoinRequestCreated($circleModel, $meProfile);
+        OperationLogService::log($request, 'join_request.create', $circleModel->id);
 
         return ApiResponse::success($this->formatJoinRequest($joinRequest), null, 201);
     }
@@ -255,6 +265,7 @@ class CircleJoinRequestController extends Controller
         ]);
 
         $this->notifyJoinRequestApproved($circleModel, $requesterProfile);
+        OperationLogService::log($request, 'join_request.approve', $circleModel->id);
 
         Circle::query()
             ->where('id', $circle)
@@ -318,6 +329,8 @@ class CircleJoinRequestController extends Controller
         if ($requesterProfile) {
             $this->notifyJoinRequestRejected($circleModel, $requesterProfile);
         }
+
+        OperationLogService::log($request, 'join_request.reject', $circleModel->id);
 
         return ApiResponse::success(null);
     }

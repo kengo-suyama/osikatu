@@ -1,11 +1,14 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { usePathname } from "next/navigation";
 import { Copy, Share2 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import { ANALYTICS_EVENTS, type AnalyticsEventName } from "@/lib/events";
 import { circleRepo } from "@/lib/repo/circleRepo";
+import { eventsRepo } from "@/lib/repo/eventsRepo";
 import { inviteRepo } from "@/lib/repo/inviteRepo";
 import type { CircleDto, InviteDto } from "@/lib/types";
 import { cn } from "@/lib/utils";
@@ -35,6 +38,24 @@ const templateVariants = [
     build: (_oshiLabel: string, code: string) =>
       `サークル運営が楽になるアプリ作りました🌸 未確認・未払いが一目で分かるのが最高。\n\n承認制で安心して使えます◎\n招待コード：${code}\n\n${APP_URL}\n#サークル運営 #推し活`,
   },
+  {
+    id: "instagram_short",
+    label: "IG短文",
+    build: (oshiLabel: string, code: string) =>
+      `推し活の遠征情報まとめてるよ🚄✨「${oshiLabel}」参加どうぞ！\n招待コード：${code}\n${APP_URL}\n#推し活 #遠征`,
+  },
+  {
+    id: "instagram_long",
+    label: "IG長文",
+    build: (oshiLabel: string, code: string) =>
+      `【参加者募集】${oshiLabel}\n遠征の予定/持ち物/現地情報を共有してます！\n招待コード：${code}\n参加URL：${APP_URL}\n#推し活 #遠征 #オタ活`,
+  },
+  {
+    id: "tiktok",
+    label: "TikTok",
+    build: (oshiLabel: string, code: string) =>
+      `遠征・現地情報を共有する推し活サークル「${oshiLabel}」\n招待コード：${code}\n${APP_URL}\n#推し活 #遠征 #オタ活`,
+  },
 ];
 
 const copyText = async (text: string) => {
@@ -59,11 +80,14 @@ const copyText = async (text: string) => {
 };
 
 export default function CircleShareCard({ circleId }: CircleShareCardProps) {
+  const pathname = usePathname();
   const [circle, setCircle] = useState<CircleDto | null>(null);
   const [invite, setInvite] = useState<InviteDto | null>(null);
   const [copyState, setCopyState] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [templateId, setTemplateId] = useState("personal");
+  const [templateText, setTemplateText] = useState("");
+  const [isEdited, setIsEdited] = useState(false);
 
   useEffect(() => {
     circleRepo
@@ -97,11 +121,41 @@ export default function CircleShareCard({ circleId }: CircleShareCardProps) {
     [selectedTemplate, oshiLabel, inviteCode]
   );
 
-  const handleCopy = async (text: string, key: string) => {
+  useEffect(() => {
+    if (!isEdited) {
+      setTemplateText(tweetText);
+    }
+  }, [tweetText, isEdited]);
+
+  const isMobile = () => {
+    if (typeof navigator === "undefined") return false;
+    return /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+  };
+
+  const openDeepLink = (scheme: string, fallback: string) => {
+    if (isMobile()) {
+      window.location.href = scheme;
+      setTimeout(() => {
+        window.open(fallback, "_blank", "noopener,noreferrer");
+      }, 500);
+      return;
+    }
+    window.open(fallback, "_blank", "noopener,noreferrer");
+  };
+
+  const handleCopy = async (
+    text: string,
+    key: string,
+    eventName?: AnalyticsEventName
+  ): Promise<boolean> => {
     const ok = await copyText(text);
     setCopyState(ok ? key : null);
     setError(ok ? null : "コピーに失敗しました");
     setTimeout(() => setCopyState(null), 1500);
+    if (ok && eventName) {
+      eventsRepo.track(eventName, pathname, circleId);
+    }
+    return ok;
   };
 
   return (
@@ -121,7 +175,7 @@ export default function CircleShareCard({ circleId }: CircleShareCardProps) {
             <Button
               size="sm"
               variant="secondary"
-              onClick={() => handleCopy(inviteCode, "code")}
+              onClick={() => handleCopy(inviteCode, "code", ANALYTICS_EVENTS.INVITE_CODE_COPY)}
               disabled={!inviteCode}
             >
               <Copy className="mr-1 h-4 w-4" />
@@ -137,9 +191,10 @@ export default function CircleShareCard({ circleId }: CircleShareCardProps) {
             onClick={() => {
               if (!inviteCode) return;
               const url = `https://twitter.com/intent/tweet?text=${encodeURIComponent(
-                tweetText
+                templateText
               )}`;
               window.open(url, "_blank", "noopener,noreferrer");
+              eventsRepo.track(ANALYTICS_EVENTS.SHARE_X_CLICK, pathname, circleId);
             }}
             disabled={!inviteCode}
           >
@@ -147,18 +202,63 @@ export default function CircleShareCard({ circleId }: CircleShareCardProps) {
           </Button>
           <Button
             variant="secondary"
-            onClick={() => handleCopy(tweetText, "instagram")}
+            onClick={() => handleCopy(templateText, "instagram", ANALYTICS_EVENTS.SHARE_COPY_LINK_CLICK)}
             disabled={!inviteCode}
           >
             {copyState === "instagram" ? "Instagram用コピー済み" : "Instagram用コピー"}
           </Button>
           <Button
             variant="secondary"
-            onClick={() => handleCopy(tweetText, "line")}
+            onClick={() => handleCopy(templateText, "line", ANALYTICS_EVENTS.SHARE_LINE_CLICK)}
             disabled={!inviteCode}
             className={cn("md:col-span-2")}
           >
             {copyState === "line" ? "LINE/Discord用コピー済み" : "LINE / Discord 用コピー"}
+          </Button>
+          <Button
+            variant="secondary"
+            onClick={async () => {
+              if (!inviteCode) return;
+              const ok = await handleCopy(templateText, "instagram_open");
+              if (ok) {
+                eventsRepo.track(
+                  ANALYTICS_EVENTS.SHARE_INSTAGRAM_CLICK,
+                  pathname,
+                  circleId,
+                  {
+                    provider: "instagram",
+                    mode: "copy_then_open",
+                  }
+                );
+                openDeepLink("instagram://app", "https://www.instagram.com/");
+              }
+            }}
+            disabled={!inviteCode}
+          >
+            Instagram を開く
+          </Button>
+          <Button
+            variant="secondary"
+            onClick={async () => {
+              if (!inviteCode) return;
+              const ok = await handleCopy(templateText, "tiktok_open");
+              if (ok) {
+                eventsRepo.track(
+                  ANALYTICS_EVENTS.SHARE_TIKTOK_CLICK,
+                  pathname,
+                  circleId,
+                  {
+                    provider: "tiktok",
+                    mode: "copy_then_open",
+                  }
+                );
+                openDeepLink("tiktok://", "https://www.tiktok.com/");
+              }
+            }}
+            disabled={!inviteCode}
+            className={cn("md:col-span-2")}
+          >
+            TikTok を開く
           </Button>
         </div>
 
@@ -179,8 +279,17 @@ export default function CircleShareCard({ circleId }: CircleShareCardProps) {
         </div>
 
         <div className="text-[11px] text-muted-foreground">
-          テンプレ文はアプリが管理します。編集はできません。
+          テンプレ文は編集できます。個人情報は書かないでください。
         </div>
+
+        <textarea
+          className="min-h-[140px] w-full rounded-xl border bg-background px-3 py-2 text-xs leading-relaxed"
+          value={templateText}
+          onChange={(event) => {
+            setTemplateText(event.target.value);
+            setIsEdited(true);
+          }}
+        />
       </div>
     </Card>
   );

@@ -149,6 +149,7 @@ export type OshiProfile = {
   memo?: string | null;
   image_url?: string | null;
   image_base64?: string | null;
+  image_frame_id?: string | null;
   updated_at?: string | null;
 };
 

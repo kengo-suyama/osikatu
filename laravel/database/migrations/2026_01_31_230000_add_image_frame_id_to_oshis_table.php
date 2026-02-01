@@ -1,0 +1,28 @@
+<?php
+
+declare(strict_types=1);
+
+use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Schema;
+
+return new class extends Migration
+{
+    public function up(): void
+    {
+        Schema::table('oshis', function (Blueprint $table) {
+            if (!Schema::hasColumn('oshis', 'image_frame_id')) {
+                $table->string('image_frame_id', 60)->nullable()->after('image_path');
+            }
+        });
+    }
+
+    public function down(): void
+    {
+        Schema::table('oshis', function (Blueprint $table) {
+            if (Schema::hasColumn('oshis', 'image_frame_id')) {
+                $table->dropColumn('image_frame_id');
+            }
+        });
+    }
+};

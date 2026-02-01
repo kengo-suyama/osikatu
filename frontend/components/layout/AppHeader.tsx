@@ -4,13 +4,6 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { Settings2 } from "lucide-react";
 
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { EVENTS } from "@/lib/events";
 import type { CircleChangeDetail } from "@/lib/events";
 import { circleRepo } from "@/lib/repo/circleRepo";
@@ -117,38 +110,46 @@ export default function AppHeader() {
 
   return (
     <header className="sticky top-0 z-40 border-b bg-background/80 backdrop-blur">
-      <div className="mx-auto flex max-w-[430px] items-center justify-between px-4 py-3">
-        <div className="flex items-center gap-2">
+      <div className="mx-auto flex max-w-[430px] flex-wrap items-center justify-between gap-2 px-4 py-3">
+        <div className="flex items-center gap-2 whitespace-nowrap">
           <span className="text-lg font-semibold tracking-tight">Osikatu</span>
-          <span className="rounded-full bg-[hsl(var(--accent))]/15 px-2 py-0.5 text-[10px] font-semibold text-[hsl(var(--accent))]">
+          <span className="rounded-full bg-[hsl(var(--accent))]/15 px-2 py-0.5 text-[10px] font-semibold text-[hsl(var(--accent))] whitespace-nowrap">
             推し活中
           </span>
         </div>
-        <div className="flex items-center gap-2">
-          <Select value={circleValue} onValueChange={handleCircleChange}>
-            <SelectTrigger className="h-9 w-[96px] text-[11px]">
-              <SelectValue placeholder={circleLoading ? "読込中" : "サークル"} />
-            </SelectTrigger>
-            <SelectContent>
-              {circles.map((circle) => (
-                <SelectItem key={circle.id} value={String(circle.id)}>
-                  {circle.name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          <Select value={value} onValueChange={handleChange}>
-            <SelectTrigger className="h-9 w-[112px] text-[11px]">
-              <SelectValue placeholder="推しを選ぶ" />
-            </SelectTrigger>
-            <SelectContent>
-              {list.map((oshi) => (
-                <SelectItem key={oshi.id} value={String(oshi.id)}>
-                  {oshi.name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+        <div className="flex flex-wrap items-center gap-2">
+          <select
+            className="h-9 w-[84px] rounded-[var(--radius)] border border-input bg-background px-2 text-[10px] shadow-[var(--shadow)] focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 sm:w-[96px] sm:text-[11px]"
+            aria-label="サークルを選ぶ"
+            value={circleValue}
+            onChange={(event) => handleCircleChange(event.target.value)}
+            disabled={circleLoading || circles.length === 0}
+          >
+            <option value="" disabled>
+              {circleLoading ? "読込中" : "サークル"}
+            </option>
+            {circles.map((circle) => (
+              <option key={circle.id} value={String(circle.id)}>
+                {circle.name}
+              </option>
+            ))}
+          </select>
+          <select
+            className="h-9 w-[96px] rounded-[var(--radius)] border border-input bg-background px-2 text-[10px] shadow-[var(--shadow)] focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 sm:w-[112px] sm:text-[11px]"
+            aria-label="推しを選ぶ"
+            value={value}
+            onChange={(event) => handleChange(event.target.value)}
+            disabled={list.length === 0}
+          >
+            <option value="" disabled>
+              推しを選ぶ
+            </option>
+            {list.map((oshi) => (
+              <option key={oshi.id} value={String(oshi.id)}>
+                {oshi.name}
+              </option>
+            ))}
+          </select>
           <Link
             href="/settings"
             className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-border bg-background/80 shadow-sm transition hover:bg-accent/40"

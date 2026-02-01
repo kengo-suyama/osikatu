@@ -19,6 +19,7 @@ class UpdateOshiRequest extends FormRequest
             'name' => ['sometimes', 'required', 'string', 'max:100'],
             'category' => ['nullable', 'string', 'max:50'],
             'accentColor' => ['nullable', 'string', 'max:20'],
+            'imageFrameId' => ['nullable', 'string', 'max:60'],
             'memo' => ['nullable', 'string'],
         ];
     }

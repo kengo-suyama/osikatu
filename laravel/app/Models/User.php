@@ -36,6 +36,13 @@ class User extends Authenticatable
         'password',
         'plan',
         'trial_ends_at',
+        'ui_theme_id',
+        'ui_special_bg_enabled',
+        'display_name',
+        'avatar_path',
+        'bio',
+        'prefecture_code',
+        'onboarding_completed_at',
     ];
 
     protected $hidden = [
@@ -47,6 +54,9 @@ class User extends Authenticatable
         'email_verified_at' => 'datetime',
         'password' => 'hashed',
         'trial_ends_at' => 'datetime',
+        'ui_special_bg_enabled' => 'boolean',
+        'prefecture_code' => 'integer',
+        'onboarding_completed_at' => 'datetime',
     ];
 
     public function oshis(): HasMany

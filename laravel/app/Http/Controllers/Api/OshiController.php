@@ -12,6 +12,8 @@ use App\Models\Oshi;
 use App\Models\User;
 use App\Support\ApiResponse;
 use App\Support\CurrentUser;
+use App\Support\ImageUploadService;
+use App\Support\OperationLogService;
 use App\Support\PlanGate;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
@@ -69,8 +71,31 @@ class OshiController extends Controller
             ->where('user_id', CurrentUser::id())
             ->findOrFail($id);
 
-        $payload = $this->mapOshiPayload($request->validated());
+        $validated = $request->validated();
+        if (array_key_exists('imageFrameId', $validated)) {
+            $user = User::query()->find(CurrentUser::id());
+            if (!$user) {
+                return ApiResponse::error('USER_NOT_FOUND', 'User not found.', null, 404);
+            }
+            $frameId = $validated['imageFrameId'];
+            if ($frameId !== null && $frameId !== '' && !PlanGate::isFrameAllowed($user, $frameId)) {
+                return ApiResponse::error(
+                    'FRAME_LOCKED',
+                    'Selected frame is not available on current plan.',
+                    ['allowed' => PlanGate::allowedFrameIds($user)],
+                    422
+                );
+            }
+        }
+
+        $payload = $this->mapOshiPayload($validated);
         $oshi->update($payload);
+
+        if (array_key_exists('image_frame_id', $payload)) {
+            OperationLogService::log($request, 'oshi_media.change_frame', null, [
+                'frameId' => $payload['image_frame_id'],
+            ]);
+        }
 
         return ApiResponse::success(new OshiResource($oshi));
     }
@@ -90,9 +115,17 @@ class OshiController extends Controller
         }
 
         $file = $request->file('image');
-        $path = $file->store('oshis', 'public');
+        $stored = ImageUploadService::storePublicImage($file, 'oshis');
+        if (isset($stored['error'])) {
+            return ApiResponse::error(
+                $stored['error']['code'] ?? 'IMAGE_PROCESS_FAILED',
+                $stored['error']['message'] ?? 'Image upload failed.',
+                null,
+                422
+            );
+        }
 
-        $oshi->update(['image_path' => $path]);
+        $oshi->update(['image_path' => $stored['path']]);
 
         return ApiResponse::success(new OshiResource($oshi));
     }
@@ -122,6 +155,9 @@ class OshiController extends Controller
         }
         if (array_key_exists('memo', $data)) {
             $payload['memo'] = $data['memo'];
+        }
+        if (array_key_exists('imageFrameId', $data)) {
+            $payload['image_frame_id'] = $data['imageFrameId'] ?: null;
         }
         return $payload;
     }

@@ -60,6 +60,19 @@ export type MeDto = {
   trialEndsAt: ISODateTime | null;
   trialActive?: boolean;
   trialRemainingDays?: number;
+  profile?: MeProfileDto;
+  ui?: {
+    themeId?: string | null;
+    specialBgEnabled?: boolean;
+  };
+};
+
+export type MeProfileDto = {
+  displayName: string | null;
+  avatarUrl: string | null;
+  bio: string | null;
+  prefectureCode: number | null;
+  onboardingCompleted: boolean;
 };
 
 /** ---- Circles ---- */
@@ -72,11 +85,17 @@ export type CircleDTO = {
   oshiTags?: string[];
   isPublic?: boolean;
   joinPolicy?: "request" | "instant";
+  approvalRequired?: boolean;
   iconUrl: string | null;
   maxMembers: number | null;
   memberCount: number;
   planRequired?: Plan;
   lastActivityAt?: ISODateTime | null;
+  ui?: {
+    circleThemeId?: string | null;
+    specialBgEnabled?: boolean;
+    specialBgVariant?: string | null;
+  };
   createdAt: ISODateTime;
   updatedAt: ISODateTime;
 };
@@ -125,11 +144,18 @@ export type CircleDto = {
   oshiTags?: string[];
   isPublic?: boolean;
   joinPolicy?: "request" | "instant";
+  approvalRequired?: boolean;
   iconUrl: string | null;
   maxMembers: number | null;
   memberCount: number;
+  myRole?: Role;
   planRequired?: Plan;
   lastActivityAt?: string | null;
+  ui?: {
+    circleThemeId?: string | null;
+    specialBgEnabled?: boolean;
+    specialBgVariant?: string | null;
+  };
   createdAt: string;
   updatedAt: string;
 };
@@ -157,13 +183,16 @@ export type PostMediaDto = {
 };
 
 export type PostDto = {
-  id: number;
+  id: string | number;
   circleId: number;
   author: PostAuthorDto;
+  user?: PostAuthorDto;
+  source?: "chat" | "legacy";
   postType?: "post" | "chat" | "system";
   body: string;
   tags: string[];
   media: PostMediaDto[];
+  imageUrl?: string | null;
   likeCount: number;
   likedByMe: boolean;
   isPinned: boolean;
@@ -171,6 +200,7 @@ export type PostDto = {
   pinDueAt?: string | null;
   ackCount?: number;
   ackedByMe?: boolean;
+  deletedAt?: string | null;
   createdAt: string;
 };
 
@@ -200,6 +230,7 @@ export type OshiDto = {
   customFields: any[];
   memo: string | null;
   imageUrl: string | null;
+  imageFrameId?: string | null;
   updatedAt: string | null;
 };
 
@@ -250,6 +281,23 @@ export type JoinRequestDto = {
   message?: string | null;
   status: "pending" | "approved" | "rejected";
   requestedAt?: string | null;
+};
+
+/** ---- Operation Logs ---- */
+export type OperationLogDto = {
+  id: string; // "lg_..."
+  action: string;
+  circleId: string | null;
+  actorUserId: number | null;
+  targetType: string | null;
+  targetId: string | null;
+  meta: Record<string, unknown>;
+  createdAt: ISODateTime;
+};
+
+export type OperationLogListDto = {
+  items: OperationLogDto[];
+  nextCursor: string | null;
 };
 
 /** ---- Pins ---- */

@@ -26,9 +26,18 @@ class CircleController extends Controller
             ->whereHas('members', function ($query) use ($userId): void {
                 $query->where('user_id', $userId);
             })
+            ->with('uiSetting')
             ->withCount('members')
             ->orderByDesc('id')
             ->get();
+
+        $roles = CircleMember::query()
+            ->where('user_id', $userId)
+            ->pluck('role', 'circle_id');
+
+        $circles->each(function (Circle $circle) use ($roles): void {
+            $circle->setAttribute('my_role', $roles[$circle->id] ?? null);
+        });
 
         return ApiResponse::success(CircleResource::collection($circles));
     }
@@ -43,6 +52,7 @@ class CircleController extends Controller
             'oshiTags' => ['required', 'array', 'min:1', 'max:3'],
             'oshiTags.*' => ['string', 'max:30'],
             'isPublic' => ['nullable', 'boolean'],
+            'approvalRequired' => ['nullable', 'boolean'],
             'joinPolicy' => ['nullable', 'in:request,instant'],
             'maxMembers' => ['nullable', 'integer', 'min:1', 'max:500'],
         ]);
@@ -89,6 +99,12 @@ class CircleController extends Controller
             ], 422);
         }
 
+        $approvalRequired = $data['approvalRequired'] ?? null;
+        $joinPolicy = $data['joinPolicy'] ?? null;
+        if ($joinPolicy === null && $approvalRequired !== null) {
+            $joinPolicy = $approvalRequired ? 'request' : 'instant';
+        }
+
         $circle = Circle::create([
             'name' => $data['name'],
             'description' => $data['description'] ?? null,
@@ -96,7 +112,7 @@ class CircleController extends Controller
             'oshi_tag' => $data['oshiTag'] ?? $tags[0] ?? null,
             'oshi_tags' => $tags,
             'is_public' => (bool) ($data['isPublic'] ?? false),
-            'join_policy' => $data['joinPolicy'] ?? 'request',
+            'join_policy' => $joinPolicy ?? 'request',
             'max_members' => $data['maxMembers'] ?? 30,
             'plan' => 'plus',
             'plan_required' => 'free',
@@ -128,12 +144,19 @@ class CircleController extends Controller
             ->whereHas('members', function ($query) use ($userId): void {
                 $query->where('user_id', $userId);
             })
+            ->with('uiSetting')
             ->withCount('members')
             ->first();
 
         if (!$circle) {
             return ApiResponse::error('NOT_FOUND', 'Circle not found.', null, 404);
         }
+
+        $role = CircleMember::query()
+            ->where('circle_id', $circle->id)
+            ->where('user_id', $userId)
+            ->value('role');
+        $circle->setAttribute('my_role', $role);
 
         return ApiResponse::success(new CircleResource($circle));
     }
@@ -195,6 +218,7 @@ class CircleController extends Controller
         }
 
         $circles = $query
+            ->with('uiSetting')
             ->withCount('members')
             ->orderByRaw('last_activity_at is null')
             ->orderByDesc('last_activity_at')

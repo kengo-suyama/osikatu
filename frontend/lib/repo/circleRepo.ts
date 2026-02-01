@@ -16,11 +16,17 @@ const defaultCircles = (): CircleDto[] => [
     oshiTags: ["demo"],
     isPublic: false,
     joinPolicy: "request",
+    approvalRequired: true,
     iconUrl: null,
     maxMembers: 30,
     memberCount: 8,
     planRequired: "free",
     lastActivityAt: null,
+    ui: {
+      circleThemeId: null,
+      specialBgEnabled: false,
+      specialBgVariant: null,
+    },
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
   },
@@ -83,6 +89,7 @@ export const circleRepo = {
         oshiTags: payload.oshiTags,
         isPublic: Boolean(payload.isPublic),
         joinPolicy: payload.joinPolicy ?? "request",
+        approvalRequired: (payload.joinPolicy ?? "request") !== "instant",
         iconUrl: null,
         maxMembers: payload.maxMembers ?? 30,
         memberCount: 1,
@@ -115,6 +122,61 @@ export const circleRepo = {
     } catch (err) {
       throw err;
     }
+  },
+
+  async updateUiSettings(
+    circleId: number,
+    payload: {
+      circleThemeId?: string | null;
+      specialBgEnabled?: boolean;
+      specialBgVariant?: string | null;
+    }
+  ): Promise<CircleDto["ui"]> {
+    if (!isApiMode()) {
+      const list = ensureLocalCircles();
+      const nextList = list.map((circle) =>
+        circle.id === circleId
+          ? {
+              ...circle,
+              ui: {
+                circleThemeId: payload.circleThemeId ?? circle.ui?.circleThemeId ?? null,
+                specialBgEnabled:
+                  typeof payload.specialBgEnabled === "boolean"
+                    ? payload.specialBgEnabled
+                    : circle.ui?.specialBgEnabled ?? false,
+                specialBgVariant:
+                  payload.specialBgVariant ?? circle.ui?.specialBgVariant ?? null,
+              },
+            }
+          : circle
+      );
+      saveJson(CIRCLES_KEY, nextList);
+      const updated = nextList.find((circle) => circle.id === circleId);
+      if (typeof window !== "undefined") {
+        window.dispatchEvent(
+          new CustomEvent("circle-ui-change", { detail: { circleId, ui: updated?.ui } })
+        );
+      }
+      return updated?.ui;
+    }
+
+    const updated = await apiSend<CircleDto["ui"]>(
+      `/api/circles/${circleId}/ui-settings`,
+      "PUT",
+      payload,
+      {
+        headers: {
+          "Content-Type": "application/json",
+          "X-Device-Id": getDeviceId(),
+        },
+      }
+    );
+    if (typeof window !== "undefined") {
+      window.dispatchEvent(
+        new CustomEvent("circle-ui-change", { detail: { circleId, ui: updated } })
+      );
+    }
+    return updated ?? undefined;
   },
 
   async search(params: { q?: string; tag?: string; oshi?: string }): Promise<CircleDto[]> {

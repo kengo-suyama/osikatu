@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -17,6 +17,8 @@ import { circleRepo } from "@/lib/repo/circleRepo";
 import { joinRequestRepo } from "@/lib/repo/joinRequestRepo";
 import PlanLimitDialog from "@/components/common/PlanLimitDialog";
 import { ApiRequestError } from "@/lib/repo/http";
+import { ANALYTICS_EVENTS } from "@/lib/events";
+import { eventsRepo } from "@/lib/repo/eventsRepo";
 import type { CircleDto, MeDto } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
@@ -50,6 +52,7 @@ export default function CircleSearchDialog({
   me,
 }: CircleSearchDialogProps) {
   const router = useRouter();
+  const pathname = usePathname();
   const [tag, setTag] = useState("");
   const [oshiLabel, setOshiLabel] = useState("");
   const [name, setName] = useState("");
@@ -67,6 +70,12 @@ export default function CircleSearchDialog({
   const normalizedTag = useMemo(() => tag.replace(/^#/, "").trim(), [tag]);
   const normalizedLabel = useMemo(() => oshiLabel.trim(), [oshiLabel]);
   const normalizedName = useMemo(() => name.trim(), [name]);
+  const selectedCircle = useMemo(
+    () => results.find((circle) => circle.id === requestingId) ?? null,
+    [results, requestingId]
+  );
+  const approvalRequired =
+    (selectedCircle?.joinPolicy ?? "request") !== "instant";
 
   const handleSearch = async () => {
     setLoading(true);
@@ -158,6 +167,7 @@ export default function CircleSearchDialog({
                   size="sm"
                   onClick={() => {
                     handleClose(false);
+                    eventsRepo.track(ANALYTICS_EVENTS.CIRCLE_CREATE_OPEN, pathname);
                     onRequestCreate();
                   }}
                 >
@@ -175,6 +185,7 @@ export default function CircleSearchDialog({
                   size="sm"
                   onClick={() => {
                     handleClose(false);
+                    eventsRepo.track(ANALYTICS_EVENTS.NAV_HOME, pathname);
                     onContinueSolo();
                   }}
                 >
@@ -192,6 +203,7 @@ export default function CircleSearchDialog({
                   size="sm"
                   onClick={() => {
                     handleClose(false);
+                    eventsRepo.track(ANALYTICS_EVENTS.CIRCLE_JOIN_OPEN, pathname);
                     onRequestInvite();
                   }}
                 >
@@ -232,7 +244,9 @@ export default function CircleSearchDialog({
                     </div>
                     <div className="flex flex-wrap gap-2">{renderTags(circle)}</div>
                     <div className="text-[11px] text-muted-foreground">
-                      サークル運営者が確認後に参加できます
+                      {circle.joinPolicy === "instant"
+                        ? "すぐ参加できます（あとから抜けられます）"
+                        : "サークル運営者が確認後に参加できます"}
                     </div>
                     <div className="flex items-center gap-2 pt-2">
                       <Button
@@ -242,15 +256,23 @@ export default function CircleSearchDialog({
                         onClick={() => {
                           setRequestingId(circle.id);
                           setRequestOpen(true);
+                          eventsRepo.track(ANALYTICS_EVENTS.JOIN_REQUEST_SUBMIT, pathname, circle.id, {
+                            stage: "open",
+                          });
                         }}
                       >
-                        {requestedIds.includes(circle.id) ? "リクエスト済み" : "参加リクエスト"}
+                        {requestedIds.includes(circle.id)
+                          ? "リクエスト済み"
+                          : circle.joinPolicy === "instant"
+                            ? "参加する"
+                            : "参加リクエスト"}
                       </Button>
                       <Button
                         size="sm"
                         variant="ghost"
                         onClick={() => {
                           handleClose(false);
+                          eventsRepo.track(ANALYTICS_EVENTS.CIRCLE_JOIN_OPEN, pathname);
                           onRequestInvite();
                         }}
                       >
@@ -285,15 +307,21 @@ export default function CircleSearchDialog({
             <DialogHeader>
               <DialogTitle>このサークルに参加しますか？</DialogTitle>
               <DialogDescription>
-                このサークルは安心して交流できるよう、参加前に簡単な確認をしています。無言でもOKです。
+                {approvalRequired
+                  ? "このサークルは安心して交流できるよう、参加前に簡単な確認をしています。無言でもOKです。"
+                  : "すぐ参加できます。あとから抜けることもできます。"}
               </DialogDescription>
             </DialogHeader>
-            <Input
-              placeholder="ひとことあればどうぞ（省略OK）"
-              value={requestMessage}
-              onChange={(event) => setRequestMessage(event.target.value)}
-            />
-            <div className="text-xs text-muted-foreground">※ 未入力でも問題ありません</div>
+            {approvalRequired ? (
+              <>
+                <Input
+                  placeholder="ひとことあればどうぞ（省略OK）"
+                  value={requestMessage}
+                  onChange={(event) => setRequestMessage(event.target.value)}
+                />
+                <div className="text-xs text-muted-foreground">※ 未入力でも問題ありません</div>
+              </>
+            ) : null}
             {requestError ? <div className="text-xs text-red-500">{requestError}</div> : null}
             <Button
               onClick={async () => {
@@ -307,6 +335,7 @@ export default function CircleSearchDialog({
                   setRequestedIds((prev) => [...prev, requestingId]);
                   setRequestMessage("");
                   setRequestOpen(false);
+                  eventsRepo.track(ANALYTICS_EVENTS.JOIN_REQUEST_SUBMIT, pathname, requestingId);
                 } catch (err) {
                   if (err instanceof ApiRequestError && err.code === "PLAN_CIRCLE_LIMIT") {
                     setRequestError(null);
