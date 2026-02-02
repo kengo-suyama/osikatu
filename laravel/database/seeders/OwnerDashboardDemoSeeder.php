@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace Database\Seeders;
 
 use App\Models\BillAssignment;
+use App\Models\ChatMessage;
+use App\Models\ChatMessageMedia;
 use App\Models\Circle;
 use App\Models\CircleJoinRequest;
 use App\Models\CircleMember;
@@ -253,6 +255,42 @@ class OwnerDashboardDemoSeeder extends Seeder
                 'created_at' => $now->copy()->subMinutes($chat['minutes']),
                 'updated_at' => $now->copy()->subMinutes($chat['minutes']),
             ]);
+        }
+
+        $newChatMessages = [
+            ['member' => $ownerMember, 'text' => '新チャット機能でテスト中です！', 'minutes' => 80],
+            ['member' => $members[0] ?? $ownerMember, 'text' => '画像も送れますか？', 'minutes' => 75],
+            ['member' => $members[1] ?? $ownerMember, 'text' => null, 'minutes' => 70],
+        ];
+
+        foreach ($newChatMessages as $chat) {
+            $message = ChatMessage::firstOrCreate(
+                [
+                    'circle_id' => $circle->id,
+                    'sender_member_id' => $chat['member']->id,
+                    'body' => $chat['text'],
+                ],
+                [
+                    'created_at' => $now->copy()->subMinutes($chat['minutes']),
+                ]
+            );
+
+            if ($chat['text'] === null) {
+                ChatMessageMedia::firstOrCreate(
+                    [
+                        'chat_message_id' => $message->id,
+                        'url' => 'http://localhost:8000/storage/avatars/miki.png',
+                    ],
+                    [
+                        'type' => 'image',
+                        'path' => 'avatars/miki.png',
+                        'width' => 400,
+                        'height' => 400,
+                        'size_bytes' => 120000,
+                        'created_at' => $now->copy()->subMinutes($chat['minutes']),
+                    ]
+                );
+            }
         }
 
         $guestProfiles = [];

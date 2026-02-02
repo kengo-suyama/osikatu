@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { usePathname } from "next/navigation";
 
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -15,7 +16,9 @@ import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
 import TagInput from "@/components/ui/tag-input";
 import { Textarea } from "@/components/ui/textarea";
+import { ANALYTICS_EVENTS } from "@/lib/events";
 import { circleRepo } from "@/lib/repo/circleRepo";
+import { eventsRepo } from "@/lib/repo/eventsRepo";
 import type { CircleDto } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
@@ -41,6 +44,7 @@ export default function CircleCreateDialog({
   isTrial,
   onCreated,
 }: CircleCreateDialogProps) {
+  const pathname = usePathname();
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [oshiLabel, setOshiLabel] = useState("");
@@ -78,6 +82,10 @@ export default function CircleCreateDialog({
         description: description.trim() || null,
         oshiLabel: oshiLabel.trim(),
         oshiTags: normalizedTags,
+        isPublic,
+        joinPolicy,
+      });
+      eventsRepo.track(ANALYTICS_EVENTS.CIRCLE_CREATE_SUBMIT, pathname, created.id, {
         isPublic,
         joinPolicy,
       });

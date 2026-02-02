@@ -164,6 +164,9 @@ class InviteController extends Controller
 
         if (!$alreadyMember) {
             $invite->increment('used_count');
+            Circle::query()
+                ->where('id', $invite->circle_id)
+                ->update(['last_activity_at' => now()]);
         }
 
         if ($circleCount === 0 && !$user->trial_ends_at) {

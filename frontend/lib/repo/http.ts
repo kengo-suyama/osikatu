@@ -1,4 +1,5 @@
 import { API_BASE_URL } from "@/lib/config";
+import { getDeviceId } from "@/lib/device";
 import type { ApiError, ApiSuccess } from "@/lib/types";
 
 export class ApiRequestError extends Error {
@@ -26,13 +27,52 @@ function isApiSuccess(value: unknown): value is ApiSuccess<unknown> {
   return Boolean(maybe.success && "data" in maybe.success);
 }
 
+const stripBom = (text: string) => text.replace(/^\uFEFF/, "");
+
+const parseJson = (text: string) => {
+  if (!text) return null;
+  try {
+    return JSON.parse(stripBom(text));
+  } catch {
+    return null;
+  }
+};
+
+const withDeviceIdHeader = (headers?: HeadersInit) => {
+  if (typeof window === "undefined") return headers;
+  try {
+    const existing = new Headers(headers);
+    if (!existing.has("X-Device-Id")) {
+      existing.set("X-Device-Id", getDeviceId());
+    }
+    return existing;
+  } catch {
+    return headers;
+  }
+};
+
+const mergeHeaders = (base?: HeadersInit, extra?: HeadersInit) => {
+  if (!base && !extra) return undefined;
+  try {
+    const merged = new Headers(base);
+    new Headers(extra).forEach((value, key) => {
+      merged.set(key, value);
+    });
+    return merged;
+  } catch {
+    return extra ?? base;
+  }
+};
+
 export async function apiGet<T>(path: string, init?: RequestInit): Promise<T> {
   const res = await fetch(`${API_BASE_URL}${path}`, {
     cache: "no-store",
     ...init,
+    headers: withDeviceIdHeader(init?.headers),
   });
 
-  const json = await res.json().catch(() => null);
+  const text = await res.text().catch(() => "");
+  const json = parseJson(text);
 
   if (!res.ok) {
     if (isApiError(json)) {
@@ -55,18 +95,22 @@ export async function apiGet<T>(path: string, init?: RequestInit): Promise<T> {
 
 export async function apiSend<T>(
   path: string,
-  method: "POST" | "PATCH" | "DELETE",
+  method: "POST" | "PATCH" | "PUT" | "DELETE",
   body?: unknown,
   init?: RequestInit
 ): Promise<T> {
+  const baseHeaders =
+    body instanceof FormData ? undefined : { "Content-Type": "application/json" };
+  const mergedHeaders = mergeHeaders(baseHeaders, init?.headers);
   const res = await fetch(`${API_BASE_URL}${path}`, {
     method,
-    headers: body instanceof FormData ? undefined : { "Content-Type": "application/json" },
+    headers: withDeviceIdHeader(mergedHeaders),
     body: body instanceof FormData ? body : body ? JSON.stringify(body) : undefined,
     ...init,
   });
 
-  const json = await res.json().catch(() => null);
+  const text = await res.text().catch(() => "");
+  const json = parseJson(text);
 
   if (!res.ok) {
     if (isApiError(json)) {

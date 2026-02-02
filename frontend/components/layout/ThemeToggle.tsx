@@ -1,17 +1,24 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useTheme } from "next-themes";
 import { Moon, Sun } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
+import {
+  getStoredThemeId,
+  isDarkThemeId,
+  setStoredThemeId,
+} from "@/lib/theme/uiTheme";
+import { meRepo } from "@/lib/repo/meRepo";
 
 export default function ThemeToggle() {
-  const { theme, setTheme } = useTheme();
   const [mounted, setMounted] = useState(false);
+  const [theme, setTheme] = useState<"light" | "dark">("light");
 
   useEffect(() => {
     setMounted(true);
+    const stored = getStoredThemeId();
+    setTheme(isDarkThemeId(stored) ? "dark" : "light");
   }, []);
 
   const isDark = theme === "dark";
@@ -20,7 +27,12 @@ export default function ThemeToggle() {
     <Button
       variant="ghost"
       size="icon"
-      onClick={() => setTheme(isDark ? "light" : "dark")}
+      onClick={() => {
+        const next = isDark ? "light" : "dark";
+        setTheme(next);
+        setStoredThemeId(next);
+        void meRepo.updateUiSettings({ themeId: next });
+      }}
       aria-label="Toggle theme"
     >
       {mounted && isDark ? (

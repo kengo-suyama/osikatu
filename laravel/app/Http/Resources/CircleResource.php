@@ -21,11 +21,18 @@ class CircleResource extends JsonResource
             'oshiTags' => $this->oshi_tags ?? [],
             'isPublic' => (bool) $this->is_public,
             'joinPolicy' => $this->join_policy ?? 'request',
+            'approvalRequired' => ($this->join_policy ?? 'request') !== 'instant',
             'iconUrl' => $this->icon_path ? Storage::disk('public')->url($this->icon_path) : null,
             'maxMembers' => $this->max_members ?? 30,
             'memberCount' => $this->members_count ?? null,
             'planRequired' => $this->plan_required ?? 'free',
             'lastActivityAt' => $this->last_activity_at?->toIso8601String(),
+            'myRole' => $this->my_role ?? null,
+            'ui' => [
+                'circleThemeId' => $this->uiSetting?->circle_theme_id,
+                'specialBgEnabled' => (bool) ($this->uiSetting?->special_bg_enabled ?? false),
+                'specialBgVariant' => $this->uiSetting?->special_bg_variant,
+            ],
             'createdAt' => $this->created_at?->toIso8601String(),
             'updatedAt' => $this->updated_at?->toIso8601String(),
         ];

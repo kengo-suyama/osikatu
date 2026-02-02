@@ -2,7 +2,8 @@
 @tailwind components;
 @tailwind utilities;
 
-:root {
+:root,
+[data-theme="light"] {
   --background: 0 0% 100%;
   --foreground: 222.2 84% 4.9%;
   --card: 0 0% 100%;
@@ -22,10 +23,14 @@
   --border: 214.3 31.8% 91.4%;
   --input: 214.3 31.8% 91.4%;
   --ring: 330 81% 60%;
-  --radius: 1rem;
+  --radius: 10px;
+  --shadow: 0 6px 18px rgba(15, 23, 42, 0.08);
+  --fontWeight: 600;
+  --accentGlow: 0 0 0 rgba(0, 0, 0, 0);
+  --buttonStyle: 0 4px 12px rgba(15, 23, 42, 0.12), var(--accentGlow);
 }
 
-.dark {
+[data-theme="dark"] {
   --background: 222.2 24% 8%;
   --foreground: 210 40% 98%;
   --card: 222.2 24% 10%;
@@ -45,6 +50,227 @@
   --border: 217.2 32.6% 17.5%;
   --input: 217.2 32.6% 17.5%;
   --ring: 330 81% 65%;
+  --radius: 14px;
+  --shadow: 0 12px 28px rgba(0, 0, 0, 0.35);
+  --fontWeight: 600;
+  --accentGlow: 0 0 10px rgba(80, 180, 255, 0.25);
+  --buttonStyle: 0 6px 18px rgba(0, 0, 0, 0.4), var(--accentGlow);
+}
+
+[data-theme="sakura"] {
+  --background: 350 100% 98%;
+  --foreground: 340 30% 15%;
+  --card: 0 0% 100%;
+  --card-foreground: 340 30% 15%;
+  --popover: 0 0% 100%;
+  --popover-foreground: 340 30% 15%;
+  --primary: 335 80% 60%;
+  --primary-foreground: 0 0% 100%;
+  --secondary: 350 60% 94%;
+  --secondary-foreground: 340 30% 20%;
+  --muted: 350 60% 94%;
+  --muted-foreground: 340 20% 45%;
+  --accent: 330 70% 65%;
+  --accent-foreground: 0 0% 100%;
+  --destructive: 0 84% 60%;
+  --destructive-foreground: 0 0% 100%;
+  --border: 345 30% 88%;
+  --input: 345 30% 88%;
+  --ring: 335 80% 60%;
+  --radius: 20px;
+  --shadow: 0 10px 20px rgba(245, 120, 160, 0.18);
+  --fontWeight: 600;
+  --accentGlow: 0 0 14px rgba(255, 120, 190, 0.35);
+  --buttonStyle: 0 6px 16px rgba(245, 120, 160, 0.25), var(--accentGlow);
+}
+
+[data-theme="mint"] {
+  --background: 150 40% 97%;
+  --foreground: 160 20% 15%;
+  --card: 0 0% 100%;
+  --card-foreground: 160 20% 15%;
+  --popover: 0 0% 100%;
+  --popover-foreground: 160 20% 15%;
+  --primary: 160 60% 45%;
+  --primary-foreground: 0 0% 100%;
+  --secondary: 160 40% 92%;
+  --secondary-foreground: 160 30% 20%;
+  --muted: 160 40% 92%;
+  --muted-foreground: 160 20% 40%;
+  --accent: 150 50% 50%;
+  --accent-foreground: 0 0% 100%;
+  --destructive: 0 84% 60%;
+  --destructive-foreground: 0 0% 100%;
+  --border: 160 25% 85%;
+  --input: 160 25% 85%;
+  --ring: 160 60% 45%;
+  --radius: 16px;
+  --shadow: 0 6px 14px rgba(60, 140, 110, 0.14);
+  --fontWeight: 600;
+  --accentGlow: 0 0 10px rgba(120, 220, 180, 0.2);
+  --buttonStyle: 0 4px 12px rgba(60, 140, 110, 0.18), var(--accentGlow);
+}
+
+[data-theme="sunset"] {
+  --background: 20 100% 97%;
+  --foreground: 18 30% 15%;
+  --card: 0 0% 100%;
+  --card-foreground: 18 30% 15%;
+  --popover: 0 0% 100%;
+  --popover-foreground: 18 30% 15%;
+  --primary: 18 85% 55%;
+  --primary-foreground: 0 0% 100%;
+  --secondary: 18 70% 92%;
+  --secondary-foreground: 18 30% 20%;
+  --muted: 18 70% 92%;
+  --muted-foreground: 18 20% 40%;
+  --accent: 340 70% 60%;
+  --accent-foreground: 0 0% 100%;
+  --destructive: 0 84% 60%;
+  --destructive-foreground: 0 0% 100%;
+  --border: 18 30% 85%;
+  --input: 18 30% 85%;
+  --ring: 18 85% 55%;
+  --radius: 16px;
+  --shadow: 0 8px 20px rgba(230, 120, 70, 0.2);
+  --fontWeight: 600;
+  --accentGlow: 0 0 12px rgba(255, 150, 90, 0.3);
+  --buttonStyle: 0 6px 16px rgba(230, 120, 70, 0.22), var(--accentGlow);
+}
+
+[data-theme="midnight"] {
+  --background: 232 30% 10%;
+  --foreground: 210 40% 96%;
+  --card: 232 30% 13%;
+  --card-foreground: 210 40% 96%;
+  --popover: 232 30% 13%;
+  --popover-foreground: 210 40% 96%;
+  --primary: 260 70% 70%;
+  --primary-foreground: 232 30% 12%;
+  --secondary: 232 25% 18%;
+  --secondary-foreground: 210 40% 96%;
+  --muted: 232 25% 18%;
+  --muted-foreground: 220 20% 65%;
+  --accent: 195 80% 60%;
+  --accent-foreground: 232 30% 12%;
+  --destructive: 0 72% 50%;
+  --destructive-foreground: 210 40% 96%;
+  --border: 232 25% 18%;
+  --input: 232 25% 18%;
+  --ring: 260 70% 70%;
+  --radius: 10px;
+  --shadow: 0 14px 32px rgba(0, 0, 0, 0.45);
+  --fontWeight: 700;
+  --accentGlow: 0 0 16px rgba(120, 110, 255, 0.45);
+  --buttonStyle: 0 8px 22px rgba(0, 0, 0, 0.5), var(--accentGlow);
+}
+
+[data-theme="neon"] {
+  --background: 230 20% 8%;
+  --foreground: 0 0% 96%;
+  --card: 230 20% 11%;
+  --card-foreground: 0 0% 96%;
+  --popover: 230 20% 11%;
+  --popover-foreground: 0 0% 96%;
+  --primary: 120 100% 55%;
+  --primary-foreground: 230 20% 10%;
+  --secondary: 230 20% 16%;
+  --secondary-foreground: 0 0% 96%;
+  --muted: 230 20% 16%;
+  --muted-foreground: 210 20% 70%;
+  --accent: 300 100% 60%;
+  --accent-foreground: 230 20% 10%;
+  --destructive: 0 72% 50%;
+  --destructive-foreground: 0 0% 96%;
+  --border: 230 20% 18%;
+  --input: 230 20% 18%;
+  --ring: 120 100% 55%;
+  --radius: 14px;
+  --shadow: 0 10px 24px rgba(0, 0, 0, 0.4);
+  --fontWeight: 700;
+  --accentGlow: 0 0 20px rgba(120, 255, 120, 0.6);
+  --buttonStyle: 0 0 24px rgba(120, 255, 120, 0.5), 0 6px 18px rgba(0, 0, 0, 0.4), var(--accentGlow);
+}
+
+[data-theme="royal"] {
+  --background: 225 25% 12%;
+  --foreground: 210 40% 96%;
+  --card: 225 25% 15%;
+  --card-foreground: 210 40% 96%;
+  --popover: 225 25% 15%;
+  --popover-foreground: 210 40% 96%;
+  --primary: 45 90% 55%;
+  --primary-foreground: 225 25% 12%;
+  --secondary: 225 20% 20%;
+  --secondary-foreground: 210 40% 96%;
+  --muted: 225 20% 20%;
+  --muted-foreground: 220 15% 65%;
+  --accent: 260 60% 65%;
+  --accent-foreground: 225 25% 12%;
+  --destructive: 0 72% 50%;
+  --destructive-foreground: 210 40% 96%;
+  --border: 225 20% 20%;
+  --input: 225 20% 20%;
+  --ring: 45 90% 55%;
+  --radius: 14px;
+  --shadow: 0 10px 20px rgba(15, 23, 42, 0.35);
+  --fontWeight: 600;
+  --accentGlow: 0 0 10px rgba(255, 215, 120, 0.35);
+  --buttonStyle: 0 6px 16px rgba(15, 23, 42, 0.35), var(--accentGlow);
+}
+
+[data-theme="ocean"] {
+  --background: 195 60% 96%;
+  --foreground: 200 30% 15%;
+  --card: 0 0% 100%;
+  --card-foreground: 200 30% 15%;
+  --popover: 0 0% 100%;
+  --popover-foreground: 200 30% 15%;
+  --primary: 200 80% 45%;
+  --primary-foreground: 0 0% 100%;
+  --secondary: 195 50% 90%;
+  --secondary-foreground: 200 30% 20%;
+  --muted: 195 50% 90%;
+  --muted-foreground: 200 20% 40%;
+  --accent: 330 65% 60%;
+  --accent-foreground: 0 0% 100%;
+  --destructive: 0 84% 60%;
+  --destructive-foreground: 0 0% 100%;
+  --border: 195 30% 85%;
+  --input: 195 30% 85%;
+  --ring: 200 80% 45%;
+  --radius: 20px;
+  --shadow: 0 6px 16px rgba(60, 120, 160, 0.16);
+  --fontWeight: 600;
+  --accentGlow: 0 0 10px rgba(80, 160, 220, 0.25);
+  --buttonStyle: 0 4px 12px rgba(60, 120, 160, 0.2), var(--accentGlow);
+}
+
+[data-theme="berry"] {
+  --background: 330 60% 96%;
+  --foreground: 330 30% 15%;
+  --card: 0 0% 100%;
+  --card-foreground: 330 30% 15%;
+  --popover: 0 0% 100%;
+  --popover-foreground: 330 30% 15%;
+  --primary: 330 75% 55%;
+  --primary-foreground: 0 0% 100%;
+  --secondary: 330 50% 90%;
+  --secondary-foreground: 330 30% 20%;
+  --muted: 330 50% 90%;
+  --muted-foreground: 330 20% 40%;
+  --accent: 290 70% 60%;
+  --accent-foreground: 0 0% 100%;
+  --destructive: 0 84% 60%;
+  --destructive-foreground: 0 0% 100%;
+  --border: 330 30% 85%;
+  --input: 330 30% 85%;
+  --ring: 330 75% 55%;
+  --radius: 14px;
+  --shadow: 0 12px 26px rgba(120, 20, 60, 0.28);
+  --fontWeight: 700;
+  --accentGlow: 0 0 14px rgba(240, 80, 160, 0.4);
+  --buttonStyle: 0 8px 20px rgba(120, 20, 60, 0.3), var(--accentGlow);
 }
 
 * {
@@ -57,4 +283,232 @@ body {
 
 img {
   @apply block max-w-full;
+}
+
+.media-frame {
+  position: relative;
+  border-radius: 16px;
+  overflow: hidden;
+  box-sizing: border-box;
+}
+
+.media-frame__content {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  border-radius: inherit;
+  overflow: hidden;
+}
+
+.media-frame::before,
+.media-frame::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  border-radius: inherit;
+}
+
+.media-frame[data-frame="none"]::before,
+.media-frame[data-frame="none"]::after {
+  content: none;
+}
+
+.media-frame[data-frame="simple-line"]::before {
+  border: 2px solid rgba(15, 23, 42, 0.15);
+}
+
+.media-frame[data-frame="soft-card"]::before {
+  box-shadow: 0 10px 24px rgba(15, 23, 42, 0.16);
+  border: 1px solid rgba(15, 23, 42, 0.08);
+}
+
+.media-frame[data-frame="dot-pop"]::before {
+  background-image: radial-gradient(rgba(255, 255, 255, 0.35) 1px, transparent 1px);
+  background-size: 10px 10px;
+  border: 2px solid rgba(15, 23, 42, 0.12);
+}
+
+.media-frame[data-frame="tape"]::before {
+  border: 2px solid rgba(15, 23, 42, 0.12);
+}
+
+.media-frame[data-frame="tape"]::after {
+  background-image: linear-gradient(
+      135deg,
+      rgba(255, 255, 255, 0.65) 0 40%,
+      rgba(255, 255, 255, 0) 40% 100%
+    ),
+    linear-gradient(
+      315deg,
+      rgba(255, 255, 255, 0.55) 0 40%,
+      rgba(255, 255, 255, 0) 40% 100%
+    );
+  background-position: 0 0, 100% 0;
+  background-size: 60px 40px, 60px 40px;
+  background-repeat: no-repeat;
+  opacity: 0.7;
+}
+
+.media-frame[data-frame="double-line"]::before {
+  border: 2px solid rgba(15, 23, 42, 0.18);
+}
+
+.media-frame[data-frame="double-line"]::after {
+  inset: 6px;
+  border: 1px solid rgba(15, 23, 42, 0.12);
+}
+
+.media-frame[data-frame="gradient-edge"]::before {
+  border: 2px solid transparent;
+  background: linear-gradient(135deg, rgba(255, 153, 153, 0.7), rgba(255, 210, 153, 0.7))
+    border-box;
+  -webkit-mask: linear-gradient(#fff 0 0) padding-box, linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+}
+
+.media-frame[data-frame="sticker"]::before {
+  border: 2px dashed rgba(15, 23, 42, 0.22);
+  box-shadow: 0 6px 16px rgba(15, 23, 42, 0.12);
+}
+
+.media-frame[data-frame="comic-pop"]::before {
+  border: 3px solid rgba(15, 23, 42, 0.8);
+  box-shadow: 6px 6px 0 rgba(15, 23, 42, 0.7);
+}
+
+.media-frame[data-frame="polaroid_elegant"]::before,
+.media-frame[data-frame="polaroid_pop"]::before {
+  background: rgba(255, 255, 255, 0.95);
+  border: 2px solid rgba(15, 23, 42, 0.1);
+  box-shadow: 0 12px 24px rgba(15, 23, 42, 0.16);
+}
+
+.media-frame[data-frame="polaroid_elegant"]::after,
+.media-frame[data-frame="polaroid_pop"]::after {
+  inset: auto 0 0 0;
+  height: 22%;
+  background: rgba(255, 255, 255, 0.95);
+}
+
+.media-frame[data-frame="polaroid_elegant"]::after {
+  box-shadow: inset 0 1px 0 rgba(0, 0, 0, 0.05);
+}
+
+.media-frame[data-frame="polaroid_pop"]::after {
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.95), rgba(255, 250, 235, 0.95));
+}
+
+.media-frame[data-frame="neon_blue"]::before {
+  border: 2px solid rgba(0, 245, 255, 0.6);
+  box-shadow: 0 0 18px rgba(0, 245, 255, 0.35), 0 0 36px rgba(0, 245, 255, 0.18);
+}
+
+.media-frame[data-frame="neon_blue"]::after {
+  background: radial-gradient(circle at 20% 20%, rgba(255, 255, 255, 0.35), transparent 40%),
+    radial-gradient(circle at 80% 80%, rgba(255, 255, 255, 0.25), transparent 40%);
+}
+
+.media-frame[data-frame="neon_purple"]::before {
+  border: 2px solid rgba(180, 120, 255, 0.6);
+  box-shadow: 0 0 18px rgba(180, 120, 255, 0.4), 0 0 36px rgba(180, 120, 255, 0.2);
+}
+
+.media-frame[data-frame="neon_purple"]::after {
+  background: radial-gradient(circle at 20% 20%, rgba(255, 255, 255, 0.35), transparent 40%),
+    radial-gradient(circle at 80% 80%, rgba(255, 255, 255, 0.25), transparent 40%);
+}
+
+.media-frame[data-frame="gold-lux"]::before {
+  border: 2px solid rgba(255, 215, 120, 0.8);
+  box-shadow: 0 10px 24px rgba(255, 215, 120, 0.25);
+}
+
+.media-frame[data-frame="holo"]::before {
+  border: 2px solid rgba(255, 255, 255, 0.5);
+  background: linear-gradient(135deg, rgba(255, 180, 240, 0.3), rgba(140, 255, 220, 0.3));
+}
+
+.media-frame[data-frame="sparkle"]::after {
+  background-image: radial-gradient(rgba(255, 255, 255, 0.6) 1px, transparent 1px),
+    radial-gradient(rgba(255, 215, 0, 0.5) 1px, transparent 1px);
+  background-size: 14px 14px, 20px 20px;
+  background-position: 0 0, 6px 6px;
+}
+
+.media-frame[data-frame="festival_gold"]::before {
+  border: 2px solid rgba(255, 215, 0, 0.6);
+  box-shadow: 0 0 18px rgba(255, 215, 0, 0.35), 0 12px 36px rgba(0, 0, 0, 0.25);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.1), rgba(0, 0, 0, 0.08));
+}
+
+.media-frame[data-frame="festival_gold"]::after {
+  background-image: radial-gradient(rgba(255, 255, 255, 0.35) 1px, transparent 1px);
+  background-size: 18px 18px;
+  background-position: 0 0;
+  mix-blend-mode: screen;
+  opacity: 0.8;
+}
+
+.media-frame[data-frame="festival_holo"]::before {
+  border: 2px solid rgba(120, 255, 210, 0.5);
+  box-shadow: 0 0 18px rgba(120, 255, 210, 0.35), 0 12px 36px rgba(0, 0, 0, 0.25);
+  background: linear-gradient(135deg, rgba(255, 140, 200, 0.15), rgba(120, 200, 255, 0.15));
+}
+
+.media-frame[data-frame="festival_holo"]::after {
+  background-image: radial-gradient(rgba(255, 255, 255, 0.4) 1px, transparent 1px);
+  background-size: 18px 18px;
+  background-position: 4px 4px;
+  mix-blend-mode: screen;
+  opacity: 0.75;
+}
+
+/* SVG enhancements (optional assets in /public/frames) */
+.media-frame[data-frame="polaroid_elegant"]::after,
+.oshiFrame[data-frame="polaroid_elegant"]::after {
+  background-image: url("/frames/polaroid-tape-elegant.svg");
+  background-repeat: no-repeat;
+  background-position: 12px 8px;
+  background-size: 160px 46px;
+  opacity: 0.95;
+}
+
+.media-frame[data-frame="polaroid_pop"]::after,
+.oshiFrame[data-frame="polaroid_pop"]::after {
+  background-image: url("/frames/polaroid-tape-pop.svg");
+  background-repeat: no-repeat;
+  background-position: 12px 8px;
+  background-size: 160px 46px;
+  opacity: 0.95;
+}
+
+.media-frame[data-frame="sparkle"]::after,
+.oshiFrame[data-frame="sparkle"]::after {
+  background-image: url("/frames/sparkle.svg");
+  background-repeat: repeat;
+  background-size: 180px 180px;
+  mix-blend-mode: screen;
+  opacity: 0.55;
+}
+
+.media-frame[data-frame="festival_gold"]::after,
+.oshiFrame[data-frame="festival_gold"]::after {
+  background-image: url("/frames/festival-corner-gold.svg"), url("/frames/sparkle.svg");
+  background-repeat: no-repeat, repeat;
+  background-position: 0 0, 0 0;
+  background-size: 100% 100%, 180px 180px;
+  mix-blend-mode: screen;
+  opacity: 0.9;
+}
+
+.media-frame[data-frame="festival_holo"]::after,
+.oshiFrame[data-frame="festival_holo"]::after {
+  background-image: url("/frames/festival-corner-holo.svg"), url("/frames/sparkle.svg");
+  background-repeat: no-repeat, repeat;
+  background-position: 0 0, 0 0;
+  background-size: 100% 100%, 180px 180px;
+  mix-blend-mode: screen;
+  opacity: 0.9;
 }

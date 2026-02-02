@@ -15,6 +15,7 @@ use App\Models\PostMedia;
 use App\Models\User;
 use App\Support\ApiResponse;
 use App\Support\CurrentUser;
+use App\Support\ImageUploadService;
 use App\Support\MeProfileResolver;
 use App\Support\PlanGate;
 use Illuminate\Http\Request;
@@ -161,15 +162,24 @@ class PostController extends Controller
             return ApiResponse::error('VALIDATION_ERROR', 'file is required', null, 422);
         }
 
-        $path = $file->store('posts', 'public');
-        $url = \Illuminate\Support\Facades\Storage::disk('public')->url($path);
+        $stored = ImageUploadService::storePublicImage($file, 'posts');
+        if (isset($stored['error'])) {
+            return ApiResponse::error(
+                $stored['error']['code'] ?? 'IMAGE_PROCESS_FAILED',
+                $stored['error']['message'] ?? 'Image upload failed.',
+                null,
+                422
+            );
+        }
 
         $media = PostMedia::create([
             'post_id' => $postModel->id,
             'type' => 'image',
-            'path' => $path,
-            'url' => $url,
+            'path' => $stored['path'],
+            'url' => $stored['url'],
             'mime' => $file->getMimeType(),
+            'width' => $stored['width'] ?? null,
+            'height' => $stored['height'] ?? null,
             'sort' => 0,
         ]);
 
@@ -330,24 +340,17 @@ class PostController extends Controller
             return null;
         }
 
-        if (PlanGate::hasPremium($user)) {
-            return null;
-        }
-
         $count = Post::query()
             ->where('user_id', $user->id)
             ->where('post_type', 'chat')
             ->whereBetween('created_at', [now()->startOfMonth(), now()->endOfMonth()])
             ->count();
 
-        if ($count >= 30) {
+        if (!PlanGate::canSendChat($user, $count)) {
             return ApiResponse::error(
                 'plan_limit_chat_messages',
                 'Freeプランのチャット上限（30件/月）に達しました。',
-                [
-                    'limit' => 30,
-                    'current' => $count,
-                ],
+                PlanGate::chatLimitDetails($user, $count),
                 403
             );
         }

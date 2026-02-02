@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useRef, useState } from "react";
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 
 import CircleCreateDialog from "@/components/circle/CircleCreateDialog";
 import CircleSearchDialog from "@/components/circle/CircleSearchDialog";
@@ -9,6 +9,8 @@ import PlanLimitDialog from "@/components/common/PlanLimitDialog";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { ANALYTICS_EVENTS } from "@/lib/events";
+import { eventsRepo } from "@/lib/repo/eventsRepo";
 import { ApiRequestError } from "@/lib/repo/http";
 import { inviteRepo } from "@/lib/repo/inviteRepo";
 import type { CircleDto, MeDto } from "@/lib/types";
@@ -27,6 +29,7 @@ const isTrialActive = (trialEndsAt?: string | null) => {
 
 export default function CircleEntryCard({ me, onCircleSelected }: CircleEntryCardProps) {
   const router = useRouter();
+  const pathname = usePathname();
   const [inviteCode, setInviteCode] = useState("");
   const [joinError, setJoinError] = useState<string | null>(null);
   const [joining, setJoining] = useState(false);
@@ -34,6 +37,7 @@ export default function CircleEntryCard({ me, onCircleSelected }: CircleEntryCar
   const [createOpen, setCreateOpen] = useState(false);
   const [planLimitOpen, setPlanLimitOpen] = useState(false);
   const inputRef = useRef<HTMLInputElement | null>(null);
+  const joinOpenTracked = useRef(false);
 
   const trialActive = isTrialActive(me?.trialEndsAt ?? null);
   const canCreate = Boolean(me && (me.plan === "plus" || trialActive));
@@ -49,6 +53,7 @@ export default function CircleEntryCard({ me, onCircleSelected }: CircleEntryCar
       const circle = await inviteRepo.joinByCode(inviteCode.trim());
       onCircleSelected(circle);
       setInviteCode("");
+      eventsRepo.track(ANALYTICS_EVENTS.CIRCLE_JOIN_SUBMIT, pathname, circle.id);
     } catch (err) {
       if (err instanceof ApiRequestError && err.code === "PLAN_CIRCLE_LIMIT") {
         setJoinError(null);
@@ -87,6 +92,12 @@ export default function CircleEntryCard({ me, onCircleSelected }: CircleEntryCar
               placeholder="招待コード"
               value={inviteCode}
               onChange={(event) => setInviteCode(event.target.value)}
+              onFocus={() => {
+                if (!joinOpenTracked.current) {
+                  joinOpenTracked.current = true;
+                  eventsRepo.track(ANALYTICS_EVENTS.CIRCLE_JOIN_OPEN, pathname);
+                }
+              }}
             />
             <Button onClick={handleJoin} disabled={!inviteReady || joining}>
               {joining ? "参加中..." : "参加"}
@@ -97,10 +108,21 @@ export default function CircleEntryCard({ me, onCircleSelected }: CircleEntryCar
       </Card>
 
       <div className="grid gap-2">
-        <Button variant="secondary" onClick={() => setSearchOpen(true)}>
+        <Button
+          variant="secondary"
+          onClick={() => {
+            setSearchOpen(true);
+            eventsRepo.track(ANALYTICS_EVENTS.NAV_CIRCLE_SEARCH_OPEN, pathname);
+          }}
+        >
           サークルを探す
         </Button>
-        <Button onClick={() => setCreateOpen(true)}>
+        <Button
+          onClick={() => {
+            setCreateOpen(true);
+            eventsRepo.track(ANALYTICS_EVENTS.CIRCLE_CREATE_OPEN, pathname);
+          }}
+        >
           サークルを作る
         </Button>
         <div

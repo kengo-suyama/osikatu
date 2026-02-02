@@ -1,19 +1,26 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { usePathname } from "next/navigation";
+import Link from "next/link";
 
 import AvatarCircle from "@/components/common/AvatarCircle";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { ANALYTICS_EVENTS } from "@/lib/events";
+import { eventsRepo } from "@/lib/repo/eventsRepo";
 import type {
   JoinRequestDto,
   MemberBriefDto,
+  OperationLogDto,
   OwnerDashboardDto,
   UnpaidMemberDto,
 } from "@/lib/types";
 import { joinRequestRepo } from "@/lib/repo/joinRequestRepo";
 import { ApiRequestError } from "@/lib/repo/http";
+import { listCircleLogs } from "@/lib/repo/operationLogRepo";
+import { formatLogTime, logSentence } from "@/lib/ui/logText";
 import { cn } from "@/lib/utils";
 
 type OwnerDashboardCardProps = {
@@ -24,6 +31,7 @@ type OwnerDashboardCardProps = {
 };
 
 const listEmptyLabel = "未対応者なし";
+const logEmptyLabel = "ログがまだありません";
 
 const renderMemberRow = (member: MemberBriefDto, extra?: string) => (
   <div key={member.id} className="flex items-center justify-between gap-3">
@@ -70,15 +78,50 @@ export default function OwnerDashboardCard({
   onRemindAll,
   onRefresh,
 }: OwnerDashboardCardProps) {
+  const pathname = usePathname();
   const [tab, setTab] = useState("unconfirmed");
   const [actionLoading, setActionLoading] = useState<number | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
+  const [logItems, setLogItems] = useState<OperationLogDto[]>([]);
+  const [logLoading, setLogLoading] = useState(false);
 
   const isAllowed = useMemo(() => {
     if (!dashboard) return false;
     const role = dashboard.myRole;
     return role === "owner" || role === "admin";
   }, [dashboard]);
+
+  useEffect(() => {
+    if (!dashboard || !isAllowed) return;
+    eventsRepo.track(ANALYTICS_EVENTS.OWNER_DASHBOARD_OPEN, pathname, dashboard.circleId);
+  }, [dashboard, isAllowed, pathname]);
+
+  useEffect(() => {
+    let mounted = true;
+    if (!dashboard?.circleId || !isAllowed) {
+      setLogItems([]);
+      return undefined;
+    }
+
+    setLogLoading(true);
+    listCircleLogs(dashboard.circleId, { limit: 5 })
+      .then((data) => {
+        if (!mounted) return;
+        setLogItems(data.items);
+      })
+      .catch(() => {
+        if (!mounted) return;
+        setLogItems([]);
+      })
+      .finally(() => {
+        if (!mounted) return;
+        setLogLoading(false);
+      });
+
+    return () => {
+      mounted = false;
+    };
+  }, [dashboard?.circleId, isAllowed]);
 
   if (!dashboard || !isAllowed) return null;
 
@@ -115,7 +158,18 @@ export default function OwnerDashboardCard({
               <div className="text-xs text-muted-foreground">イベントは未設定です</div>
             )}
           </div>
-          <Button size="sm" variant="secondary" onClick={onRemindAll}>
+          <Button
+            size="sm"
+            variant="secondary"
+            onClick={() => {
+              eventsRepo.track(
+                ANALYTICS_EVENTS.OWNER_DASHBOARD_REMIND_ALL,
+                pathname,
+                dashboard.circleId
+              );
+              onRemindAll?.();
+            }}
+          >
             一括リマインド
           </Button>
         </div>
@@ -285,6 +339,37 @@ export default function OwnerDashboardCard({
             </TabsContent>
           ) : null}
         </Tabs>
+      </CardContent>
+
+      <CardContent className="space-y-2 border-t border-border/60 pt-4">
+        <div className="flex items-center justify-between">
+          <div className="text-xs font-semibold text-muted-foreground">
+            サークル操作ログ
+          </div>
+          <Link
+            href={`/circles/${dashboard.circleId}/logs`}
+            className="text-xs underline opacity-80 hover:opacity-100"
+          >
+            もっと見る
+          </Link>
+        </div>
+        {logLoading ? (
+          <div className="text-xs text-muted-foreground">読み込み中...</div>
+        ) : logItems.length ? (
+          logItems.map((log) => (
+            <div
+              key={log.id}
+              className="rounded-xl border border-border/60 bg-muted/30 p-3"
+            >
+              <div className="text-sm">{logSentence(log)}</div>
+              <div className="mt-1 text-xs text-muted-foreground">
+                {formatLogTime(log.createdAt)}
+              </div>
+            </div>
+          ))
+        ) : (
+          <div className="text-xs text-muted-foreground">{logEmptyLabel}</div>
+        )}
       </CardContent>
     </Card>
   );

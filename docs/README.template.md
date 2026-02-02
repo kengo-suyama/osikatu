@@ -192,6 +192,13 @@ npm run dev
 5) 「招待」
 - 招待コード入力導線へ遷移すること
 
+## テーマと特別背景
+- テーマは `シンプル/ナイト/ポップ/ナチュラル/サンセット` が Free で選択可能
+- Premium/Plus は `ロック/EDM/クラシック/シティポップ/ヒップホップ` を含む全10テーマ
+- Plusのサークルリーダーは「サークルテーマ」を設定でき、サークル内ページでは全メンバーに適用されます
+- Plusのサークルリーダーは「フェス背景（花びら・キラキラ）」をON/OFF可能（サークル単位で保存）
+- 端末の `prefers-reduced-motion` が有効な場合は動く背景は表示されません
+
 ## サークルを広める方法
 ### 公開サークル参加の流れ（承認制）
 - 招待なしでも個人モードで利用できます（ログ/予定/支出/推し管理）
@@ -203,6 +210,10 @@ npm run dev
 1. サークルを作成（Plus）
 2. 招待コードをコピー
 3. SNSにそのまま投稿
+
+### Instagram / TikTok の手順（コピー→貼り付け）
+- Instagram: 共有ボタンでテンプレをコピー → Instagram を開く → 投稿/ストーリーズに貼り付け
+- TikTok: 共有ボタンでテンプレをコピー → TikTok を開く → 説明欄に貼り付け
 
 ### 推奨テンプレ（アプリ内共有ボタンからコピーできます）
 #### 1) 個人向け
@@ -238,9 +249,35 @@ https://osikatu.app
 #サークル運営 #推し活
 ```
 
+#### 4) Instagram（短文）
+```
+推し活の遠征情報まとめてるよ🚄✨「{{circleName}}」参加どうぞ！
+招待コード：{{inviteCode}}
+https://osikatu.app
+#推し活 #遠征
+```
+
+#### 5) Instagram（投稿向け）
+```
+【参加者募集】{{circleName}}
+遠征の予定/持ち物/現地情報を共有してます！
+招待コード：{{inviteCode}}
+参加URL：https://osikatu.app
+#推し活 #遠征 #オタ活
+```
+
+#### 6) TikTok（説明欄向け）
+```
+遠征・現地情報を共有する推し活サークル「{{circleName}}」
+招待コード：{{inviteCode}}
+https://osikatu.app
+#推し活 #遠征 #オタ活
+```
+
 ### 注意
 - ハッシュタグは2〜3個まで、URLは末尾に置く
 - Freeは参加サークル1つまで（trial中は増えます）
+- 個人情報は書かない（操作ログ/テンプレは非PII前提）
 
 ## デモ用X投稿テンプレ（採用担当向け）
 ```
@@ -306,6 +343,8 @@ npm run hooks:disable
   cd C:\laragon\www\osikatu\frontend
   npm i @radix-ui/react-accordion @radix-ui/react-select @radix-ui/react-toast @radix-ui/react-switch
   ```
+- 画像アップロード（MVP）は GD/Imagick が無い場合「無加工保存」になります
+- EXIF は再エンコードで除去（位置情報などは保存しません）
 - Next.js の cache 破損が疑われる場合:
   ```powershell
   cd C:\laragon\www\osikatu\frontend

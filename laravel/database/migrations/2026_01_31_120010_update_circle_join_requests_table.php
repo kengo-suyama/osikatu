@@ -16,7 +16,9 @@ return new class extends Migration
             $table->unique(['circle_id', 'me_profile_id']);
         });
 
-        DB::statement('ALTER TABLE circle_join_requests MODIFY message VARCHAR(200) NULL');
+        if (DB::getDriverName() !== 'sqlite') {
+            DB::statement('ALTER TABLE circle_join_requests MODIFY message VARCHAR(200) NULL');
+        }
     }
 
     public function down(): void
@@ -27,6 +29,8 @@ return new class extends Migration
             $table->dropConstrainedForeignId('reviewed_by_member_id');
         });
 
-        DB::statement('ALTER TABLE circle_join_requests MODIFY message VARCHAR(140) NULL');
+        if (DB::getDriverName() !== 'sqlite') {
+            DB::statement('ALTER TABLE circle_join_requests MODIFY message VARCHAR(140) NULL');
+        }
     }
 };

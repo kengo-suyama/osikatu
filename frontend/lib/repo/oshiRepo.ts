@@ -43,6 +43,7 @@ const defaultProfile = (): OshiProfile => ({
   memo: null,
   image_url: null,
   image_base64: null,
+  image_frame_id: null,
   updated_at: null,
 });
 
@@ -98,6 +99,7 @@ const fromOshiDto = (dto: OshiDto): Oshi => {
     memo: dto.memo,
     image_url: dto.imageUrl,
     image_base64: null,
+    image_frame_id: dto.imageFrameId ?? null,
     updated_at: dto.updatedAt,
   });
 

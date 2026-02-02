@@ -1,16 +1,19 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
-import { MessageCircle } from "lucide-react";
+import { usePathname, useRouter } from "next/navigation";
+import { Home } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import { ANALYTICS_EVENTS } from "@/lib/events";
 import { circleRepo } from "@/lib/repo/circleRepo";
+import { eventsRepo } from "@/lib/repo/eventsRepo";
 import type { CircleDto } from "@/lib/types";
 
 export default function CircleHomeCard({ circleId }: { circleId: number }) {
   const router = useRouter();
+  const pathname = usePathname();
   const [circle, setCircle] = useState<CircleDto | null>(null);
 
   useEffect(() => {
@@ -27,15 +30,20 @@ export default function CircleHomeCard({ circleId }: { circleId: number }) {
           <div className="text-sm font-semibold text-muted-foreground">参加中のサークル</div>
           <div className="text-lg font-semibold">{circle?.name ?? "サークル"}</div>
           <div className="text-xs text-muted-foreground">
-            チャットで近況を共有しましょう
+            サークルのハブに移動します
           </div>
         </div>
         <Button
           variant="secondary"
-          onClick={() => router.push(`/circles/${circleId}/chat`)}
+          onClick={() => {
+            eventsRepo.track(ANALYTICS_EVENTS.NAV_CIRCLE_HOME, pathname, circleId, {
+              from: "circleCard",
+            });
+            router.push(`/circles/${circleId}`);
+          }}
         >
-          <MessageCircle className="mr-2 h-4 w-4" />
-          チャットへ
+          <Home className="mr-2 h-4 w-4" />
+          サークルHomeへ
         </Button>
       </div>
     </Card>

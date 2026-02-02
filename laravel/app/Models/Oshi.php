@@ -39,6 +39,7 @@ class Oshi extends Model
         'category',
         'color',
         'image_path',
+        'image_frame_id',
         'memo',
     ];
 

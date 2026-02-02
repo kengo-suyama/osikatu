@@ -59,6 +59,7 @@ class OshiResource extends JsonResource
             'customFields' => $this->ensureArray($this->custom_fields ?? null),
             'memo' => $this->memo ?? null,
             'imageUrl' => $this->image_url ?? $this->resolveImageUrl($this->image_path ?? null),
+            'imageFrameId' => $this->image_frame_id ?? null,
             'updatedAt' => $this->updated_at?->toIso8601String(),
         ];
     }

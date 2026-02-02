@@ -6,7 +6,22 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "next lint",
+    "e2e": "playwright test",
+    "e2e:debug": "playwright test --reporter=line --headed --workers=1 --timeout=60000",
+    "e2e:ui": "playwright test --ui",
+    "e2e:report": "playwright test --reporter=line",
+    "e2e:trace": "playwright test --retries=1 --trace=on-first-retry --reporter=line",
+    "titles:gen": "node tools\\generate-titles.cjs",
+    "titles:check": "node tools\\check-titles.cjs",
+    "titles:verify": "npm run titles:gen && npm run titles:check && git diff --exit-code -- lib/titles/titles_ja_1000_universal.ts",
+    "ci:gate": "npm run lint && npm run titles:verify && npm run e2e:ci",
+    "ci:gate:log": "powershell -NoProfile -Command \"node tools\\ensure-logs-dir.cjs; npm run ci:gate 2>&1 | Tee-Object -FilePath logs\\ci-gate.log\"",
+    "ci:gate:log:ts": "node tools\\run-with-log.cjs ci-gate npm run ci:gate",
+    "e2e:trace:log": "powershell -NoProfile -Command \"node tools\\ensure-logs-dir.cjs; npm run e2e:trace 2>&1 | Tee-Object -FilePath logs\\e2e-trace.log\"",
+    "e2e:trace:log:ts": "node tools\\run-with-log.cjs e2e-trace npm run e2e:trace",
+    "dev:api": "set NEXT_PUBLIC_DATA_SOURCE=api && set NEXT_PUBLIC_API_BASE_URL=http://127.0.0.1:8000 && npm run dev -- -p 3000",
+    "e2e:ci": "node tools\\ensure-ports-free.cjs 3103 8001 && concurrently --raw -k -s first -n BACK,FRONT,TEST \"cd ..\\laravel && php artisan serve --host=127.0.0.1 --port=8001\" \"set NEXT_PUBLIC_DATA_SOURCE=api && set NEXT_PUBLIC_API_BASE_URL=http://127.0.0.1:8001 && npm run dev -- -p 3103\" \"set E2E_BASE_URL=http://127.0.0.1:3103 && set PLAYWRIGHT_API_BASE=http://127.0.0.1:8001 && wait-on --verbose --interval 250 --timeout 90000 tcp:8001 http-get://127.0.0.1:3103/home && echo WAIT-ON OK && playwright test --reporter=line\""
   },
   "dependencies": {
     "@radix-ui/react-accordion": "^1.2.12",
@@ -31,14 +46,17 @@
     "tailwind-merge": "^2.5.4"
   },
   "devDependencies": {
+    "@playwright/test": "^1.58.1",
     "@types/node": "^20.17.14",
     "@types/react": "^18.3.12",
     "@types/react-dom": "^18.3.1",
     "autoprefixer": "^10.4.20",
+    "concurrently": "^9.2.1",
     "eslint": "^8.57.1",
     "eslint-config-next": "14.2.6",
     "postcss": "^8.4.49",
     "tailwindcss": "^3.4.15",
-    "typescript": "^5.7.2"
+    "typescript": "^5.7.2",
+    "wait-on": "^7.2.0"
   }
 }

@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 400" width="400" height="400">
+  <defs>
+    <linearGradient id="holo" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#c7f0ff" />
+      <stop offset="0.5" stop-color="#ffd1f4" />
+      <stop offset="1" stop-color="#c7ffd6" />
+    </linearGradient>
+  </defs>
+  <path d="M10 10 H130 M10 10 V130" stroke="url(#holo)" stroke-width="6" stroke-linecap="round" />
+  <path d="M390 10 H270 M390 10 V130" stroke="url(#holo)" stroke-width="6" stroke-linecap="round" />
+  <path d="M10 390 H130 M10 390 V270" stroke="url(#holo)" stroke-width="6" stroke-linecap="round" />
+  <path d="M390 390 H270 M390 390 V270" stroke="url(#holo)" stroke-width="6" stroke-linecap="round" />
+  <circle cx="50" cy="32" r="6" fill="#c7f0ff" opacity="0.8" />
+  <circle cx="350" cy="32" r="6" fill="#ffd1f4" opacity="0.8" />
+  <circle cx="50" cy="368" r="6" fill="#c7ffd6" opacity="0.8" />
+  <circle cx="350" cy="368" r="6" fill="#ffd1f4" opacity="0.8" />
+</svg>

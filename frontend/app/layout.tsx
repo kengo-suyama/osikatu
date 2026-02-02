@@ -22,7 +22,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="ja" suppressHydrationWarning>
+    <html lang="ja" data-theme="light" suppressHydrationWarning>
       <body className={`${jakarta.className} min-h-screen bg-background text-foreground`}>
         <ThemeProvider>
           <AppShell>{children}</AppShell>
