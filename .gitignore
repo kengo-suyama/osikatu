@@ -23,3 +23,12 @@ Thumbs.db
 # ===== Local artifacts =====
 diff_*.txt
 vendor/
+# Claude local settings (do not commit)
+.claude/settings.local.json
+
+# Playwright artifacts (do not commit)
+frontend/test-results/
+frontend/playwright-report/
+
+# local pid (do not commit)
+tools/_phpserve.pid

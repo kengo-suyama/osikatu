@@ -54,7 +54,30 @@ export const inviteRepo = {
   async joinByCode(code: string): Promise<CircleDto> {
     if (!isApiMode()) {
       const list = await circleRepo.list();
-      return list[0] ?? (await circleRepo.get(1));
+      return list[0] ?? (await circleRepo.get(1)) ?? {
+        id: 1,
+        name: "サークル",
+        description: null,
+        oshiLabel: null,
+        oshiTag: null,
+        oshiTags: [],
+        isPublic: false,
+        joinPolicy: "request",
+        approvalRequired: true,
+        iconUrl: null,
+        maxMembers: null,
+        memberCount: 0,
+        planRequired: "free",
+        myRole: "member",
+        lastActivityAt: null,
+        ui: {
+          circleThemeId: null,
+          specialBgEnabled: false,
+          specialBgVariant: null,
+        },
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      };
     }
     return apiSend<CircleDto>(
       "/api/invites/join",

@@ -35,3 +35,12 @@ export function loadString(key: string): string | null {
     return null;
   }
 }
+
+export function removeString(key: string) {
+  try {
+    if (typeof window === "undefined") return;
+    localStorage.removeItem(key);
+  } catch {
+    return;
+  }
+}

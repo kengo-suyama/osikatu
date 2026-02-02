@@ -7,6 +7,8 @@ export const LOG_LABELS: Record<string, string> = {
   "oshi_media.change_frame": "フレーム変更",
   "circle.ui.theme.update": "サークルテーマ変更",
   "circle.ui.special_bg.update": "フェス背景切替",
+  "settlement.create": "精算作成",
+  "settlement.update": "精算更新",
 };
 
 export function logLabel(action: string): string {

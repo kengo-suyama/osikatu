@@ -63,7 +63,11 @@ class DiaryController extends Controller
     {
         $diary = Diary::query()
             ->where('user_id', CurrentUser::id())
-            ->findOrFail($id);
+            ->find($id);
+
+        if (!$diary) {
+            return ApiResponse::error('NOT_FOUND', 'Diary not found.', null, 404);
+        }
 
         $diary->delete();
 

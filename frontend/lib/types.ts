@@ -18,6 +18,92 @@ export type ApiError = {
   };
 };
 
+export type BudgetDto = {
+  yearMonth: string;
+  budget: number;
+  spent: number;
+  updatedAt: string | null;
+};
+
+export type ScheduleDto = {
+  id: string;
+  title: string;
+  startAt: string;
+  endAt?: string | null;
+  isAllDay: boolean;
+  note?: string | null;
+  location?: string | null;
+  remindAt?: string | null;
+  updatedAt: string;
+};
+
+export type UserScheduleDto = {
+  id: string;
+  title: string;
+  startAt: ISODateTime;
+  endAt: ISODateTime | null;
+  isAllDay: boolean;
+  note: string | null;
+  location: string | null;
+  remindAt: ISODateTime | null;
+  updatedAt: ISODateTime | null;
+};
+
+export type UserScheduleListDto = {
+  items: UserScheduleDto[];
+};
+
+export type CircleScheduleParticipantDto = {
+  userId: number;
+  status: string;
+  readAt: ISODateTime | null;
+};
+
+export type CircleScheduleDto = {
+  id: string;
+  circleId: number;
+  title: string;
+  startAt: ISODateTime;
+  endAt: ISODateTime | null;
+  isAllDay: boolean;
+  note: string | null;
+  location: string | null;
+  participants?: CircleScheduleParticipantDto[];
+  updatedAt: ISODateTime | null;
+};
+
+export type CircleScheduleCreateRequest = {
+  title: string;
+  startAt: ISODateTime;
+  endAt?: ISODateTime | null;
+  isAllDay?: boolean;
+  note?: string | null;
+  location?: string | null;
+  participantUserIds?: number[];
+};
+
+export type CircleScheduleListDto = {
+  items: CircleScheduleDto[];
+};
+
+export type NotificationDto = {
+  id: string;
+  type: string;
+  title: string;
+  body: string;
+  linkUrl: string | null;
+  notifyAt: ISODateTime | null;
+  readAt: ISODateTime | null;
+  createdAt: ISODateTime | null;
+  sourceType: string | null;
+  sourceId: number | null;
+};
+
+export type NotificationsResponse = {
+  items: NotificationDto[];
+  nextCursor: string | null;
+};
+
 export type ApiEnvelope<T> = ApiSuccess<T>;
 
 export type ApiErrorEnvelope = ApiError;
@@ -298,6 +384,31 @@ export type OperationLogDto = {
 export type OperationLogListDto = {
   items: OperationLogDto[];
   nextCursor: string | null;
+};
+
+/** ---- Diary ---- */
+export type DiaryDto = {
+  id: number;
+  userId: number;
+  oshiId: number;
+  title: string;
+  content: string;
+  diaryDate: ISODate | null;
+  isLocked: boolean;
+  createdAt: ISODateTime | null;
+  updatedAt: ISODateTime | null;
+};
+
+/** ---- Fortune ---- */
+export type FortuneDto = {
+  date: string;
+  luckScore: number;
+  luckyColor: string;
+  luckyItem: string;
+  message: string;
+  goodAction: string;
+  badAction: string;
+  updatedAt: string | null;
 };
 
 /** ---- Pins ---- */

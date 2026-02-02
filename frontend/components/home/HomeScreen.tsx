@@ -2,8 +2,8 @@
 
 import type { CSSProperties } from "react";
 import { useEffect, useMemo, useState } from "react";
-import { Bookmark, BookmarkCheck } from "lucide-react";
-import { usePathname, useSearchParams } from "next/navigation";
+import { Bookmark, BookmarkCheck, Trash2 } from "lucide-react";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 
 import CelebrationTrigger from "@/components/celebration/CelebrationTrigger";
@@ -15,14 +15,13 @@ import CircleHomeCard from "@/components/circle/CircleHomeCard";
 import PlanStatusCard from "@/components/common/PlanStatusCard";
 import HowToUseDialog from "@/components/help/HowToUseDialog";
 import MotionTabs from "@/components/tabs/MotionTabs";
-import MotionModal from "@/components/modal/MotionModal";
 import MotionFeed from "@/components/feed/MotionFeed";
 import OshiAvatarCard from "@/components/oshi/OshiAvatarCard";
 import OshiImageUpload from "@/components/oshi/OshiImageUpload";
 import OshiFabPanel from "@/components/oshi/OshiFabPanel";
 import QuickModeSwitch from "@/components/home/QuickModeSwitch";
 import NextDeadlines from "@/components/widgets/NextDeadlines";
-import DailyLucky from "@/components/widgets/DailyLucky";
+import { DailyLucky } from "@/components/widgets/DailyLucky";
 import MoneyChart from "@/components/money/MoneyChart";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -34,16 +33,20 @@ import { DEFAULT_ACCENT_COLOR } from "@/lib/color";
 import { ANALYTICS_EVENTS, EVENTS } from "@/lib/events";
 import type { CircleChangeDetail } from "@/lib/events";
 import { circleOwnerRepo } from "@/lib/repo/circleOwnerRepo";
+import { circleRepo } from "@/lib/repo/circleRepo";
 import { eventsRepo } from "@/lib/repo/eventsRepo";
 import { meRepo } from "@/lib/repo/meRepo";
-import { listMyLogs } from "@/lib/repo/operationLogRepo";
+import { deleteMeLog, listMyLogs } from "@/lib/repo/operationLogRepo";
 import { oshiRepo } from "@/lib/repo/oshiRepo";
-import { loadJson, loadString, saveJson, saveString } from "@/lib/storage";
+import { useBudgetState } from "@/lib/budgetState";
+import { BudgetResponse } from "@/lib/repo/budgetRepo";
+import { loadJson, loadString, removeString, saveJson, saveString } from "@/lib/storage";
 import type { CircleDto, MeDto, OperationLogDto, OwnerDashboardDto } from "@/lib/types";
 import type { Oshi, SupplyItem } from "@/lib/uiTypes";
 import { cn } from "@/lib/utils";
 import { getSafeDisplayName, isProfileNameMissing } from "@/lib/ui/profileDisplay";
 import { formatLogTime, logSentence } from "@/lib/ui/logText";
+import { isApiMode } from "@/lib/config";
 
 const supplyTabs = [
   { value: "today", label: "今日" },
@@ -58,6 +61,13 @@ const LATER_KEY = "osikatu:supply:later";
 const OSHI_KEY = "osikatu:oshi:selected";
 const COMPACT_KEY = "osikatu:home:compact";
 const CIRCLE_KEY = "osikatu:circle:selected";
+const LAST_CIRCLE_KEY = "osikatu.lastCircleId";
+const QUICK_ACTION_URLS = {
+  log: "/log?new=1",
+  schedule: "/schedule?new=1",
+  money: "/money?new=1",
+  supply: "/log?tag=supply",
+} as const;
 
 const resolveCompact = (value: string | null) => {
   if (value === null) return null;
@@ -76,6 +86,7 @@ function sortSupplies(items: SupplyItem[]) {
 export default function HomeScreen() {
   const searchParams = useSearchParams();
   const pathname = usePathname();
+  const router = useRouter();
   const queryCompact = searchParams.get("compact");
   const [isCompact, setIsCompact] = useState(true);
   const [tab, setTab] = useState("today");
@@ -89,6 +100,20 @@ export default function HomeScreen() {
   const [me, setMe] = useState<MeDto | null>(null);
   const [myLogs, setMyLogs] = useState<OperationLogDto[]>([]);
   const [myLogsLoading, setMyLogsLoading] = useState(false);
+  const [deletingLogId, setDeletingLogId] = useState<string | null>(null);
+  const defaultBudgetState = useMemo<BudgetResponse>(() => {
+    const currentMonth = new Date().toISOString().slice(0, 7);
+    return {
+      budget: moneySnapshot.budget,
+      spent: moneySnapshot.spent,
+      yearMonth: currentMonth,
+      updatedAt: null,
+    };
+  }, []);
+  const [budgetInputs, setBudgetInputs] = useState<BudgetResponse>(defaultBudgetState);
+  const [budgetMessage, setBudgetMessage] = useState<string | null>(null);
+  const { budget: budgetData, loading: budgetLoading, saveBudget } =
+    useBudgetState(defaultBudgetState);
 
   useEffect(() => {
     eventsRepo.track(ANALYTICS_EVENTS.APP_OPEN, pathname);
@@ -226,6 +251,31 @@ export default function HomeScreen() {
   }, [selectedCircleId, me]);
 
   useEffect(() => {
+    if (!selectedCircleId || !isApiMode()) return;
+    let mounted = true;
+    circleRepo
+      .get(selectedCircleId)
+      .then((circle) => {
+        if (!mounted) return;
+        if (circle) return;
+        setSelectedCircleId(null);
+        removeString(CIRCLE_KEY);
+        removeString(LAST_CIRCLE_KEY);
+        if (typeof window !== "undefined") {
+          window.dispatchEvent(
+            new CustomEvent(EVENTS.CIRCLE_CHANGE, { detail: { circleId: "" } })
+          );
+        }
+      })
+      .catch(() => {
+        return;
+      });
+    return () => {
+      mounted = false;
+    };
+  }, [selectedCircleId]);
+
+  useEffect(() => {
     let mounted = true;
     setMyLogsLoading(true);
     listMyLogs({ limit: 5 })
@@ -247,6 +297,10 @@ export default function HomeScreen() {
     };
   }, []);
 
+  useEffect(() => {
+    setBudgetInputs(budgetData);
+  }, [budgetData]);
+
   const handleCircleSelected = (circle: CircleDto) => {
     saveString(CIRCLE_KEY, String(circle.id));
     setSelectedCircleId(circle.id);
@@ -254,6 +308,59 @@ export default function HomeScreen() {
       window.dispatchEvent(
         new CustomEvent(EVENTS.CIRCLE_CHANGE, { detail: { circleId: String(circle.id) } })
       );
+    }
+  };
+
+  const safePush = (href?: string) => {
+    if (!href) return;
+    try {
+      router.push(href);
+    } catch (error) {
+      console.error("Quick action navigation failed", error);
+    }
+  };
+
+  const handleQuickAction = (actionId: string) => {
+    if (actionId === "log") {
+      safePush(QUICK_ACTION_URLS.log);
+      return;
+    }
+    if (actionId === "schedule") {
+      safePush(QUICK_ACTION_URLS.schedule);
+      return;
+    }
+    if (actionId === "money") {
+      safePush(QUICK_ACTION_URLS.money);
+      return;
+    }
+    if (actionId === "supply") {
+      safePush(QUICK_ACTION_URLS.supply);
+    }
+  };
+
+  const handleDeleteLog = async (logId: string) => {
+    if (typeof window !== "undefined" && !window.confirm("このログを削除してもよろしいですか？")) {
+      return;
+    }
+    setDeletingLogId(logId);
+    try {
+      await deleteMeLog(logId);
+      setMyLogs((prev) => prev.filter((log) => log.id !== logId));
+    } catch {
+      // ignore
+    } finally {
+      setDeletingLogId(null);
+    }
+  };
+
+  const handleBudgetSave = async () => {
+    setBudgetMessage(null);
+    try {
+      const result = await saveBudget(budgetInputs);
+      setBudgetInputs(result);
+      setBudgetMessage("保存しました");
+    } catch {
+      setBudgetMessage("保存に失敗しました");
     }
   };
 
@@ -312,6 +419,7 @@ export default function HomeScreen() {
   const displayedDeadlines = deadlines.slice(0, isCompact ? 3 : deadlines.length);
   const displayedFeed = miniFeed.slice(0, isCompact ? 2 : miniFeed.length);
   const accentColor = selectedOshi?.profile.accent_color ?? DEFAULT_ACCENT_COLOR;
+  const remainingBudget = Math.max(budgetData.budget - budgetData.spent, 0);
 
   return (
     <div
@@ -393,7 +501,17 @@ export default function HomeScreen() {
                 key={log.id}
                 className="rounded-xl border border-border/60 bg-muted/30 p-3"
               >
-                <div className="text-sm">{logSentence(log)}</div>
+                <div className="flex items-start justify-between gap-2">
+                  <div className="text-sm">{logSentence(log)}</div>
+                  <button
+                    type="button"
+                    className="text-muted-foreground hover:text-destructive"
+                    onClick={() => void handleDeleteLog(log.id)}
+                    disabled={deletingLogId === log.id}
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </button>
+                </div>
                 <div className="mt-1 text-xs text-muted-foreground">
                   {formatLogTime(log.createdAt)}
                 </div>
@@ -466,29 +584,18 @@ export default function HomeScreen() {
             </div>
           </div>
           {quickActions.map((action) => (
-            <MotionModal
+            <button
               key={action.id}
-              title={action.title}
-              description={action.description}
-              trigger={
-                <button
-                  type="button"
-                  className={cn(
-                    "rounded-2xl border bg-card text-left shadow-sm transition hover:shadow-md",
-                    isCompact ? "p-3" : "p-4"
-                  )}
-                >
-                  <div className="text-sm font-semibold">{action.label}</div>
-                  <div className="text-xs text-muted-foreground">{action.description}</div>
-                </button>
-              }
+              type="button"
+              onClick={() => handleQuickAction(action.id)}
+              className={cn(
+                "rounded-2xl border bg-card text-left shadow-sm transition hover:shadow-md",
+                isCompact ? "p-3" : "p-4"
+              )}
             >
-              <div className="space-y-3">
-                <Input placeholder="タイトル" />
-                <Textarea placeholder={action.placeholder} rows={3} />
-                <Button className="w-full">保存</Button>
-              </div>
-            </MotionModal>
+              <div className="text-sm font-semibold">{action.label}</div>
+              <div className="text-xs text-muted-foreground">{action.description}</div>
+            </button>
           ))}
         </div>
       </div>
@@ -634,16 +741,47 @@ export default function HomeScreen() {
         <CardHeader className="space-y-1 p-0 pb-3">
           <CardTitle className="text-sm font-semibold text-muted-foreground">今月あといくら？</CardTitle>
           <div className="text-3xl font-semibold">
-            ¥{moneySnapshot.remaining.toLocaleString("ja-JP")}
+            ¥{remainingBudget.toLocaleString("ja-JP")}
           </div>
           <div className="text-xs text-muted-foreground">
-            予算 ¥{moneySnapshot.budget.toLocaleString("ja-JP")} · 使用済み ¥
-            {moneySnapshot.spent.toLocaleString("ja-JP")}
+            予算 ¥{budgetData.budget.toLocaleString("ja-JP")} · 使用済み ¥
+            {budgetData.spent.toLocaleString("ja-JP")}
           </div>
         </CardHeader>
         <CardContent className={cn("p-0", isCompact ? "h-32" : "h-44")}>
           <MoneyChart categories={moneySnapshot.categories} />
         </CardContent>
+        <div className="mt-3 space-y-2">
+          <div className="text-sm font-semibold text-muted-foreground">予算設定</div>
+          <div className="grid gap-3 sm:grid-cols-2">
+            <Input
+              type="number"
+              value={budgetInputs.budget}
+              onChange={(event) =>
+                setBudgetInputs((prev) => ({ ...prev, budget: Number(event.target.value) }))
+              }
+              placeholder="予算"
+              min={0}
+            />
+            <Input
+              type="number"
+              value={budgetInputs.spent}
+              onChange={(event) =>
+                setBudgetInputs((prev) => ({ ...prev, spent: Number(event.target.value) }))
+              }
+              placeholder="使用済み"
+              min={0}
+            />
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            <Button size="sm" onClick={handleBudgetSave} disabled={budgetLoading}>
+              {budgetLoading ? "保存中..." : "保存"}
+            </Button>
+            {budgetMessage ? (
+              <div className="text-xs text-muted-foreground">{budgetMessage}</div>
+            ) : null}
+          </div>
+        </div>
       </Card>
 
       <div className="space-y-2">

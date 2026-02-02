@@ -13,15 +13,21 @@ class Notification extends Model
     use HasFactory;
 
     protected $fillable = [
+        'user_id',
         'me_profile_id',
+        'source_type',
+        'source_id',
+        'notify_at',
         'type',
         'title',
         'body',
+        'link_url',
         'action_url',
         'read_at',
     ];
 
     protected $casts = [
+        'notify_at' => 'datetime',
         'read_at' => 'datetime',
     ];
 
