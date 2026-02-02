@@ -78,3 +78,10 @@ npm run e2e:trace:log:ts
 
 - `frontend/logs/ci-gate_YYYYMMDD_HHMMSS.log`
 - `frontend/logs/e2e-trace_YYYYMMDD_HHMMSS.log`
+
+e2e:trace のタイムスタンプ版は、最新の trace zip を `test-results/tools` にコピーします。
+
+- `frontend/test-results/tools/trace_YYYYMMDD_HHMMSS.zip`
+
+trace が見つからない場合は `e2e:trace:log:ts` が失敗します。  
+`e2e:trace:log:ts` は `e2e:ci:trace` でサーバを自動起動し、trace を必ず生成します。
