@@ -2,8 +2,11 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
+import Link from "next/link";
 
-import type { OperationLogDto } from "@/lib/types";
+import type { CircleDto, MeDto, OperationLogDto } from "@/lib/types";
+import { circleRepo } from "@/lib/repo/circleRepo";
+import { meRepo } from "@/lib/repo/meRepo";
 import { deleteCircleLog, listCircleLogs } from "@/lib/repo/operationLogRepo";
 import { ApiRequestError } from "@/lib/repo/http";
 import {
@@ -30,6 +33,9 @@ export default function CircleLogsPage() {
   const circleId = params?.circleId;
   const router = useRouter();
 
+  const [circle, setCircle] = useState<CircleDto | null>(null);
+  const [me, setMe] = useState<MeDto | null>(null);
+  const [error, setError] = useState<string | null>(null);
   const [range, setRange] = useState<RangeKey>("7d");
   const [items, setItems] = useState<OperationLogDto[]>([]);
   const [cursor, setCursor] = useState<string | null>(null);
@@ -41,6 +47,10 @@ export default function CircleLogsPage() {
   const [toastTitle, setToastTitle] = useState("");
   const [toastDescription, setToastDescription] = useState("");
 
+  const isManager = Boolean(
+    me?.plan === "plus" && (circle?.myRole === "owner" || circle?.myRole === "admin")
+  );
+
   const sentinelRef = useRef<HTMLDivElement | null>(null);
 
   const from = useMemo(() => {
@@ -51,6 +61,11 @@ export default function CircleLogsPage() {
 
   const loadFirst = async () => {
     if (!circleId) return;
+    if (!isManager) {
+      setForbidden(true);
+      return;
+    }
+
     setLoading(true);
     setDone(false);
     setForbidden(false);
@@ -119,6 +134,34 @@ export default function CircleLogsPage() {
   };
 
   useEffect(() => {
+    let mounted = true;
+    if (!circleId) return;
+
+    Promise.all([circleRepo.get(Number(circleId)), meRepo.getMe()])
+      .then(([circleData, meData]) => {
+        if (!mounted) return;
+        setCircle(circleData);
+        setMe(meData);
+
+        const hasPermission =
+          meData.plan === "plus" &&
+          (circleData?.myRole === "owner" || circleData?.myRole === "admin");
+
+        if (!hasPermission) {
+          setForbidden(true);
+        }
+      })
+      .catch(() => {
+        if (!mounted) return;
+        setError("サークル情報を取得できませんでした");
+      });
+
+    return () => {
+      mounted = false;
+    };
+  }, [circleId]);
+
+  useEffect(() => {
     loadFirst();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [circleId, range]);
@@ -145,16 +188,15 @@ export default function CircleLogsPage() {
         <div className="flex items-center justify-between">
           <div>
             <div className="text-lg font-semibold">サークル操作ログ</div>
-            <div className="text-xs opacity-70">オーナーのみ閲覧できます</div>
+            <div className="text-xs opacity-70">Plusのオーナー/管理者のみ閲覧できます</div>
           </div>
 
-          <button
-            type="button"
+          <Link
+            href={`/circles/${circleId}`}
             className="rounded-xl border border-white/15 px-3 py-2 text-sm hover:opacity-90"
-            onClick={() => router.back()}
           >
             戻る
-          </button>
+          </Link>
         </div>
 
         <div className="mt-3 flex gap-2 text-sm">
@@ -185,9 +227,13 @@ export default function CircleLogsPage() {
         </div>
 
         <div className="mt-4 space-y-2">
-          {forbidden ? (
+          {error ? (
+            <div className="rounded-2xl border border-white/10 bg-white/5 p-6 text-center text-sm text-muted-foreground">
+              {error}
+            </div>
+          ) : forbidden ? (
             <div className="rounded-2xl border border-white/10 bg-white/5 p-6 text-center text-sm opacity-80">
-              このサークルのログを閲覧する権限がありません
+              Plusのオーナー/管理者のみご利用いただけます。
             </div>
           ) : (
             <>
