@@ -192,4 +192,84 @@ class OperationLogController extends Controller
 
         return [$createdAt, (string) $json['id']];
     }
+
+    public function destroy(Request $request, string $logId)
+    {
+        $userId = CurrentUser::id();
+        if (!$userId) {
+            return ApiResponse::error('UNAUTHORIZED', 'Unauthorized.', null, 401);
+        }
+
+        $plainId = $this->parseLogId($logId);
+        if ($plainId === null) {
+            return ApiResponse::error('INVALID_ID', 'Invalid log id.', null, 400);
+        }
+
+        $log = OperationLog::query()->find($plainId);
+        if (!$log) {
+            return ApiResponse::error('NOT_FOUND', 'Log not found.', null, 404);
+        }
+
+        if ((int) $log->user_id !== $userId) {
+            return ApiResponse::error('FORBIDDEN', 'You are not allowed to delete this log.', null, 403);
+        }
+
+        $log->delete();
+
+        return ApiResponse::success(['deleted' => true]);
+    }
+
+    public function destroyCircle(Request $request, int $circleId, string $logId)
+    {
+        $userId = CurrentUser::id();
+        if (!$userId) {
+            return ApiResponse::error('UNAUTHORIZED', 'Unauthorized.', null, 401);
+        }
+
+        $circle = Circle::query()->find($circleId);
+        if (!$circle) {
+            return ApiResponse::error('NOT_FOUND', 'Circle not found.', null, 404);
+        }
+
+        if (!PlanGate::circleHasPlus($circle)) {
+            return ApiResponse::error('FORBIDDEN', 'Plus plan required to delete circle logs.', null, 403);
+        }
+
+        $member = CircleMember::query()
+            ->where('circle_id', $circleId)
+            ->where('user_id', $userId)
+            ->first();
+
+        if (!$member || !in_array($member->role, ['owner', 'admin'], true)) {
+            return ApiResponse::error('FORBIDDEN', 'Owner/Admin only.', null, 403);
+        }
+
+        $plainId = $this->parseLogId($logId);
+        if ($plainId === null) {
+            return ApiResponse::error('INVALID_ID', 'Invalid log id.', null, 400);
+        }
+
+        $log = OperationLog::query()
+            ->where('id', $plainId)
+            ->where('circle_id', $circleId)
+            ->first();
+
+        if (!$log) {
+            return ApiResponse::error('NOT_FOUND', 'Log not found.', null, 404);
+        }
+
+        $log->delete();
+
+        return ApiResponse::success(['deleted' => true]);
+    }
+
+    private function parseLogId(string $logId): ?int
+    {
+        $plainId = preg_replace('/^lg_/', '', $logId);
+        if (!is_numeric($plainId)) {
+            return null;
+        }
+
+        return (int) $plainId;
+    }
 }

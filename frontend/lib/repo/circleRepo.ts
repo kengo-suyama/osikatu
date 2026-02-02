@@ -1,6 +1,6 @@
 import type { CircleDto } from "@/lib/types";
 import { isApiMode } from "@/lib/config";
-import { apiGet, apiSend } from "@/lib/repo/http";
+import { ApiRequestError, apiGet, apiSend } from "@/lib/repo/http";
 import { getDeviceId } from "@/lib/device";
 import { loadJson, saveJson } from "@/lib/storage";
 
@@ -21,6 +21,7 @@ const defaultCircles = (): CircleDto[] => [
     maxMembers: 30,
     memberCount: 8,
     planRequired: "free",
+    myRole: "owner",
     lastActivityAt: null,
     ui: {
       circleThemeId: null,
@@ -53,18 +54,25 @@ export const circleRepo = {
     }
   },
 
-  async get(id: number): Promise<CircleDto> {
+  async get(id: number): Promise<CircleDto | null> {
+    if (!isApiMode()) {
+      const list = ensureLocalCircles();
+      return list.find((circle) => circle.id === id) ?? list[0] ?? null;
+    }
+
     try {
       return await apiGet<CircleDto>(`/api/circles/${id}`, {
         headers: {
           "X-Device-Id": getDeviceId(),
         },
       });
-    } catch {
-      const list = ensureLocalCircles();
-      const found = list.find((circle) => circle.id === id);
-      if (found) return found;
-      return list[0];
+    } catch (error) {
+      if (error instanceof ApiRequestError) {
+        if (error.status === 404 || error.code === "NOT_FOUND") {
+          return null;
+        }
+      }
+      throw error;
     }
   },
 

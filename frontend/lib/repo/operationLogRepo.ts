@@ -1,5 +1,5 @@
 import { isApiMode } from "@/lib/config";
-import { apiGet } from "@/lib/repo/http";
+import { apiGet, apiSend } from "@/lib/repo/http";
 import { getDeviceId } from "@/lib/device";
 import type { OperationLogListDto } from "@/lib/types";
 
@@ -31,6 +31,28 @@ export async function listMyLogs(params: ListParams = {}): Promise<OperationLogL
   return apiGet<OperationLogListDto>(`/api/me/logs${query}`, {
     headers: { "X-Device-Id": getDeviceId() },
   });
+}
+
+export async function deleteMeLog(logId: string): Promise<void> {
+  if (!isApiMode()) {
+    return;
+  }
+
+  await apiSend(`/api/me/logs/${encodeURIComponent(logId)}`, "DELETE");
+}
+
+export async function deleteCircleLog(
+  circleId: string | number,
+  logId: string
+): Promise<void> {
+  if (!isApiMode()) {
+    return;
+  }
+
+  await apiSend(
+    `/api/circles/${circleId}/logs/${encodeURIComponent(logId)}`,
+    "DELETE"
+  );
 }
 
 export async function listCircleLogs(

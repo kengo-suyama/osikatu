@@ -11,6 +11,7 @@ final class OperationLogMetaPolicy
         'body',
         'text',
         'content',
+        'title',
         'detail',
         'details',
         'note',
@@ -59,12 +60,23 @@ final class OperationLogMetaPolicy
         'oshi_media.change_frame' => ['frameId'],
         'circle.ui.theme.update' => ['themeId'],
         'circle.ui.special_bg.update' => ['enabled', 'specialBg'],
+        'settlement.create' => ['circleId', 'settlementId', 'amountInt', 'participantCount', 'transferCount', 'splitMode'],
+        'settlement.update' => ['circleId', 'settlementId', 'transferCount'],
     ];
 
     public static function sanitize(string $action, array $meta): array
     {
         $allowed = self::ACTION_ALLOWED[$action] ?? self::GLOBAL_ALLOWED;
         $out = [];
+        $numericKeys = [
+            'mediaCount',
+            'inviteCount',
+            'participantCount',
+            'transferCount',
+            'amountInt',
+            'settlementId',
+            'circleId',
+        ];
 
         foreach ($meta as $key => $value) {
             if (!is_string($key)) {
@@ -100,12 +112,16 @@ final class OperationLogMetaPolicy
             }
 
             if (is_string($value)) {
+                if (in_array($key, $numericKeys, true)) {
+                    continue;
+                }
+
                 $normalized = trim($value);
                 if ($normalized === '') {
                     continue;
                 }
 
-                if (stripos($normalized, 'http://') !== false || stripos($normalized, 'https://') !== false) {
+                if (self::isUrlLike($normalized)) {
                     continue;
                 }
 
@@ -114,11 +130,11 @@ final class OperationLogMetaPolicy
                     'plan' => 16,
                     'source' => 32,
                     'reasonCode' => 32,
+                    'splitMode' => 16,
                     default => 64,
                 };
 
-                $normalized = self::truncate($normalized, $max);
-                if ($normalized === '') {
+                if (self::isTooLong($normalized, $max)) {
                     continue;
                 }
 
@@ -129,23 +145,34 @@ final class OperationLogMetaPolicy
         return $out;
     }
 
-    private static function truncate(string $value, int $max): string
+    private static function isTooLong(string $value, int $max): bool
     {
         if ($max <= 0) {
-            return '';
+            return true;
         }
 
         if (function_exists('mb_strlen') && function_exists('mb_substr')) {
-            if (mb_strlen($value) > $max) {
-                return mb_substr($value, 0, $max);
-            }
-            return $value;
+            return mb_strlen($value) > $max;
         }
 
-        if (strlen($value) > $max) {
-            return substr($value, 0, $max);
+        return strlen($value) > $max;
+    }
+
+    private static function isUrlLike(string $value): bool
+    {
+        $lower = strtolower($value);
+        if (str_contains($lower, 'http://') || str_contains($lower, 'https://')) {
+            return true;
         }
 
-        return $value;
+        if (str_contains($lower, '://')) {
+            return true;
+        }
+
+        if (str_contains($lower, 'www.')) {
+            return true;
+        }
+
+        return false;
     }
 }

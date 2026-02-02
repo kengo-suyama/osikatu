@@ -4,13 +4,21 @@ import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { CalendarDays, MessageCircle, Receipt, Settings, Users } from "lucide-react";
 
+import OwnerDashboardCard from "@/components/circle/OwnerDashboardCard";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import { circleOwnerRepo } from "@/lib/repo/circleOwnerRepo";
 import { circleRepo } from "@/lib/repo/circleRepo";
 import { meRepo } from "@/lib/repo/meRepo";
 import { postRepo } from "@/lib/repo/postRepo";
 import { listCircleLogs } from "@/lib/repo/operationLogRepo";
-import type { CircleDto, MeDto, OperationLogDto, PostDto } from "@/lib/types";
+import type {
+  CircleDto,
+  MeDto,
+  OperationLogDto,
+  OwnerDashboardDto,
+  PostDto,
+} from "@/lib/types";
 import { formatLogTime, logSentence } from "@/lib/ui/logText";
 import { cn } from "@/lib/utils";
 
@@ -46,6 +54,8 @@ const resolveChatBody = (post: PostDto) => {
 export default function CircleHomeScreen({ circleId }: { circleId: number }) {
   const [circle, setCircle] = useState<CircleDto | null>(null);
   const [me, setMe] = useState<MeDto | null>(null);
+  const [ownerDashboard, setOwnerDashboard] = useState<OwnerDashboardDto | null>(null);
+  const [ownerLoading, setOwnerLoading] = useState(false);
   const [chatPreview, setChatPreview] = useState<PostDto[]>([]);
   const [pinnedPosts, setPinnedPosts] = useState<PostDto[]>([]);
   const [logPreview, setLogPreview] = useState<OperationLogDto[]>([]);
@@ -57,8 +67,19 @@ export default function CircleHomeScreen({ circleId }: { circleId: number }) {
     [circle?.lastActivityAt]
   );
 
-  const isOwner = Boolean(me?.plan === "plus" && circle?.myRole === "owner");
-  const pinLimit = isOwner ? 10 : 3;
+  const isManager = Boolean(
+    me?.plan === "plus" && (circle?.myRole === "owner" || circle?.myRole === "admin")
+  );
+  const pinLimit = isManager ? 10 : 3;
+
+  const refreshOwnerDashboard = () => {
+    setOwnerLoading(true);
+    circleOwnerRepo
+      .getOwnerDashboard(circleId)
+      .then((data) => setOwnerDashboard(data))
+      .catch(() => setOwnerDashboard(null))
+      .finally(() => setOwnerLoading(false));
+  };
 
   useEffect(() => {
     let mounted = true;
@@ -67,6 +88,12 @@ export default function CircleHomeScreen({ circleId }: { circleId: number }) {
     Promise.all([circleRepo.get(circleId), meRepo.getMe()])
       .then(([circleData, meData]) => {
         if (!mounted) return;
+        if (!circleData) {
+          setCircle(null);
+          setMe(meData);
+          setError("サークルが見つかりません");
+          return;
+        }
         setCircle(circleData);
         setMe(meData);
       })
@@ -125,7 +152,7 @@ export default function CircleHomeScreen({ circleId }: { circleId: number }) {
 
   useEffect(() => {
     let mounted = true;
-    if (!isOwner) {
+    if (!isManager) {
       setLogPreview([]);
       return;
     }
@@ -143,7 +170,35 @@ export default function CircleHomeScreen({ circleId }: { circleId: number }) {
     return () => {
       mounted = false;
     };
-  }, [circleId, isOwner]);
+  }, [circleId, isManager]);
+
+  useEffect(() => {
+    let mounted = true;
+    if (!isManager) {
+      setOwnerDashboard(null);
+      return;
+    }
+
+    setOwnerLoading(true);
+    circleOwnerRepo
+      .getOwnerDashboard(circleId)
+      .then((data) => {
+        if (!mounted) return;
+        setOwnerDashboard(data);
+      })
+      .catch(() => {
+        if (!mounted) return;
+        setOwnerDashboard(null);
+      })
+      .finally(() => {
+        if (!mounted) return;
+        setOwnerLoading(false);
+      });
+
+    return () => {
+      mounted = false;
+    };
+  }, [circleId, isManager]);
 
   if (loading) {
     return (
@@ -166,12 +221,14 @@ export default function CircleHomeScreen({ circleId }: { circleId: number }) {
     );
   }
 
+  const circleTitle = circle.name?.trim() ? circle.name : `Circle #${circleId}`;
+
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <div className="text-xs text-muted-foreground">サークルHome</div>
-          <div className="text-lg font-semibold">{circle.name}</div>
+          <div className="text-lg font-semibold">{circleTitle}</div>
           <div className="text-xs text-muted-foreground">
             推し対象: {circle.oshiLabel ?? "未設定"} · メンバー {circle.memberCount}
           </div>
@@ -207,11 +264,22 @@ export default function CircleHomeScreen({ circleId }: { circleId: number }) {
         </div>
       </Card>
 
+      {isManager ? (
+        <div className="space-y-2">
+          <div className="text-xs text-muted-foreground">運営サマリ（Plus）</div>
+          <OwnerDashboardCard
+            dashboard={ownerDashboard}
+            loading={ownerLoading}
+            onRefresh={refreshOwnerDashboard}
+          />
+        </div>
+      ) : null}
+
       <Card className="rounded-2xl border p-4 shadow-sm">
         <div className="flex items-center justify-between gap-3">
           <div>
             <div className="text-sm font-semibold text-muted-foreground">作戦会議（チャット）</div>
-            <div className="text-xs text-muted-foreground">最近の3件を表示</div>
+            <div className="text-xs text-muted-foreground">最近の3件</div>
           </div>
           <Link href={`/circles/${circleId}/chat`} className="text-xs underline">
             チャットへ
@@ -237,9 +305,7 @@ export default function CircleHomeScreen({ circleId }: { circleId: number }) {
         <div className="flex items-center justify-between gap-3">
           <div>
             <div className="text-sm font-semibold text-muted-foreground">遠征情報（ピン）</div>
-            <div className="text-xs text-muted-foreground">
-              集合/会場/持ち物などの固定メモ
-            </div>
+            <div className="text-xs text-muted-foreground">集合・会場・持ち物</div>
           </div>
           <Link href={`/circles/${circleId}/pins`} className="text-xs underline">
             一覧へ
@@ -258,9 +324,9 @@ export default function CircleHomeScreen({ circleId }: { circleId: number }) {
             </div>
           )}
         </div>
-        {isOwner ? (
+        {isManager ? (
           <div className="mt-3 text-xs text-muted-foreground">
-            Plusオーナーは最大10件まで固定できます
+            Plusのオーナー/管理者は最大10件まで固定できます
           </div>
         ) : null}
       </Card>
@@ -288,9 +354,7 @@ export default function CircleHomeScreen({ circleId }: { circleId: number }) {
           <div className="flex items-center justify-between">
             <div>
               <div className="text-sm font-semibold text-muted-foreground">メンバー</div>
-              <div className="text-xs text-muted-foreground">
-                現在 {circle.memberCount} 人
-              </div>
+              <div className="text-xs text-muted-foreground">参加メンバー</div>
             </div>
             <Users className="h-4 w-4 text-muted-foreground" />
           </div>
@@ -306,35 +370,35 @@ export default function CircleHomeScreen({ circleId }: { circleId: number }) {
         <div className="flex items-center justify-between">
           <div>
             <div className="text-sm font-semibold text-muted-foreground">割り勘（精算）</div>
-            <div className="text-xs text-muted-foreground">
-              立替と精算をまとめて管理
-            </div>
+            <div className="text-xs text-muted-foreground">立替・精算</div>
           </div>
           <Receipt className="h-4 w-4 text-muted-foreground" />
         </div>
         <div className="mt-3 text-xs text-muted-foreground">
-          Plusオーナーは作成/編集、メンバーは閲覧できます
+          {isManager
+            ? "Plusのオーナー/管理者のみ利用できます"
+            : "Plusのオーナー/管理者のみ利用できます"}
         </div>
         <div className="mt-3">
-          <Button asChild variant="secondary" size="sm">
+          <Button asChild variant="secondary" size="sm" disabled={!isManager}>
             <Link href={`/circles/${circleId}/settlements`}>精算へ</Link>
           </Button>
         </div>
       </Card>
 
-      {isOwner ? (
-        <Card className="rounded-2xl border p-4 shadow-sm">
-          <div className="flex items-center justify-between gap-3">
-            <div>
-              <div className="text-sm font-semibold text-muted-foreground">サークル操作ログ</div>
-              <div className="text-xs text-muted-foreground">最新5件</div>
-            </div>
-            <Link href={`/circles/${circleId}/logs`} className="text-xs underline">
-              もっと見る
-            </Link>
+      <Card className="rounded-2xl border p-4 shadow-sm">
+        <div className="flex items-center justify-between gap-3">
+          <div>
+            <div className="text-sm font-semibold text-muted-foreground">サークル操作ログ</div>
+            <div className="text-xs text-muted-foreground">最新5件</div>
           </div>
-          <div className="mt-3 space-y-2">
-            {logPreview.length ? (
+          <Link href={`/circles/${circleId}/logs`} className="text-xs underline">
+            もっと見る
+          </Link>
+        </div>
+        <div className="mt-3 space-y-2">
+          {isManager ? (
+            logPreview.length ? (
               logPreview.map((log) => (
                 <div
                   key={log.id}
@@ -348,19 +412,21 @@ export default function CircleHomeScreen({ circleId }: { circleId: number }) {
               ))
             ) : (
               <div className="text-xs text-muted-foreground">ログがまだありません</div>
-            )}
-          </div>
-        </Card>
-      ) : null}
+            )
+          ) : (
+            <div className="text-xs text-muted-foreground">
+              Plusのオーナー/管理者のみご利用いただけます。
+            </div>
+          )}
+        </div>
+      </Card>
 
-      {isOwner ? (
+      {isManager ? (
         <Card className="rounded-2xl border p-4 shadow-sm">
           <div className="flex items-center justify-between">
             <div>
               <div className="text-sm font-semibold text-muted-foreground">運営（設定）</div>
-              <div className="text-xs text-muted-foreground">
-                テーマ・フェス背景・招待管理
-              </div>
+              <div className="text-xs text-muted-foreground">テーマ・招待</div>
             </div>
             <Settings className="h-4 w-4 text-muted-foreground" />
           </div>

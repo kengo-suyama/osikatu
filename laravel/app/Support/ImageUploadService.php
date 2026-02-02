@@ -48,7 +48,16 @@ class ImageUploadService
             : self::processWithImagick($file->getRealPath(), $fullPath, $extension);
 
         if (isset($result['error'])) {
-            return $result;
+            $storedPath = $file->storeAs($directory, $filename, 'public');
+            $url = Storage::disk('public')->url($storedPath);
+
+            return [
+                'path' => $storedPath,
+                'url' => $url,
+                'width' => null,
+                'height' => null,
+                'sizeBytes' => $file->getSize() ?: null,
+            ];
         }
 
         $url = Storage::disk('public')->url($path);

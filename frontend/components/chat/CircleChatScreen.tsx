@@ -62,6 +62,13 @@ export default function CircleChatScreen({ circleId }: { circleId: number }) {
         postRepo.listChat(circleId),
         meRepo.getMe(),
       ]);
+      if (!circleData) {
+        setCircle(null);
+        setMessages([]);
+        setMe(meData);
+        setError("サークルが見つかりません");
+        return;
+      }
       setCircle(circleData);
       setMessages(chatData);
       setMe(meData);
