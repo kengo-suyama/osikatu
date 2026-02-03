@@ -164,7 +164,7 @@ export default function CircleLogsPage() {
   useEffect(() => {
     loadFirst();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [circleId, range]);
+  }, [circleId, range, isManager]);
 
   useEffect(() => {
     const el = sentinelRef.current;
