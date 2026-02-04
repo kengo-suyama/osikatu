@@ -8,7 +8,7 @@ Phase 2–4（非破壊 + 証拠取り + 最小再現）を実行し、Phase 4 �
 ## 0) 共通ルール（必読）
 - 実行シェル: PowerShell
 - 破壊的操作は禁止: Stop-Process / taskkill / rm -rf / Remove-Item / キャッシュ削除 / .env 編集 / package.json 編集 / npm install 等
-- wmic 禁止
+- 旧式 WMI CLI コマンドは禁止
 - 変更禁止（原則）: Repo ファイルは編集しない。ログ採取のみ
 - 例外でファイル変更が入っていたら allowlist を最初に確認し、allowlist 外があれば即停止
 
