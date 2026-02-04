@@ -1,31 +1,73 @@
-# Next.js 起動時 spawn EPERM 再発時切り分け Runbook（osikatu）
+# Next.js spawn EPERM 対応 Runbook（osikatu）
 
-目的  
-osikatu（frontend）で過去に発生した「Next 起動時 `spawn EPERM` → `wait-on` timeout」を、再発時に最短で切り分け・復旧できるようにする。  
-原因断定ではなく「観測に基づく判定フロー」と「再発時チェックリスト（コマンド付き）」を整備する。
-
-前提  
-- Repo: osikatu  
-- Frontend: `C:\laragon\www\osikatu\frontend`  
-- CI ゲート: `cd frontend && npm run ci:gate`（lint + titles:verify + e2e:ci）  
-- Node.js v20.20.0 / npm 10.2.3 / Next.js 14.2.6  
-- `where npm/npx` は Program Files と Roaming の複数ヒットあり（PATH 混在の可能性）  
-- 管理者でないと CIM / `Get-NetTCPConnection` が Access denied になる場合あり  
-- 3103 LISTEN は出ることあり（例: PID 16544）、8001 は未使用のことあり  
-
-運用ルール  
-- **コミット/プッシュ禁止**  
-- **原則コード変更なし（環境/運用で解決）**  
-- **破壊的操作（プロセス停止・キャッシュ削除など）は必ず「ユーザー許可後」に実行**  
-- 変更が必要な場合は「理由・最小差分・影響範囲」を先に提示し、勝手に変更しない
+## 目的
+Phase 2–4（非破壊 + 証拠取り + 最小再現）を実行し、Phase 4 の結果報告で停止するための手順テンプレ。
 
 ---
 
-## 1) 再発時チェックリスト（コマンド付き）
+## 0) 共通ルール（必読）
+- 実行シェル: PowerShell
+- 破壊的操作は禁止: Stop-Process / taskkill / rm -rf / Remove-Item / キャッシュ削除 / .env 編集 / package.json 編集 / npm install 等
+- wmic 禁止
+- 変更禁止（原則）: Repo ファイルは編集しない。ログ採取のみ
+- 例外でファイル変更が入っていたら allowlist を最初に確認し、allowlist 外があれば即停止
 
-### A) 環境情報（比較用）
+Allowlist（例。必要なら更新可）
+- docs/next-spawn-eperm-runbook.md のみ
+
+---
+
+## Phase 2: 非破壊で PID / コマンドライン同定（ポート起点）
+
+### 2-0) allowlist 確認（非破壊）
 ```powershell
-cd C:\laragon\www\osikatu\frontend
+cd C:\laragon\www\osikatu
+git status -s
+git diff --name-only
+```
+
+判定
+- 差分がある場合、それが allowlist のみか確認する
+- allowlist 外が出たら 以降は一切実行せず停止
+
+### 2-1) 文字化け対策（非破壊）
+```powershell
+chcp 65001 | Out-Null
+```
+
+### 2-2) 重要ポートの PID を特定（非破壊）
+```powershell
+netstat -ano | findstr ":3103"
+netstat -ano | findstr ":8001"
+netstat -ano | findstr ":3000"
+```
+
+### 2-3) PID → プロセス基本情報（非破壊）
+```powershell
+# 例: $pids = @(12345, 23456)
+$pids = @(<PID>, <PID>)
+$pids | ForEach-Object {
+  "---- PID=$_"
+  Get-Process -Id $_ -ErrorAction SilentlyContinue | Select-Object Id,ProcessName,Path
+}
+```
+
+### 2-4) PID → コマンドライン（管理者なら取れる / 取れない場合はエラーを証拠として残す）
+```powershell
+$pids = @(<PID>, <PID>)
+$pids | ForEach-Object {
+  "---- PID=$_"
+  try {
+    Get-CimInstance Win32_Process -Filter "ProcessId=$_" |
+      Select-Object ProcessId,CommandLine | Format-List
+  } catch {
+    "Get-CimInstance failed: " + $_.Exception.Message
+  }
+}
+```
+
+### 2-5) Node/npm/npx の PATH 混在確認（非破壊）
+```powershell
 Get-Command node | Format-List Source,Version
 Get-Command npm  | Format-List Source,Version
 Get-Command npx  | Format-List Source,Version
@@ -33,198 +75,175 @@ where.exe node
 where.exe npm
 where.exe npx
 "COMSPEC=" + $env:COMSPEC
-node -v
-npm -v
-npx --version
-npx next --version
+npm config get script-shell
 ```
 
-### B) ポート/プロセス（※ポート確認は“サーバ起動中”に実施）
-```powershell
-netstat -ano | findstr LISTEN
-netstat -ano | findstr :3103
-netstat -ano | findstr :8001
-Get-Process -Name node -ErrorAction SilentlyContinue | Select-Object Id,ProcessName,Path
-Get-Process -Name php  -ErrorAction SilentlyContinue | Select-Object Id,ProcessName,Path
+### Phase 2 レポート（コピペ用）
+```
+[Phase2: allowlist]
+git status -s:
+<貼る>
+git diff --name-only:
+<貼る>
+
+[Phase2: ports->PID]
+:3103
+<貼る or 出力なし>
+:8001
+<貼る or 出力なし>
+:3000
+<貼る or 出力なし>
+
+[Phase2: PID->process]
+Get-Process:
+<貼る>
+
+[Phase2: PID->commandline]
+Get-CimInstance:
+<貼る（成功/Access denied含む）>
+
+[Phase2: PATH]
+Get-Command / where / COMSPEC / script-shell:
+<貼る>
 ```
 
-管理者 PS でのみ（Access denied 回避）  
+### Phase 2 STOP 条件
+- allowlist 外差分が出た
+- netstat が取れない/異常（この場合も出力を貼って停止）
+- Get-CimInstance が Access denied（出力を貼って停止して OK。続きは可）
+
+---
+
+## Phase 3: UI 証拠取り（Defender / CFA / ブロック履歴）
+ここは操作ガイド + 記録フォーマットのみ。ファイル変更なし。
+
+### 3-1) UI 証拠取り（Windows セキュリティ）
+以下を開いてスクショ（もしくは画面写真）を残す:
+- Windows セキュリティ
+- ウイルスと脅威の防止 → 保護の履歴
+  - node.exe / next / npm / C:\laragon\www\osikatu\frontend が絡むブロックがないか
+  - あれば「詳細」まで開いてスクショ
+- ランサムウェア防止 → 制御されたフォルダーアクセス (CFA)
+  - ON/OFF 状態が分かる画面をスクショ
+  - ブロック履歴や最近ブロックされたアプリが見えるならそれも
+- サードパーティ AV/EDR があるなら
+  - その製品の「検出/隔離/ブロック履歴」画面をスクショ
+
+### 3-2) 追加の非破壊ログ（可能なら）
 ```powershell
-Get-CimInstance Win32_Process -Filter "Name='node.exe'" |
-  Select-Object ProcessId,CommandLine | Format-List
-Get-CimInstance Win32_Process -Filter "Name='php.exe'" |
-  Select-Object ProcessId,CommandLine | Format-List
+try { Get-MpComputerStatus | Select-Object AMServiceEnabled,AntispywareEnabled,AntivirusEnabled,BehaviorMonitorEnabled,RealTimeProtectionEnabled,IsTamperProtected } catch { $_.Exception.Message }
+try { Get-MpThreatDetection | Select-Object -First 20 } catch { $_.Exception.Message }
 ```
 
-（管理者 PS 推奨）PID → ポート逆引き  
-```powershell
-$pid = <PID_NUMERIC>
-Get-NetTCPConnection -OwningProcess $pid -ErrorAction SilentlyContinue |
-  Select-Object LocalAddress,LocalPort,State,OwningProcess
+### Phase 3 レポート（コピペ用）
+```
+[Phase3: UI evidence]
+- Protection History screenshots: <yes/no>  (該当があれば要点を1行で)
+- CFA status screenshot: <ON/OFF/unknown>
+- 3rd party AV/EDR evidence: <yes/no/none>
+
+[Phase3: optional PS logs]
+Get-MpComputerStatus:
+<貼る or エラー>
+Get-MpThreatDetection:
+<貼る or エラー>
 ```
 
-### C) 再現試験（差分ゼロ / 破壊的操作あり→必ず許可後）
-```powershell
-# (許可後) node/npm を停止
-Get-Process node -ErrorAction SilentlyContinue | Stop-Process -Force
-Get-Process npm  -ErrorAction SilentlyContinue | Stop-Process -Force
+### Phase 3 STOP 条件
+- ここまで完了したら次へ進んで OK（破壊的操作はまだしない）
 
-# (許可後) Next キャッシュ削除
+---
+
+## Phase 4: 最小再現（spawn EPERM / wait-on timeout の再現ログ）
+目的: **「Next が 3103 で LISTEN できない」「spawn EPERM が出る」**を最小手順で再現し、ログを残す。
+注意: この Phase はプロセス起動が含まれるが、停止/削除はしない。
+
+### 4-1) 実行前のポート状況（非破壊）
+```powershell
+netstat -ano | findstr ":3103"
+netstat -ano | findstr ":8001"
+netstat -ano | findstr ":3000"
+```
+
+### 4-2) 最小再現①: npm 経由で Next dev（ログ取得）
+```powershell
 cd C:\laragon\www\osikatu\frontend
-Remove-Item -Recurse -Force .next -ErrorAction SilentlyContinue
-Remove-Item -Recurse -Force node_modules\.cache -ErrorAction SilentlyContinue
 
-# 起動テスト（npm → 直叩き）
+$env:NEXT_PUBLIC_DATA_SOURCE="api"
+$env:NEXT_PUBLIC_API_BASE_URL="http://127.0.0.1:8001"
+
 npm run dev -- -p 3103
-# npm 経由が落ちたら直叩き:
+```
+
+- spawn EPERM が出たらログ全文を保存
+- 起動した場合は別ターミナルで（停止はしない）
+```powershell
+curl.exe -I http://127.0.0.1:3103/home
+netstat -ano | findstr ":3103"
+```
+
+### 4-3) 最小再現②: 直叩き（npm 経由ではない）
+```powershell
+cd C:\laragon\www\osikatu\frontend
 node .\node_modules\next\dist\bin\next dev -p 3103
 ```
 
-### D) wait-on 観点（ci:gate で詰まる場合）
-```powershell
-curl.exe -I http://127.0.0.1:3103/home
-$env:DEBUG="wait-on*"
-npm run ci:gate
-```
-
-### E) E2E 単体（必要時）
+### 4-4) 最小再現③: e2e:ci
 ```powershell
 cd C:\laragon\www\osikatu\frontend
-$env:E2E_BASE_URL="http://127.0.0.1:3103"
-$env:PLAYWRIGHT_API_BASE="http://127.0.0.1:8001"
-npx playwright test circle-logs-permission.spec.ts --reporter=line
+npm run e2e:ci
 ```
 
-### F) preflight「3103使用中」の解消手順（PID指定で安全に）
-※停止は**ユーザー許可後のみ**。`node` 全体 kill はしない。  
+期待される観測
+- wait-on が ECONNREFUSED → timeout
+- その前後に spawn EPERM が出る
 
-A) まず PID を特定（非破壊）  
-```powershell
-netstat -ano | findstr :3103
-Get-NetTCPConnection -LocalPort 3103 -ErrorAction SilentlyContinue |
-  Select LocalAddress,LocalPort,State,OwningProcess
+### Phase 4 レポート（コピペ用）
+```
+[Phase4: precheck ports]
+:3103
+<貼る>
+:8001
+<貼る>
+:3000
+<貼る>
+
+[Phase4: repro1 npm run dev -p 3103]
+<ログ全文（spawn EPERM / Ready / EADDRINUSE 等）>
+
+[Phase4: repro2 direct node next dev -p 3103]
+<ログ全文>
+
+[Phase4: repro3 npm run e2e:ci]
+<ログ全文（wait-onの挙動含む）>
+
+[Phase4: postcheck ports]
+:3103
+<貼る>
+:8001
+<貼る>
+:3000
+<貼る>
+
+[Phase4: residual processes (non-destructive)]
+※PID 特定だけ（停止はしない）
+netstat -ano | findstr ":3103"
+netstat -ano | findstr ":8001"
+netstat -ano | findstr ":3000"
 ```
 
-B) コマンドライン確認（管理者なら）  
-```powershell
-Get-CimInstance Win32_Process -Filter "ProcessId=<PID>" |
-  Select ProcessId,CommandLine | Format-List
-```
+### Phase 4 実施後の STOP 宣言
+Phase 4 レポートを貼ったらここで STOP。
 
-C) 停止（破壊的 → ユーザー許可後のみ）  
-```powershell
-Stop-Process -Id <PID> -Force
-```
-
-D) 再確認  
-```powershell
-netstat -ano | findstr :3103
-cd C:\laragon\www\osikatu\frontend
-npm run ci:gate
-```
+次にやるべき候補（実行はしない）
+- A) 破壊的（PID 停止 / .next 削除）を明示許可取りして Phase 5 へ
+- B) Defender/CFA 除外追加（明示許可）で再実行
+- C) 3000 常駐 Next の運用ルール化（Runbook へ反映）
 
 ---
 
-## 1b) 5分で回す短縮版チェックリスト
-1. `Get-Command node/npm/npx` と `where node/npm/npx` で PATH 混在を確認  
-2. `npm run dev -- -p 3103` が `EPERM` かどうか確認  
-3. `node .\node_modules\next\dist\bin\next dev -p 3103` が通るか確認  
-4. `curl.exe -I http://127.0.0.1:3103/home` のステータス確認  
-5. `netstat -ano | findstr :3103` で LISTEN と PID を把握  
-
----
-
-## 2) 観測ベースの判定フロー（断定しない）
-
-### A) `npm run dev` だけ EPERM、`node ...\next dev` は OK
-→ `npm`/`npx` shim（`.cmd`）・PATH 混在・`COMSPEC` 経由 spawn 差を疑う  
-確認ポイント:  
-- `Get-Command npm/npx` の `Source`  
-- `where npm/npx` の順序  
-- **管理者で同じコマンドが通るか**
-
-### B) `npm run dev` も直叩きも EPERM
-→ Defender/AV/CFA/EDR の「プロセス生成ブロック」が濃厚  
-確認ポイント:  
-- Windows セキュリティ「保護の履歴」  
-- CFA（制御されたフォルダーアクセス）ON/OFF とブロック履歴  
-- サードパーティ AV/EDR のログ  
-- 例外に `frontend` フォルダと `node.exe` を追加して改善するか
-
-### C) Next は起動するが `wait-on` がタイムアウト
-→ `/home` が 2xx を返していない（500/404）か初回コンパイルが遅い  
-確認ポイント:  
-- `curl -I /home` のステータス  
-- Next ログで `/home` のコンパイル時間  
-- 必要なら `wait-on` timeout 延長（**変更が必要なら最小差分案を先に提示**）
-
-### D) 管理者で通る / 通常で落ちる
-→ 権限/セキュリティ制限が濃厚（CFA/EDR/実行制限）
-
----
-
-## 3) 収集ログ項目テンプレ（コピペ用）
-```
-[Env]
-node: <node -v>
-npm: <npm -v>
-npx: <npx --version>
-next: <npx next --version>
-Get-Command node: <Source, Version>
-Get-Command npm: <Source, Version>
-Get-Command npx: <Source, Version>
-where node: <paths>
-where npm: <paths>
-where npx: <paths>
-COMSPEC: <echo $env:COMSPEC>
-
-[Ports/Process]
-netstat LISTEN: <netstat -ano | findstr LISTEN>
-netstat 3103: <netstat -ano | findstr :3103>
-netstat 8001: <netstat -ano | findstr :8001>
-Get-Process node: <Id, Path>
-Get-Process php: <Id, Path>
-(管理者なら) CIM node: <ProcessId, CommandLine>
-(管理者なら) Get-NetTCPConnection: <LocalPort list>
-
-[Repro]
-npm run dev -- -p 3103:
-<full output>
-node node_modules\next\dist\bin\next dev -p 3103:
-<full output>
-curl -I http://127.0.0.1:3103/home:
-<status>
-
-[Security]
-Defender protection history: <blocked yes/no + details>
-CFA enabled?: <yes/no>
-AV/EDR: <product + block logs?>
-```
-
----
-
-## 3b) Allowlist（許容差分）運用
-最初に **allowlist を宣言**してから作業を開始する。  
-
-例（コピペ用）:
-```
-Allowlist:
-  - README.md
-  - docs/next-spawn-eperm-runbook.md
-判定:
-  - git diff --name-only の出力が allowlist のみなら続行
-  - それ以外が出たら停止して報告
-```
-
----
-
-## 4) 破壊的操作の原則
-以下は **必ずユーザー許可後** に実行すること。  
-- `Stop-Process` での `node`/`npm` 停止  
-- `.next` / `node_modules\.cache` の削除  
-
----
-
-## 5) 変更が必要な場合の扱い
-環境や運用で解決できない場合のみ変更を検討する。  
-**変更が必要なら必ず「理由・最小差分・影響範囲」を先に提示**し、許可を得てから実施する。
+## 追加: 明日開始の最短ルート（おすすめ順）
+- Phase 2（PID 同定）→ ポート占有と常駐（3000/8001）を事実で固定
+- Phase 3（UI 証拠取り）→ CFA/Defender 起因の可能性を潰す/裏付ける
+- Phase 4（最小再現）→ spawn EPERM / wait-on timeout の再現ログを確定
+- ここで止めて、次アクションに許可を取りに行く（破壊的/除外追加）
