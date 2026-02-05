@@ -2,27 +2,51 @@ import fs from "node:fs";
 import path from "node:path";
 
 const repoRoot = process.cwd();
-const poolPath = path.join(repoRoot, "frontend", "lib", "oshiActionsPool.ts");
+const sharedPath = path.join(repoRoot, "shared", "oshi-actions-ja.json");
+const legacyPath = path.join(repoRoot, "laravel", "resources", "oshi_actions_pool.json");
 
 const args = process.argv.slice(2);
 const addIndex = args.findIndex((a) => a === "--add");
 const addCount = addIndex >= 0 ? Number(args[addIndex + 1]) : 500;
 
-if (!fs.existsSync(poolPath)) {
-  console.error(`[ERR] not found: ${poolPath}`);
-  process.exit(1);
-}
 if (!Number.isFinite(addCount) || addCount <= 0) {
   console.error(`[ERR] invalid --add value: ${addCount}`);
   process.exit(1);
 }
 
-const src = fs.readFileSync(poolPath, "utf8");
+const sourcePath = fs.existsSync(sharedPath)
+  ? sharedPath
+  : fs.existsSync(legacyPath)
+    ? legacyPath
+    : null;
 
-// 既存文字列を抽出（"..." の要素だけ拾う）
+if (!sourcePath) {
+  console.error(`[ERR] not found: ${sharedPath} (or legacy ${legacyPath})`);
+  process.exit(1);
+}
+
+const raw = fs.readFileSync(sourcePath, "utf8");
+let parsed = null;
+try {
+  parsed = JSON.parse(raw);
+} catch (error) {
+  console.error("[ERR] invalid JSON:", sourcePath);
+  process.exit(1);
+}
+
+if (!Array.isArray(parsed)) {
+  console.error("[ERR] JSON must be an array:", sourcePath);
+  process.exit(1);
+}
+
 const existing = new Set();
-for (const m of src.matchAll(/^\s*"(.+?)"\s*,\s*$/gm)) {
-  existing.add(m[1]);
+const baseItems = [];
+for (const item of parsed) {
+  if (typeof item !== "string") continue;
+  const value = item.trim();
+  if (!value || existing.has(value)) continue;
+  existing.add(value);
+  baseItems.push(value);
 }
 
 // --- 生成素材（自然な文になるようカテゴリ分け） ---
@@ -81,21 +105,18 @@ if (newItems.length !== addCount) {
   process.exit(1);
 }
 
-// 末尾の ]; の直前に追記
-const insertPoint = src.lastIndexOf("];\n");
-const fallbackPoint = src.lastIndexOf("];\r\n");
-const point = insertPoint >= 0 ? insertPoint : fallbackPoint;
-if (point < 0) {
-  console.error("[ERR] cannot find closing `];` in pool file");
-  process.exit(1);
+const updated = baseItems.concat(newItems);
+const output = JSON.stringify(updated, null, 2) + "\n";
+
+fs.mkdirSync(path.dirname(sharedPath), { recursive: true });
+fs.writeFileSync(sharedPath, output, { encoding: "utf8" });
+if (fs.existsSync(legacyPath)) {
+  fs.writeFileSync(legacyPath, output, { encoding: "utf8" });
 }
 
-const addition = newItems.map((s) => `  "${s}",`).join("\n") + "\n";
-const updated = src.slice(0, point) + addition + src.slice(point);
-
-// UTF-8（BOMなし）で保存
-fs.writeFileSync(poolPath, updated, { encoding: "utf8" });
-
 console.log(`[OK] added ${addCount} items`);
-console.log(`[OK] total items (approx): ${existing.size}`);
-console.log("[OK] file updated:", poolPath);
+console.log(`[OK] total items: ${updated.length}`);
+console.log("[OK] file updated:", sharedPath);
+if (fs.existsSync(legacyPath)) {
+  console.log("[OK] file updated:", legacyPath);
+}

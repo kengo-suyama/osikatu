@@ -14,7 +14,9 @@ class OshiActionPool
             return self::$cached;
         }
 
-        $path = base_path('resources/oshi_actions_pool.json');
+        $sharedPath = base_path('../shared/oshi-actions-ja.json');
+        $legacyPath = base_path('resources/oshi_actions_pool.json');
+        $path = file_exists($sharedPath) ? $sharedPath : $legacyPath;
         if (!file_exists($path)) {
             self::$cached = [];
             return self::$cached;
