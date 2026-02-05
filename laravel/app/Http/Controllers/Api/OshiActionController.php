@@ -13,6 +13,7 @@ use App\Support\CurrentUser;
 use App\Support\OshiActionPool;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Validator;
 
 class OshiActionController extends Controller
@@ -67,11 +68,6 @@ class OshiActionController extends Controller
             return ApiResponse::error('DEVICE_ID_REQUIRED', 'X-Device-Id header is required', null, 400);
         }
 
-        $user = User::query()->find(CurrentUser::id());
-        if (!$user) {
-            return ApiResponse::error('USER_NOT_FOUND', 'User not found.', null, 404);
-        }
-
         $validator = Validator::make($request->all(), [
             'dateKey' => ['required', 'date_format:Y-m-d'],
         ]);
@@ -83,87 +79,112 @@ class OshiActionController extends Controller
         $data = $validator->validated();
         $dateKey = $data['dateKey'];
 
-        $log = OshiActionLog::query()
-            ->where('user_id', $user->id)
-            ->where('date_key', $dateKey)
-            ->first();
-
-        if (!$log) {
-            $actionText = $this->pickAction($deviceId, $dateKey);
-            if (!$actionText) {
-                return ApiResponse::error('ACTION_UNAVAILABLE', 'No action available.', null, 503);
+        return DB::transaction(function () use ($deviceId, $dateKey) {
+            $user = User::query()
+                ->whereKey(CurrentUser::id())
+                ->lockForUpdate()
+                ->first();
+            if (!$user) {
+                return ApiResponse::error('USER_NOT_FOUND', 'User not found.', null, 404);
             }
 
-            $log = OshiActionLog::create([
-                'user_id' => $user->id,
-                'date_key' => $dateKey,
-                'action_text' => $actionText,
-                'completed_at' => null,
-            ]);
-        }
+            $log = OshiActionLog::query()
+                ->where('user_id', $user->id)
+                ->where('date_key', $dateKey)
+                ->lockForUpdate()
+                ->first();
 
-        if ($log->completed_at) {
-            return ApiResponse::success($this->buildCompletionPayload($user, $log, null, []));
-        }
+            if (!$log) {
+                $actionText = $this->pickAction($deviceId, $dateKey);
+                if (!$actionText) {
+                    return ApiResponse::error('ACTION_UNAVAILABLE', 'No action available.', null, 503);
+                }
 
-        $log->completed_at = now();
-        $log->save();
-
-        $milestones = [1, 3, 7, 14, 30, 60, 100];
-        $today = Carbon::createFromFormat('Y-m-d', $dateKey, 'Asia/Tokyo')->startOfDay();
-        $lastDate = $user->oshi_action_last_date
-            ? Carbon::parse($user->oshi_action_last_date)->startOfDay()
-            : null;
-
-        $nextStreak = 1;
-        if ($lastDate) {
-            $diffDays = $lastDate->diffInDays($today, false);
-            if ($diffDays === 1) {
-                $nextStreak = (int) ($user->oshi_action_streak ?? 0) + 1;
-            } elseif ($diffDays === 0) {
-                $nextStreak = (int) ($user->oshi_action_streak ?? 1);
+                $log = OshiActionLog::create([
+                    'user_id' => $user->id,
+                    'date_key' => $dateKey,
+                    'action_text' => $actionText,
+                    'completed_at' => null,
+                ]);
             }
-        }
 
-        $nextTotal = (int) ($user->oshi_action_total ?? 0) + 1;
-        $awardedTitleId = $this->titleIdFromCount($nextTotal);
+            if ($log->completed_at) {
+                return ApiResponse::success($this->buildCompletionPayload($user, $log, null, []));
+            }
 
-        $user->oshi_action_total = $nextTotal;
-        $user->oshi_action_streak = $nextStreak;
-        $user->oshi_action_last_date = $today->toDateString();
-        $user->current_title_id = $awardedTitleId;
-        $user->save();
+            $log->completed_at = now();
+            $log->save();
 
-        $awards = [];
-        $awards[] = TitleAward::create([
-            'user_id' => $user->id,
-            'title_id' => $awardedTitleId,
-            'reason' => 'action',
-            'meta' => ['total' => $nextTotal],
-            'awarded_at' => now(),
-        ]);
+            $milestones = [1, 3, 7, 14, 30, 60, 100];
+            $today = Carbon::createFromFormat('Y-m-d', $dateKey, 'Asia/Tokyo')->startOfDay();
+            $lastDate = $user->oshi_action_last_date
+                ? Carbon::parse($user->oshi_action_last_date)->startOfDay()
+                : null;
 
-        if (in_array($nextStreak, $milestones, true)) {
-            $awards[] = TitleAward::create([
-                'user_id' => $user->id,
-                'title_id' => $this->titleIdFromCount($nextStreak),
-                'reason' => 'streak',
-                'meta' => ['milestone' => $nextStreak],
-                'awarded_at' => now(),
-            ]);
-        }
+            $nextStreak = 1;
+            if ($lastDate) {
+                $diffDays = $lastDate->diffInDays($today, false);
+                if ($diffDays === 1) {
+                    $nextStreak = (int) ($user->oshi_action_streak ?? 0) + 1;
+                } elseif ($diffDays === 0) {
+                    $nextStreak = (int) ($user->oshi_action_streak ?? 1);
+                }
+            }
 
-        if (in_array($nextTotal, $milestones, true)) {
-            $awards[] = TitleAward::create([
-                'user_id' => $user->id,
-                'title_id' => $this->titleIdFromCount($nextTotal),
-                'reason' => 'days_total',
-                'meta' => ['milestone' => $nextTotal],
-                'awarded_at' => now(),
-            ]);
-        }
+            $nextTotal = (int) ($user->oshi_action_total ?? 0) + 1;
+            $awardedTitleId = $this->titleIdFromCount($nextTotal);
 
-        return ApiResponse::success($this->buildCompletionPayload($user, $log, $awardedTitleId, $awards));
+            $user->oshi_action_total = $nextTotal;
+            $user->oshi_action_streak = $nextStreak;
+            $user->oshi_action_last_date = $today->toDateString();
+            $user->current_title_id = $awardedTitleId;
+            $user->save();
+
+            $awardCandidates = [
+                [
+                    'titleId' => $awardedTitleId,
+                    'reason' => 'action',
+                    'meta' => ['total' => $nextTotal],
+                ],
+            ];
+
+            if (in_array($nextStreak, $milestones, true)) {
+                $awardCandidates[] = [
+                    'titleId' => $this->titleIdFromCount($nextStreak),
+                    'reason' => 'streak',
+                    'meta' => ['milestone' => $nextStreak],
+                ];
+            }
+
+            if (in_array($nextTotal, $milestones, true)) {
+                $awardCandidates[] = [
+                    'titleId' => $this->titleIdFromCount($nextTotal),
+                    'reason' => 'days_total',
+                    'meta' => ['milestone' => $nextTotal],
+                ];
+            }
+
+            $deduped = [];
+            foreach ($awardCandidates as $candidate) {
+                $titleId = $candidate['titleId'];
+                if (!isset($deduped[$titleId])) {
+                    $deduped[$titleId] = $candidate;
+                }
+            }
+
+            $awards = [];
+            foreach ($deduped as $candidate) {
+                $awards[] = TitleAward::create([
+                    'user_id' => $user->id,
+                    'title_id' => $candidate['titleId'],
+                    'reason' => $candidate['reason'],
+                    'meta' => $candidate['meta'],
+                    'awarded_at' => now(),
+                ]);
+            }
+
+            return ApiResponse::success($this->buildCompletionPayload($user, $log, $awardedTitleId, $awards));
+        });
     }
 
     public function titles(Request $request)
