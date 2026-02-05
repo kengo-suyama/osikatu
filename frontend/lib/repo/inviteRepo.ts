@@ -80,7 +80,7 @@ export const inviteRepo = {
       };
     }
     return apiSend<CircleDto>(
-      "/api/invites/join",
+      "/api/invites/accept",
       "POST",
       { code },
       {

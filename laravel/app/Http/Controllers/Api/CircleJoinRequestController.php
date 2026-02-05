@@ -26,6 +26,7 @@ class CircleJoinRequestController extends Controller
         if (!$circleModel || !$circleModel->is_public) {
             return ApiResponse::error('NOT_FOUND', 'Circle not found.', null, 404);
         }
+        return ApiResponse::error('FORBIDDEN', 'Invite code required to join this circle.', null, 403);
 
         $deviceId = $request->header('X-Device-Id');
         if (!$deviceId) {

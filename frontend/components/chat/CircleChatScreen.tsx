@@ -2,13 +2,19 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
-import { ArrowLeft, Send } from "lucide-react";
+import { ArrowLeft, Image, Send, Smile } from "lucide-react";
 import { useReducedMotion } from "framer-motion";
 
 import AvatarCircle from "@/components/common/AvatarCircle";
 import SpecialBackground from "@/components/theme/SpecialBackground";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import {
   Select,
   SelectContent,
@@ -23,8 +29,9 @@ import { eventsRepo } from "@/lib/repo/eventsRepo";
 import { ApiRequestError } from "@/lib/repo/http";
 import { circleRepo } from "@/lib/repo/circleRepo";
 import { meRepo } from "@/lib/repo/meRepo";
+import { chatRepo } from "@/lib/repo/chatRepo";
 import { postRepo } from "@/lib/repo/postRepo";
-import type { CircleDto, MeDto, PostDto } from "@/lib/types";
+import type { CircleAnnouncementDto, CircleDto, MeDto, PostDto } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import { ALL_THEMES } from "@/src/theme/themes";
 
@@ -35,6 +42,17 @@ const formatTime = (value?: string | null) => {
   return date.toLocaleTimeString("ja-JP", { hour: "2-digit", minute: "2-digit" });
 };
 
+const STAMPS = [
+  { id: "sparkle", label: "✨" },
+  { id: "heart", label: "❤️" },
+  { id: "clap", label: "👏" },
+  { id: "cry", label: "🥺" },
+  { id: "fire", label: "🔥" },
+  { id: "party", label: "🎉" },
+  { id: "light", label: "🪄" },
+  { id: "star", label: "🌟" },
+];
+
 export default function CircleChatScreen({ circleId }: { circleId: number }) {
   const router = useRouter();
   const pathname = usePathname();
@@ -43,12 +61,18 @@ export default function CircleChatScreen({ circleId }: { circleId: number }) {
   const [messages, setMessages] = useState<PostDto[]>([]);
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
+  const [uploading, setUploading] = useState(false);
   const [draft, setDraft] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [limitReached, setLimitReached] = useState(false);
   const [specialBgEnabled, setSpecialBgEnabled] = useState(false);
   const [circleThemeId, setCircleThemeId] = useState<string | null>(null);
+  const [announcement, setAnnouncement] = useState<CircleAnnouncementDto | null>(null);
+  const [announcementOpen, setAnnouncementOpen] = useState(false);
+  const [announcementDraft, setAnnouncementDraft] = useState("");
+  const [stampOpen, setStampOpen] = useState(false);
   const bottomRef = useRef<HTMLDivElement | null>(null);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
   const reduceMotion = useReducedMotion();
 
   const circleName = circle?.name ?? "サークル";
@@ -57,21 +81,24 @@ export default function CircleChatScreen({ circleId }: { circleId: number }) {
     setLoading(true);
     setError(null);
     try {
-      const [circleData, chatData, meData] = await Promise.all([
+      const [circleData, chatData, meData, announcementData] = await Promise.all([
         circleRepo.get(circleId),
-        postRepo.listChat(circleId),
+        chatRepo.list(circleId),
         meRepo.getMe(),
+        chatRepo.getAnnouncement(circleId).catch(() => null),
       ]);
       if (!circleData) {
         setCircle(null);
         setMessages([]);
         setMe(meData);
+        setAnnouncement(null);
         setError("サークルが見つかりません");
         return;
       }
       setCircle(circleData);
       setMessages(chatData);
       setMe(meData);
+      setAnnouncement(announcementData);
     } catch (err) {
       setError(err instanceof Error ? err.message : "読み込みに失敗しました");
     } finally {
@@ -106,18 +133,23 @@ export default function CircleChatScreen({ circleId }: { circleId: number }) {
     }
   }, [circle?.ui?.circleThemeId, circle?.ui?.specialBgEnabled]);
 
+  useEffect(() => {
+    setAnnouncementDraft(announcement?.text ?? "");
+  }, [announcement?.text]);
+
+  const isManager = circle?.myRole === "owner" || circle?.myRole === "admin";
   const canUseSpecialBg = me?.plan === "plus" && circle?.myRole === "owner";
   const showSpecialBg = Boolean(specialBgEnabled && !reduceMotion);
   const canUpdateTheme = canUseSpecialBg;
   const themeSelectValue = circleThemeId ?? "personal";
 
-  const handleSend = async () => {
+  const handleSendText = async () => {
     const body = draft.trim();
     if (!body || sending) return;
     setSending(true);
     setError(null);
     try {
-      const created = await postRepo.sendChat(circleId, body);
+      const created = await chatRepo.sendText(circleId, body);
       setMessages((prev) => [...prev, created]);
       setDraft("");
       setLimitReached(false);
@@ -130,6 +162,46 @@ export default function CircleChatScreen({ circleId }: { circleId: number }) {
       }
     } finally {
       setSending(false);
+    }
+  };
+
+  const handleSendStamp = async (stampId: string) => {
+    if (sending) return;
+    setSending(true);
+    setError(null);
+    try {
+      const created = await chatRepo.sendStamp(circleId, stampId);
+      setMessages((prev) => [...prev, created]);
+      setStampOpen(false);
+      eventsRepo.track(ANALYTICS_EVENTS.CHAT_SEND_TEXT, pathname, circleId);
+    } catch (err) {
+      if (err instanceof ApiRequestError && err.code === "plan_limit_chat_messages") {
+        setLimitReached(true);
+      } else {
+        setError(err instanceof Error ? err.message : "送信に失敗しました");
+      }
+    } finally {
+      setSending(false);
+    }
+  };
+
+  const handleUploadMedia = async (file: File) => {
+    if (uploading) return;
+    setUploading(true);
+    setError(null);
+    try {
+      const created = await chatRepo.sendMedia(circleId, file);
+      setMessages((prev) => [...prev, created]);
+      eventsRepo.track(ANALYTICS_EVENTS.CHAT_SEND_TEXT, pathname, circleId);
+    } catch (err) {
+      if (err instanceof ApiRequestError && err.code === "plan_limit_chat_messages") {
+        setLimitReached(true);
+      } else {
+        setError(err instanceof Error ? err.message : "送信に失敗しました");
+      }
+    } finally {
+      setUploading(false);
+      if (fileInputRef.current) fileInputRef.current.value = "";
     }
   };
 
@@ -240,6 +312,29 @@ export default function CircleChatScreen({ circleId }: { circleId: number }) {
       ) : null}
 
       <Card className="relative z-10 flex h-full flex-col gap-3 overflow-hidden rounded-2xl border p-3">
+        <div className="space-y-2">
+          <div className="flex items-center justify-between">
+            <div className="text-xs font-semibold text-muted-foreground">周知メッセージ</div>
+            {isManager ? (
+              <Button size="sm" variant="ghost" onClick={() => setAnnouncementOpen(true)}>
+                {announcement?.text ? "編集" : "設定"}
+              </Button>
+            ) : null}
+          </div>
+          {announcement?.text ? (
+            <div
+              className="rounded-xl border border-border/60 bg-muted/40 p-3 text-sm"
+              data-testid="chat-announcement"
+            >
+              {announcement.text}
+            </div>
+          ) : (
+            <div className="rounded-xl border border-dashed border-border/60 p-3 text-xs text-muted-foreground">
+              まだ周知メッセージがありません。
+            </div>
+          )}
+        </div>
+
         <div className="flex-1 space-y-3 overflow-y-auto">
           {loading ? (
             <div className="text-xs text-muted-foreground">読み込み中...</div>
@@ -252,6 +347,13 @@ export default function CircleChatScreen({ circleId }: { circleId: number }) {
               const prevAuthor = prev?.user ?? prev?.author;
               const isSameAuthor = prevAuthor?.id === author?.id;
               const isMine = me && author?.name === me.name;
+              const isStamp = message.messageType === "stamp" && message.stampId;
+              const mediaItem = message.media?.[0];
+              const isMedia =
+                message.messageType === "media" ||
+                (message.media && message.media.length > 0);
+              const stampLabel =
+                STAMPS.find((item) => item.id === message.stampId)?.label ?? "💫";
               return (
                 <div
                   key={message.id}
@@ -283,7 +385,29 @@ export default function CircleChatScreen({ circleId }: { circleId: number }) {
                           : "bg-muted"
                       )}
                     >
-                      {message.body}
+                      {isStamp ? (
+                        <div className="text-2xl" data-testid="chat-stamp">
+                          {stampLabel}
+                        </div>
+                      ) : isMedia && mediaItem ? (
+                        mediaItem.type === "video" ? (
+                          <video
+                            src={mediaItem.url}
+                            controls
+                            className="max-h-56 w-full rounded-lg"
+                            data-testid="chat-media"
+                          />
+                        ) : (
+                          <img
+                            src={mediaItem.url}
+                            alt="chat media"
+                            className="max-h-56 w-full rounded-lg object-cover"
+                            data-testid="chat-media"
+                          />
+                        )
+                      ) : (
+                        message.body
+                      )}
                     </div>
                     <div className="text-[10px] text-muted-foreground">
                       {formatTime(message.createdAt)}
@@ -315,7 +439,106 @@ export default function CircleChatScreen({ circleId }: { circleId: number }) {
 
         {error ? <div className="text-xs text-red-500">{error}</div> : null}
 
+        <Dialog open={announcementOpen} onOpenChange={setAnnouncementOpen}>
+          <DialogContent className="space-y-3">
+            <DialogHeader>
+              <DialogTitle>周知メッセージを編集</DialogTitle>
+            </DialogHeader>
+            <Textarea
+              value={announcementDraft}
+              onChange={(event) => setAnnouncementDraft(event.target.value)}
+              placeholder="例: 今週の集合は18:30です"
+              rows={4}
+            />
+            <div className="flex items-center justify-between gap-2">
+              <Button
+                variant="secondary"
+                onClick={async () => {
+                  try {
+                    await chatRepo.updateAnnouncement(circleId, announcementDraft.trim());
+                    const next = await chatRepo.getAnnouncement(circleId);
+                    setAnnouncement(next);
+                    setAnnouncementOpen(false);
+                  } catch (err) {
+                    setError(err instanceof Error ? err.message : "更新に失敗しました");
+                  }
+                }}
+                disabled={!announcementDraft.trim()}
+              >
+                保存する
+              </Button>
+              {announcement?.text ? (
+                <Button
+                  variant="outline"
+                  onClick={async () => {
+                    try {
+                      await chatRepo.deleteAnnouncement(circleId);
+                      setAnnouncement({
+                        circleId,
+                        text: null,
+                        updatedAt: null,
+                        updatedBy: null,
+                      });
+                      setAnnouncementDraft("");
+                      setAnnouncementOpen(false);
+                    } catch (err) {
+                      setError(err instanceof Error ? err.message : "削除に失敗しました");
+                    }
+                  }}
+                >
+                  削除
+                </Button>
+              ) : null}
+            </div>
+          </DialogContent>
+        </Dialog>
+
         <div className="flex items-end gap-2">
+          <div className="flex flex-col gap-2">
+            <div className="flex items-center gap-2">
+              <Button size="sm" variant="secondary" onClick={() => setStampOpen(true)}>
+                <Smile className="mr-1 h-4 w-4" />
+                スタンプ
+              </Button>
+              <Button
+                size="sm"
+                variant="secondary"
+                onClick={() => fileInputRef.current?.click()}
+              >
+                <Image className="mr-1 h-4 w-4" />
+                画像/動画
+              </Button>
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/*,video/*"
+                className="hidden"
+                onChange={(event) => {
+                  const file = event.target.files?.[0];
+                  if (file) void handleUploadMedia(file);
+                }}
+              />
+            </div>
+            <Dialog open={stampOpen} onOpenChange={setStampOpen}>
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle>スタンプを選ぶ</DialogTitle>
+                </DialogHeader>
+                <div className="grid grid-cols-4 gap-2">
+                  {STAMPS.map((stamp) => (
+                    <Button
+                      key={stamp.id}
+                      variant="secondary"
+                      onClick={() => void handleSendStamp(stamp.id)}
+                      className="text-2xl"
+                    >
+                      {stamp.label}
+                    </Button>
+                  ))}
+                </div>
+              </DialogContent>
+            </Dialog>
+          </div>
           <Textarea
             value={draft}
             onChange={(event) => setDraft(event.target.value)}
@@ -324,13 +547,13 @@ export default function CircleChatScreen({ circleId }: { circleId: number }) {
             onKeyDown={(event) => {
               if (event.key === "Enter" && !event.shiftKey) {
                 event.preventDefault();
-                handleSend();
+                handleSendText();
               }
             }}
           />
           <Button
             size="icon"
-            onClick={handleSend}
+            onClick={handleSendText}
             disabled={sending || draft.trim().length === 0}
           >
             <Send className="h-4 w-4" />

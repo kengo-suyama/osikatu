@@ -231,7 +231,7 @@ class CircleScheduleController extends Controller
 
         $profile = MeProfile::query()->where('device_id', $deviceId)->first();
         if (!$profile || !$profile->user_id) {
-            return ApiResponse::error('NOT_FOUND', 'Circle not found.', null, 404);
+            return ApiResponse::error('FORBIDDEN', 'Not a circle member.', null, 403);
         }
 
         $member = CircleMember::query()
@@ -240,7 +240,7 @@ class CircleScheduleController extends Controller
             ->first();
 
         if (!$member) {
-            return ApiResponse::error('NOT_FOUND', 'Circle not found.', null, 404);
+            return ApiResponse::error('FORBIDDEN', 'Not a circle member.', null, 403);
         }
 
         return [

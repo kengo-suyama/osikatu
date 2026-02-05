@@ -105,3 +105,50 @@ export async function deleteCircleSchedule(
     }
   );
 }
+
+export async function updateCircleSchedule(
+  circleId: number,
+  scheduleId: string,
+  payload: CircleScheduleCreateRequest
+): Promise<CircleScheduleDto> {
+  if (!isApiMode()) {
+    const list = ensureLocalSchedules(circleId);
+    const next = list.map((item) =>
+      item.id === scheduleId
+        ? {
+            ...item,
+            title: payload.title,
+            startAt: payload.startAt,
+            endAt: payload.endAt ?? payload.startAt,
+            isAllDay: Boolean(payload.isAllDay),
+            note: payload.note ?? null,
+            location: payload.location ?? null,
+            updatedAt: new Date().toISOString(),
+          }
+        : item
+    );
+    saveJson(STORAGE_KEY(circleId), next);
+    const updated = next.find((item) => item.id === scheduleId);
+    if (!updated) throw new Error("schedule not found");
+    return updated;
+  }
+
+  return apiSend<CircleScheduleDto>(
+    `/api/circles/${circleId}/calendar/${scheduleId}`,
+    "PUT",
+    {
+      title: payload.title,
+      startAt: payload.startAt,
+      endAt: payload.endAt ?? payload.startAt,
+      isAllDay: payload.isAllDay ?? false,
+      note: payload.note ?? null,
+      location: payload.location ?? null,
+    },
+    {
+      headers: {
+        "Content-Type": "application/json",
+        "X-Device-Id": getDeviceId(),
+      },
+    }
+  );
+}

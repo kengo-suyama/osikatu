@@ -35,6 +35,7 @@ class MeController extends Controller
             'name' => $user->name,
             'email' => $user->email,
             'plan' => $user->plan ?? 'free',
+            'planStatus' => $user->plan_status ?? 'active',
             'effectivePlan' => PlanGate::effectiveUserPlan($user),
             'trialEndsAt' => $user->trial_ends_at?->toIso8601String(),
             'trialActive' => $trialActive,

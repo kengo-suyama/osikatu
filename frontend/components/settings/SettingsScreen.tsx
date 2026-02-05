@@ -8,8 +8,10 @@ import OshiImageUpload from "@/components/oshi/OshiImageUpload";
 import PlanStatusCard from "@/components/common/PlanStatusCard";
 import PlanLimitDialog from "@/components/common/PlanLimitDialog";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
 import ProfileSettingsCard from "@/components/profile/ProfileSettingsCard";
 import { Switch } from "@/components/ui/switch";
+import Link from "next/link";
 import {
   Select,
   SelectContent,
@@ -198,6 +200,20 @@ export default function SettingsScreen() {
   return (
     <div className="space-y-4">
       {me ? <PlanStatusCard me={me} /> : null}
+
+      <Card className="rounded-2xl border p-4 shadow-sm">
+        <CardHeader className="p-0 pb-3">
+          <CardTitle className="text-sm font-semibold text-muted-foreground">課金</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-2 p-0">
+          <div className="text-xs text-muted-foreground">
+            プラン変更や解約はこちらから行えます。
+          </div>
+          <Button asChild variant="secondary" size="sm">
+            <Link href="/settings/billing">課金設定へ</Link>
+          </Button>
+        </CardContent>
+      </Card>
 
       <ProfileSettingsCard />
 

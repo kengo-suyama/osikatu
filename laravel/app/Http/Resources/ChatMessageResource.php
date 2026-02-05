@@ -42,6 +42,8 @@ class ChatMessageResource extends JsonResource
             ],
             'postType' => 'chat',
             'body' => $this->body ?? '',
+            'messageType' => $this->message_type ?? 'text',
+            'stampId' => $this->stamp_id ?? null,
             'tags' => [],
             'media' => ChatMessageMediaResource::collection($this->whenLoaded('media')),
             'imageUrl' => $this->resolveImageUrl(),
