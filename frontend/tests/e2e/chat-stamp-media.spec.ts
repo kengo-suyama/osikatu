@@ -32,6 +32,9 @@ const assertFrontendUp = async (request: Parameters<typeof test>[1]["request"]) 
   throw new Error(`Frontend server is not running on ${FRONTEND_BASE}.`);
 };
 
+const stripBom = (value: string) => value.replace(/^\uFEFF/, "");
+const parseJson = (value: string) => JSON.parse(stripBom(value)) as any;
+
 const ensureOnboardingDone = async (
   request: Parameters<typeof test>[1]["request"],
   deviceId: string
@@ -41,21 +44,60 @@ const ensureOnboardingDone = async (
   });
 };
 
+const ensurePlusPlan = async (
+  request: Parameters<typeof test>[1]["request"],
+  deviceId: string
+) => {
+  const res = await request.put(`${API_BASE}/api/me/plan`, {
+    headers: {
+      "X-Device-Id": deviceId,
+      Accept: "application/json",
+      "Content-Type": "application/json",
+    },
+    data: { plan: "plus" },
+  });
+  expect(res.ok()).toBeTruthy();
+};
+
+const createCircle = async (
+  request: Parameters<typeof test>[1]["request"],
+  deviceId: string
+) => {
+  const res = await request.post(`${API_BASE}/api/circles`, {
+    headers: {
+      "X-Device-Id": deviceId,
+      Accept: "application/json",
+      "Content-Type": "application/json",
+    },
+    data: {
+      name: `E2E Chat Circle ${Date.now()}`,
+      oshiLabel: "推し",
+      oshiTags: ["e2e-chat"],
+      isPublic: false,
+      joinPolicy: "instant",
+    },
+  });
+  expect(res.ok()).toBeTruthy();
+  const json = parseJson(await res.text());
+  const id = json?.success?.data?.id;
+  expect(typeof id).toBe("number");
+  return id as number;
+};
+
 const waitForChatReady = async (page: Parameters<typeof test>[1]["page"]) => {
   const list = page.locator('[data-testid="chat-message-list"]');
   await expect(list).toBeVisible({ timeout: 30_000 });
-
-  const loading = page.locator('[data-testid="chat-loading"]');
-  if ((await loading.count()) > 0) {
-    await expect(loading).toBeHidden({ timeout: 30_000 });
-  }
 };
 
 test.describe("chat stamp and media", () => {
   test("chat page has stamp button and input", async ({ page, request }) => {
     attachDiagnostics(page, "chat-stamp");
     await assertFrontendUp(request);
-    await ensureOnboardingDone(request, "device-e2e-chat-001");
+
+    const deviceId = "device-e2e-chat-001";
+    await ensureOnboardingDone(request, deviceId);
+    await ensurePlusPlan(request, deviceId);
+    const circleId = await createCircle(request, deviceId);
 
     await page.addInitScript(() => {
       localStorage.setItem("osikatu:device:id", "device-e2e-chat-001");
@@ -63,8 +105,8 @@ test.describe("chat stamp and media", () => {
       localStorage.setItem("osikatu:api-base-url", "http://127.0.0.1:8001");
     });
 
-    // Navigate to chat page (assuming circle ID 1 exists)
-    await page.goto("/circles/1/chat", { waitUntil: "domcontentloaded" });
+    // Navigate to chat page (newly created circle)
+    await page.goto(`/circles/${circleId}/chat`, { waitUntil: "domcontentloaded" });
     await waitForChatReady(page);
 
     // Check chat input exists
@@ -91,7 +133,11 @@ test.describe("chat stamp and media", () => {
   test("stamp picker opens and shows stamps", async ({ page, request }) => {
     attachDiagnostics(page, "chat-stamp-picker");
     await assertFrontendUp(request);
-    await ensureOnboardingDone(request, "device-e2e-chat-002");
+
+    const deviceId = "device-e2e-chat-002";
+    await ensureOnboardingDone(request, deviceId);
+    await ensurePlusPlan(request, deviceId);
+    const circleId = await createCircle(request, deviceId);
 
     await page.addInitScript(() => {
       localStorage.setItem("osikatu:device:id", "device-e2e-chat-002");
@@ -99,7 +145,7 @@ test.describe("chat stamp and media", () => {
       localStorage.setItem("osikatu:api-base-url", "http://127.0.0.1:8001");
     });
 
-    await page.goto("/circles/1/chat", { waitUntil: "domcontentloaded" });
+    await page.goto(`/circles/${circleId}/chat`, { waitUntil: "domcontentloaded" });
     await waitForChatReady(page);
 
     // Wait for stamp button
@@ -121,7 +167,11 @@ test.describe("chat stamp and media", () => {
   test("can send text message", async ({ page, request }) => {
     attachDiagnostics(page, "chat-send-text");
     await assertFrontendUp(request);
-    await ensureOnboardingDone(request, "device-e2e-chat-003");
+
+    const deviceId = "device-e2e-chat-003";
+    await ensureOnboardingDone(request, deviceId);
+    await ensurePlusPlan(request, deviceId);
+    const circleId = await createCircle(request, deviceId);
 
     await page.addInitScript(() => {
       localStorage.setItem("osikatu:device:id", "device-e2e-chat-003");
@@ -129,7 +179,7 @@ test.describe("chat stamp and media", () => {
       localStorage.setItem("osikatu:api-base-url", "http://127.0.0.1:8001");
     });
 
-    await page.goto("/circles/1/chat", { waitUntil: "domcontentloaded" });
+    await page.goto(`/circles/${circleId}/chat`, { waitUntil: "domcontentloaded" });
     await waitForChatReady(page);
 
     const chatInput = page.locator('[data-testid="chat-input"]');
@@ -145,16 +195,26 @@ test.describe("chat stamp and media", () => {
     await expect(sendButton).toBeEnabled();
 
     // Add a tiny artificial delay so we can reliably observe "sending" disabled state.
-    await page.route("**/api/circles/1/chat/messages", async (route, req) => {
+    await page.route(`**/api/circles/${circleId}/chat/messages`, async (route, req) => {
       if (req.method() === "POST") {
         await new Promise((resolve) => setTimeout(resolve, 300));
       }
       await route.continue();
     });
 
+    const sendResponse = page.waitForResponse((response) => {
+      const req = response.request();
+      return (
+        req.method() === "POST" &&
+        response.url().includes(`/api/circles/${circleId}/chat/messages`)
+      );
+    });
+
     await sendButton.click();
 
     await expect(sendButton).toBeDisabled();
+    const res = await sendResponse;
+    expect(res.ok()).toBeTruthy();
     await expect(chatInput).toHaveValue("");
 
     await expect(items).toHaveCount(beforeCount + 1, { timeout: 30_000 });
