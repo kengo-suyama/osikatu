@@ -303,6 +303,8 @@ export type PostDto = {
 export type OshiDto = {
   id: number;
   name: string;
+  category: string | null;
+  isPrimary: boolean;
   nickname: string | null;
   birthday: string | null;
   heightCm: number | null;

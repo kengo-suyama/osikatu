@@ -21,7 +21,7 @@
     "e2e:trace:log": "powershell -NoProfile -Command \"node tools\\ensure-logs-dir.cjs; npm run e2e:trace 2>&1 | Tee-Object -FilePath logs\\e2e-trace.log\"",
     "e2e:trace:log:ts": "node tools\\run-with-log.cjs e2e-trace npm run e2e:trace",
     "dev:api": "set NEXT_PUBLIC_DATA_SOURCE=api && set NEXT_PUBLIC_API_BASE_URL=http://127.0.0.1:8000 && npm run dev -- -p 3000",
-    "e2e:ci": "node tools\\ensure-ports-free.cjs 3103 8001 && concurrently --raw -k -s first -n BACK,FRONT,TEST \"cd ..\\laravel && php artisan serve --host=127.0.0.1 --port=8001\" \"set NEXT_PUBLIC_DATA_SOURCE=api && set NEXT_PUBLIC_API_BASE_URL=http://127.0.0.1:8001 && npm run dev -- -p 3103\" \"set E2E_BASE_URL=http://127.0.0.1:3103 && set PLAYWRIGHT_API_BASE=http://127.0.0.1:8001 && wait-on --verbose --interval 250 --timeout 90000 tcp:8001 http-get://127.0.0.1:3103/home && echo WAIT-ON OK && playwright test --reporter=line\""
+    "e2e:ci": "node tools\\ensure-ports-free.cjs 3103 8001 && concurrently --raw -k -s first -n GUARD,BACK,FRONT,TEST \"node tools\\\\guard-git-head.cjs ..\" \"cd ..\\laravel && php artisan serve --host=127.0.0.1 --port=8001\" \"set NEXT_PUBLIC_DATA_SOURCE=api && set NEXT_PUBLIC_API_BASE_URL=http://127.0.0.1:8001 && set NEXT_DIST_DIR=.next-e2e && npm run dev -- -p 3103\" \"set E2E_BASE_URL=http://127.0.0.1:3103 && set PLAYWRIGHT_API_BASE=http://127.0.0.1:8001 && wait-on --verbose --interval 250 --timeout 90000 tcp:8001 http-get://127.0.0.1:3103/home && echo WAIT-ON OK && playwright test --reporter=line\""
   },
   "dependencies": {
     "@radix-ui/react-accordion": "^1.2.12",

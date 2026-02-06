@@ -2,7 +2,7 @@
 
 import type { CSSProperties } from "react";
 import { useEffect, useMemo, useState } from "react";
-import { Bookmark, BookmarkCheck, Trash2 } from "lucide-react";
+import { Bookmark, BookmarkCheck, CalendarDays, Trash2 } from "lucide-react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 
@@ -39,15 +39,21 @@ import { eventsRepo } from "@/lib/repo/eventsRepo";
 import { meRepo } from "@/lib/repo/meRepo";
 import { deleteMeLog, listMyLogs } from "@/lib/repo/operationLogRepo";
 import { oshiRepo } from "@/lib/repo/oshiRepo";
+import { fetchMySchedules } from "@/lib/repo/scheduleRepo";
 import { useBudgetState } from "@/lib/budgetState";
 import { BudgetResponse } from "@/lib/repo/budgetRepo";
 import { loadJson, loadString, removeString, saveJson, saveString } from "@/lib/storage";
-import type { CircleDto, MeDto, OperationLogDto, OwnerDashboardDto } from "@/lib/types";
+import type { CircleDto, MeDto, OperationLogDto, OwnerDashboardDto, ScheduleDto } from "@/lib/types";
 import type { Oshi, SupplyItem } from "@/lib/uiTypes";
 import { cn } from "@/lib/utils";
 import { getSafeDisplayName, isProfileNameMissing } from "@/lib/ui/profileDisplay";
 import { formatLogTime, logSentence } from "@/lib/ui/logText";
 import { isApiMode } from "@/lib/config";
+
+const OSHI_CATEGORIES = [
+  "アイドル", "VTuber", "俳優", "声優", "アーティスト",
+  "アニメキャラ", "スポーツ選手", "お笑い", "その他",
+] as const;
 
 const supplyTabs = [
   { value: "today", label: "今日" },
@@ -94,6 +100,10 @@ export default function HomeScreen() {
   const [filter, setFilter] = useState<CategoryFilter>("全部");
   const [laterIds, setLaterIds] = useState<string[]>([]);
   const [oshis, setOshis] = useState<Oshi[]>([]);
+  const [oshisLoaded, setOshisLoaded] = useState(false);
+  const [gateName, setGateName] = useState("");
+  const [gateCategory, setGateCategory] = useState(OSHI_CATEGORIES[0]);
+  const [gateSubmitting, setGateSubmitting] = useState(false);
   const [selectedOshi, setSelectedOshi] = useState<Oshi | null>(null);
   const [selectedCircleId, setSelectedCircleId] = useState<number | null>(null);
   const [ownerDashboard, setOwnerDashboard] = useState<OwnerDashboardDto | null>(null);
@@ -101,6 +111,8 @@ export default function HomeScreen() {
   const [me, setMe] = useState<MeDto | null>(null);
   const [myLogs, setMyLogs] = useState<OperationLogDto[]>([]);
   const [myLogsLoading, setMyLogsLoading] = useState(false);
+  const [upcomingSchedules, setUpcomingSchedules] = useState<ScheduleDto[]>([]);
+  const [schedulesLoading, setSchedulesLoading] = useState(false);
   const [deletingLogId, setDeletingLogId] = useState<string | null>(null);
   const defaultBudgetState = useMemo<BudgetResponse>(() => {
     const currentMonth = new Date().toISOString().slice(0, 7);
@@ -126,12 +138,14 @@ export default function HomeScreen() {
       try {
         const list = await oshiRepo.getOshis();
         setOshis(list);
+        setOshisLoaded(true);
         const storedOshi = loadString(OSHI_KEY);
         const resolved =
           list.find((oshi) => String(oshi.id) === String(storedOshi)) ?? list[0] ?? null;
         setSelectedOshi(resolved);
       } catch {
         setOshis([]);
+        setOshisLoaded(true);
         setSelectedOshi(null);
       }
     };
@@ -299,6 +313,29 @@ export default function HomeScreen() {
   }, []);
 
   useEffect(() => {
+    let mounted = true;
+    setSchedulesLoading(true);
+    const now = new Date();
+    const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
+    fetchMySchedules({ from: today })
+      .then((items) => {
+        if (!mounted) return;
+        setUpcomingSchedules(items.slice(0, 5));
+      })
+      .catch(() => {
+        if (!mounted) return;
+        setUpcomingSchedules([]);
+      })
+      .finally(() => {
+        if (!mounted) return;
+        setSchedulesLoading(false);
+      });
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
+  useEffect(() => {
     setBudgetInputs(budgetData);
   }, [budgetData]);
 
@@ -351,6 +388,24 @@ export default function HomeScreen() {
       // ignore
     } finally {
       setDeletingLogId(null);
+    }
+  };
+
+  const handleCreateFirstOshi = async () => {
+    if (!gateName.trim()) return;
+    setGateSubmitting(true);
+    try {
+      const created = await oshiRepo.createOshi({
+        name: gateName.trim(),
+        category: gateCategory,
+      });
+      setOshis([created]);
+      setSelectedOshi(created);
+      saveString(OSHI_KEY, String(created.id));
+    } catch {
+      // ignore – user stays on gate
+    } finally {
+      setGateSubmitting(false);
     }
   };
 
@@ -427,6 +482,41 @@ export default function HomeScreen() {
       className={cn("space-y-4", isCompact && "space-y-3")}
       style={{ "--accent": accentColor } as CSSProperties}
     >
+      {oshisLoaded && oshis.length === 0 ? (
+        <Card className="rounded-2xl border p-6 shadow-sm" data-testid="oshi-gate">
+          <CardHeader className="p-0 pb-4">
+            <CardTitle className="text-base font-bold">まずは推しを登録しよう</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3 p-0">
+            <Input
+              placeholder="推しの名前"
+              value={gateName}
+              onChange={(e) => setGateName(e.target.value)}
+              data-testid="gate-oshi-name"
+            />
+            <select
+              className="w-full rounded-md border bg-background px-3 py-2 text-sm"
+              value={gateCategory}
+              onChange={(e) => setGateCategory(e.target.value)}
+              aria-label="推しカテゴリ"
+              data-testid="gate-oshi-category"
+            >
+              {OSHI_CATEGORIES.map((cat) => (
+                <option key={cat} value={cat}>{cat}</option>
+              ))}
+            </select>
+            <Button
+              className="w-full"
+              disabled={!gateName.trim() || gateSubmitting}
+              onClick={handleCreateFirstOshi}
+              data-testid="gate-submit"
+            >
+              {gateSubmitting ? "登録中..." : "推しを登録してはじめる"}
+            </Button>
+          </CardContent>
+        </Card>
+      ) : null}
+
       <div className="flex items-center justify-between">
         <div className="text-sm font-semibold text-muted-foreground">Home</div>
         <HowToUseDialog />
@@ -522,6 +612,45 @@ export default function HomeScreen() {
             ))
           ) : (
             <div className="text-xs text-muted-foreground">ログがまだありません</div>
+          )}
+        </CardContent>
+      </Card>
+
+      <Card className="rounded-2xl border p-4 shadow-sm" data-testid="home-schedule-summary">
+        <CardHeader className="p-0 pb-3">
+          <div className="flex items-center justify-between">
+            <CardTitle className="flex items-center gap-1.5 text-sm font-semibold text-muted-foreground">
+              <CalendarDays className="h-4 w-4" />
+              次の予定
+            </CardTitle>
+            <Link href="/schedule" className="text-xs underline opacity-80 hover:opacity-100">
+              すべて見る
+            </Link>
+          </div>
+        </CardHeader>
+        <CardContent className="space-y-2 p-0">
+          {schedulesLoading ? (
+            <div className="text-xs text-muted-foreground">読み込み中...</div>
+          ) : upcomingSchedules.length > 0 ? (
+            upcomingSchedules.map((s) => (
+              <div
+                key={s.id}
+                className="rounded-xl border border-border/60 bg-muted/30 p-3"
+                data-testid="home-schedule-item"
+              >
+                <div className="text-sm font-medium">{s.title}</div>
+                <div className="mt-1 flex flex-wrap gap-2 text-xs text-muted-foreground">
+                  <span>
+                    {s.isAllDay
+                      ? new Date(s.startAt).toLocaleDateString("ja-JP", { month: "short", day: "numeric" })
+                      : new Date(s.startAt).toLocaleDateString("ja-JP", { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })}
+                  </span>
+                  {s.location ? <span>· {s.location}</span> : null}
+                </div>
+              </div>
+            ))
+          ) : (
+            <div className="text-xs text-muted-foreground">予定がありません</div>
           )}
         </CardContent>
       </Card>

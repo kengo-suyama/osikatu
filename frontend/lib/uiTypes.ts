@@ -156,6 +156,8 @@ export type OshiProfile = {
 export type Oshi = {
   id: number | string;
   name: string;
+  category?: string | null;
+  is_primary?: boolean;
   profile: OshiProfile;
   updated_at?: string | null;
 };
