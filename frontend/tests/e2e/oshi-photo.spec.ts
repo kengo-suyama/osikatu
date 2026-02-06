@@ -34,25 +34,29 @@ const assertFrontendUp = async (request: Parameters<typeof test>[1]["request"]) 
 };
 
 const ensureOshi = async (request: Parameters<typeof test>[1]["request"]) => {
-  const res = await request.get(`${API_BASE}/api/oshis`, {
-    headers: { "X-Device-Id": DEVICE_ID, Accept: "application/json" },
-  });
-  if (!res.ok()) return null;
-  const body = await res.json();
-  const items = body?.success?.data ?? [];
-  if (items.length > 0) return items[0];
+  try {
+    const res = await request.get(`${API_BASE}/api/oshis`, {
+      headers: { "X-Device-Id": DEVICE_ID, Accept: "application/json" },
+    });
+    if (!res.ok()) return null;
+    const body = await res.json();
+    const items = body?.success?.data ?? [];
+    if (items.length > 0) return items[0];
 
-  const createRes = await request.post(`${API_BASE}/api/oshis`, {
-    headers: {
-      "X-Device-Id": DEVICE_ID,
-      "Content-Type": "application/json",
-      Accept: "application/json",
-    },
-    data: { name: "写真テスト推し", category: "アイドル" },
-  });
-  if (!createRes.ok()) return null;
-  const created = await createRes.json();
-  return created?.success?.data ?? null;
+    const createRes = await request.post(`${API_BASE}/api/oshis`, {
+      headers: {
+        "X-Device-Id": DEVICE_ID,
+        "Content-Type": "application/json",
+        Accept: "application/json",
+      },
+      data: { name: "写真テスト推し", category: "アイドル" },
+    });
+    if (!createRes.ok()) return null;
+    const created = await createRes.json();
+    return created?.success?.data ?? null;
+  } catch {
+    return null;
+  }
 };
 
 test.describe("oshi photo upload", () => {
