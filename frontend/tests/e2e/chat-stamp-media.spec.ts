@@ -32,6 +32,15 @@ const assertFrontendUp = async (request: Parameters<typeof test>[1]["request"]) 
   throw new Error(`Frontend server is not running on ${FRONTEND_BASE}.`);
 };
 
+const ensureOnboardingDone = async (
+  request: Parameters<typeof test>[1]["request"],
+  deviceId: string
+) => {
+  await request.post(`${API_BASE}/api/me/onboarding/skip`, {
+    headers: { "X-Device-Id": deviceId, Accept: "application/json" },
+  });
+};
+
 const waitForChatReady = async (page: Parameters<typeof test>[1]["page"]) => {
   const list = page.locator('[data-testid="chat-message-list"]');
   await expect(list).toBeVisible({ timeout: 30_000 });
@@ -46,6 +55,7 @@ test.describe("chat stamp and media", () => {
   test("chat page has stamp button and input", async ({ page, request }) => {
     attachDiagnostics(page, "chat-stamp");
     await assertFrontendUp(request);
+    await ensureOnboardingDone(request, "device-e2e-chat-001");
 
     await page.addInitScript(() => {
       localStorage.setItem("osikatu:device:id", "device-e2e-chat-001");
@@ -81,6 +91,7 @@ test.describe("chat stamp and media", () => {
   test("stamp picker opens and shows stamps", async ({ page, request }) => {
     attachDiagnostics(page, "chat-stamp-picker");
     await assertFrontendUp(request);
+    await ensureOnboardingDone(request, "device-e2e-chat-002");
 
     await page.addInitScript(() => {
       localStorage.setItem("osikatu:device:id", "device-e2e-chat-002");
@@ -110,6 +121,7 @@ test.describe("chat stamp and media", () => {
   test("can send text message", async ({ page, request }) => {
     attachDiagnostics(page, "chat-send-text");
     await assertFrontendUp(request);
+    await ensureOnboardingDone(request, "device-e2e-chat-003");
 
     await page.addInitScript(() => {
       localStorage.setItem("osikatu:device:id", "device-e2e-chat-003");
