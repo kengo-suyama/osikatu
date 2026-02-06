@@ -124,7 +124,10 @@ export default function CircleAlbumScreen({ circleId }: { circleId: number }) {
             value={caption}
             onChange={(event) => setCaption(event.target.value)}
           />
-          <label className="flex cursor-pointer items-center justify-center rounded-xl border border-dashed px-3 py-2 text-xs text-muted-foreground">
+          <label
+            className="flex cursor-pointer items-center justify-center rounded-xl border border-dashed px-3 py-2 text-xs text-muted-foreground"
+            data-testid="album-upload"
+          >
             画像/動画を追加
             <Input
               type="file"
@@ -164,6 +167,7 @@ export default function CircleAlbumScreen({ circleId }: { circleId: number }) {
               type="button"
               className="overflow-hidden rounded-xl border border-border/60"
               onClick={() => openViewer(index)}
+              data-testid="album-item"
             >
               {item.type === "video" ? (
                 <video src={item.url} className="h-24 w-full object-cover" muted />
