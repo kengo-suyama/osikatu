@@ -35,6 +35,8 @@ Project rules live in `AGENTS.md` (DTO fixed, repo-layer only for data access, U
 4. Run quick verification (see below).
 5. Keep diffs small; one feature per PR.
 
+Note: the GitHub repo enforces "changes must be made through a pull request" (direct `main` push is rejected).
+
 ## How To Run (Dev)
 
 ### Frontend (Next.js)
