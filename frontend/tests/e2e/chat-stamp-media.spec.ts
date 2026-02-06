@@ -32,6 +32,16 @@ const assertFrontendUp = async (request: Parameters<typeof test>[1]["request"]) 
   throw new Error(`Frontend server is not running on ${FRONTEND_BASE}.`);
 };
 
+const waitForChatReady = async (page: Parameters<typeof test>[1]["page"]) => {
+  const list = page.locator('[data-testid="chat-message-list"]');
+  await expect(list).toBeVisible({ timeout: 30_000 });
+
+  const loading = page.locator('[data-testid="chat-loading"]');
+  if ((await loading.count()) > 0) {
+    await expect(loading).toBeHidden({ timeout: 30_000 });
+  }
+};
+
 test.describe("chat stamp and media", () => {
   test("chat page has stamp button and input", async ({ page, request }) => {
     attachDiagnostics(page, "chat-stamp");
@@ -45,6 +55,7 @@ test.describe("chat stamp and media", () => {
 
     // Navigate to chat page (assuming circle ID 1 exists)
     await page.goto("/circles/1/chat", { waitUntil: "domcontentloaded" });
+    await waitForChatReady(page);
 
     // Check chat input exists
     const chatInput = page.locator('[data-testid="chat-input"]');
@@ -78,6 +89,7 @@ test.describe("chat stamp and media", () => {
     });
 
     await page.goto("/circles/1/chat", { waitUntil: "domcontentloaded" });
+    await waitForChatReady(page);
 
     // Wait for stamp button
     const stampButton = page.locator('[data-testid="chat-stamp-open"]');
@@ -106,29 +118,36 @@ test.describe("chat stamp and media", () => {
     });
 
     await page.goto("/circles/1/chat", { waitUntil: "domcontentloaded" });
+    await waitForChatReady(page);
 
     const chatInput = page.locator('[data-testid="chat-input"]');
     await expect(chatInput).toBeVisible({ timeout: 30_000 });
+
+    const items = page.locator('[data-testid="chat-message-item"]');
+    const beforeCount = await items.count();
 
     const testMessage = `E2E test message ${Date.now()}`;
     await chatInput.fill(testMessage);
 
     const sendButton = page.locator('[data-testid="chat-send"]');
     await expect(sendButton).toBeEnabled();
+
+    // Add a tiny artificial delay so we can reliably observe "sending" disabled state.
+    await page.route("**/api/circles/1/chat/messages", async (route, req) => {
+      if (req.method() === "POST") {
+        await new Promise((resolve) => setTimeout(resolve, 300));
+      }
+      await route.continue();
+    });
+
     await sendButton.click();
 
-    // Wait for message to appear
-    await page.waitForTimeout(2000);
+    await expect(sendButton).toBeDisabled();
+    await expect(chatInput).toHaveValue("");
 
-    // Verify message appears in chat
-    const messageText = page.locator(`text=${testMessage}`);
-    const messageVisible = await messageText.isVisible().catch(() => false);
+    await expect(items).toHaveCount(beforeCount + 1, { timeout: 30_000 });
+    await expect(items.last()).toContainText(testMessage);
 
-    if (messageVisible) {
-      logPass("Text message sent and visible");
-    } else {
-      // Message might have been sent but not yet rendered
-      logPass("Text message send attempted (rendering may vary)");
-    }
+    logPass("Text message sent, input cleared, and message rendered");
   });
 });

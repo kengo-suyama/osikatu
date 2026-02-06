@@ -335,9 +335,11 @@ export default function CircleChatScreen({ circleId }: { circleId: number }) {
           )}
         </div>
 
-        <div className="flex-1 space-y-3 overflow-y-auto">
+        <div className="flex-1 space-y-3 overflow-y-auto" data-testid="chat-message-list">
           {loading ? (
-            <div className="text-xs text-muted-foreground">読み込み中...</div>
+            <div className="text-xs text-muted-foreground" data-testid="chat-loading">
+              読み込み中...
+            </div>
           ) : resolvedMessages.length === 0 ? (
             <div className="text-xs text-muted-foreground">まだチャットがありません</div>
           ) : (
@@ -357,6 +359,7 @@ export default function CircleChatScreen({ circleId }: { circleId: number }) {
               return (
                 <div
                   key={message.id}
+                  data-testid="chat-message-item"
                   className={cn(
                     "flex items-end gap-2",
                     isMine ? "justify-end" : "justify-start"
