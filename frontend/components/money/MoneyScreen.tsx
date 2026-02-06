@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 
 import { useBudgetState } from "@/lib/budgetState";
+import { localYearMonth } from "@/lib/date";
 import MoneyChart from "@/components/money/MoneyChart";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -12,7 +13,7 @@ import type { BudgetResponse } from "@/lib/repo/budgetRepo";
 
 export default function MoneyScreen() {
   const defaultBudgetState = useMemo<BudgetResponse>(() => {
-    const currentMonth = new Date().toISOString().slice(0, 7);
+    const currentMonth = localYearMonth();
     return {
       budget: moneySnapshot.budget,
       spent: moneySnapshot.spent,

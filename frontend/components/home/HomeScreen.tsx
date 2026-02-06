@@ -40,6 +40,7 @@ import { meRepo } from "@/lib/repo/meRepo";
 import { deleteMeLog, listMyLogs } from "@/lib/repo/operationLogRepo";
 import { oshiRepo } from "@/lib/repo/oshiRepo";
 import { fetchMySchedules } from "@/lib/repo/scheduleRepo";
+import { localYearMonth, localDate } from "@/lib/date";
 import { useBudgetState } from "@/lib/budgetState";
 import { BudgetResponse } from "@/lib/repo/budgetRepo";
 import { loadJson, loadString, removeString, saveJson, saveString } from "@/lib/storage";
@@ -115,7 +116,7 @@ export default function HomeScreen() {
   const [schedulesLoading, setSchedulesLoading] = useState(false);
   const [deletingLogId, setDeletingLogId] = useState<string | null>(null);
   const defaultBudgetState = useMemo<BudgetResponse>(() => {
-    const currentMonth = new Date().toISOString().slice(0, 7);
+    const currentMonth = localYearMonth();
     return {
       budget: moneySnapshot.budget,
       spent: moneySnapshot.spent,
@@ -315,8 +316,7 @@ export default function HomeScreen() {
   useEffect(() => {
     let mounted = true;
     setSchedulesLoading(true);
-    const now = new Date();
-    const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
+    const today = localDate();
     fetchMySchedules({ from: today })
       .then((items) => {
         if (!mounted) return;
@@ -869,10 +869,10 @@ export default function HomeScreen() {
 
       <NextDeadlines items={displayedDeadlines} />
 
-      <Card className="rounded-2xl border p-4 shadow-sm">
+      <Card className="rounded-2xl border p-4 shadow-sm" data-testid="home-budget-card">
         <CardHeader className="space-y-1 p-0 pb-3">
           <CardTitle className="text-sm font-semibold text-muted-foreground">今月あといくら？</CardTitle>
-          <div className="text-3xl font-semibold">
+          <div className="text-3xl font-semibold" data-testid="home-budget-remaining">
             ¥{remainingBudget.toLocaleString("ja-JP")}
           </div>
           <div className="text-xs text-muted-foreground">
@@ -894,10 +894,11 @@ export default function HomeScreen() {
               }
               placeholder="予算"
               min={0}
+              data-testid="home-budget-input"
             />
           </div>
           <div className="flex flex-wrap items-center gap-2">
-            <Button size="sm" onClick={handleBudgetSave} disabled={budgetLoading}>
+            <Button size="sm" onClick={handleBudgetSave} disabled={budgetLoading} data-testid="home-budget-save">
               {budgetLoading ? "保存中..." : "保存"}
             </Button>
             {budgetMessage ? (
