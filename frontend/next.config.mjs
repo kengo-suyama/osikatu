@@ -1,6 +1,9 @@
 /** @type {import('next').NextConfig} */
+const distDir = process.env.NEXT_DIST_DIR?.trim();
 const nextConfig = {
   reactStrictMode: true,
+  // Workaround: allow e2e/CI runs to use a different dist directory to avoid local .next write/ACL issues.
+  ...(distDir ? { distDir } : {}),
   experimental: {
     externalDir: true,
   },

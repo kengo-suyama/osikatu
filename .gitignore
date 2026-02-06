@@ -8,6 +8,7 @@ laravel/storage/*
 frontend/node_modules/
 frontend/.next/
 frontend/out/
+frontend/.next-e2e/
 frontend/.env.local
 frontend/.env.*
 
