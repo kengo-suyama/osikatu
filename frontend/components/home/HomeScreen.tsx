@@ -49,6 +49,11 @@ import { getSafeDisplayName, isProfileNameMissing } from "@/lib/ui/profileDispla
 import { formatLogTime, logSentence } from "@/lib/ui/logText";
 import { isApiMode } from "@/lib/config";
 
+const OSHI_CATEGORIES = [
+  "アイドル", "VTuber", "俳優", "声優", "アーティスト",
+  "アニメキャラ", "スポーツ選手", "お笑い", "その他",
+] as const;
+
 const supplyTabs = [
   { value: "today", label: "今日" },
   { value: "week", label: "今週" },
@@ -94,6 +99,10 @@ export default function HomeScreen() {
   const [filter, setFilter] = useState<CategoryFilter>("全部");
   const [laterIds, setLaterIds] = useState<string[]>([]);
   const [oshis, setOshis] = useState<Oshi[]>([]);
+  const [oshisLoaded, setOshisLoaded] = useState(false);
+  const [gateName, setGateName] = useState("");
+  const [gateCategory, setGateCategory] = useState(OSHI_CATEGORIES[0]);
+  const [gateSubmitting, setGateSubmitting] = useState(false);
   const [selectedOshi, setSelectedOshi] = useState<Oshi | null>(null);
   const [selectedCircleId, setSelectedCircleId] = useState<number | null>(null);
   const [ownerDashboard, setOwnerDashboard] = useState<OwnerDashboardDto | null>(null);
@@ -126,12 +135,14 @@ export default function HomeScreen() {
       try {
         const list = await oshiRepo.getOshis();
         setOshis(list);
+        setOshisLoaded(true);
         const storedOshi = loadString(OSHI_KEY);
         const resolved =
           list.find((oshi) => String(oshi.id) === String(storedOshi)) ?? list[0] ?? null;
         setSelectedOshi(resolved);
       } catch {
         setOshis([]);
+        setOshisLoaded(true);
         setSelectedOshi(null);
       }
     };
@@ -354,6 +365,24 @@ export default function HomeScreen() {
     }
   };
 
+  const handleCreateFirstOshi = async () => {
+    if (!gateName.trim()) return;
+    setGateSubmitting(true);
+    try {
+      const created = await oshiRepo.createOshi({
+        name: gateName.trim(),
+        category: gateCategory,
+      });
+      setOshis([created]);
+      setSelectedOshi(created);
+      saveString(OSHI_KEY, String(created.id));
+    } catch {
+      // ignore – user stays on gate
+    } finally {
+      setGateSubmitting(false);
+    }
+  };
+
   const handleBudgetSave = async () => {
     setBudgetMessage(null);
     try {
@@ -427,6 +456,41 @@ export default function HomeScreen() {
       className={cn("space-y-4", isCompact && "space-y-3")}
       style={{ "--accent": accentColor } as CSSProperties}
     >
+      {oshisLoaded && oshis.length === 0 ? (
+        <Card className="rounded-2xl border p-6 shadow-sm" data-testid="oshi-gate">
+          <CardHeader className="p-0 pb-4">
+            <CardTitle className="text-base font-bold">まずは推しを登録しよう</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3 p-0">
+            <Input
+              placeholder="推しの名前"
+              value={gateName}
+              onChange={(e) => setGateName(e.target.value)}
+              data-testid="gate-oshi-name"
+            />
+            <select
+              className="w-full rounded-md border bg-background px-3 py-2 text-sm"
+              value={gateCategory}
+              onChange={(e) => setGateCategory(e.target.value)}
+              aria-label="推しカテゴリ"
+              data-testid="gate-oshi-category"
+            >
+              {OSHI_CATEGORIES.map((cat) => (
+                <option key={cat} value={cat}>{cat}</option>
+              ))}
+            </select>
+            <Button
+              className="w-full"
+              disabled={!gateName.trim() || gateSubmitting}
+              onClick={handleCreateFirstOshi}
+              data-testid="gate-submit"
+            >
+              {gateSubmitting ? "登録中..." : "推しを登録してはじめる"}
+            </Button>
+          </CardContent>
+        </Card>
+      ) : null}
+
       <div className="flex items-center justify-between">
         <div className="text-sm font-semibold text-muted-foreground">Home</div>
         <HowToUseDialog />
