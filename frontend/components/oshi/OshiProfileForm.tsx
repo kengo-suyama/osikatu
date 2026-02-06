@@ -132,7 +132,7 @@ export default function OshiProfileForm({
         <div className="space-y-2">
           <div className="text-sm font-semibold text-muted-foreground">画像アップロード</div>
           {imagePreview ? (
-            <div className="h-36 w-full overflow-hidden rounded-xl border">
+            <div className="h-36 w-full overflow-hidden rounded-xl border" data-testid="oshi-photo-preview">
               <img src={imagePreview} alt="推し画像" className="h-full w-full object-cover" />
             </div>
           ) : (
@@ -140,10 +140,10 @@ export default function OshiProfileForm({
               画像が未設定です
             </div>
           )}
-          <label className="flex w-full cursor-pointer items-center justify-center gap-2 rounded-xl border border-dashed px-4 py-2 text-sm text-muted-foreground">
+          <label className="flex w-full cursor-pointer items-center justify-center gap-2 rounded-xl border border-dashed px-4 py-2 text-sm text-muted-foreground" data-testid="oshi-photo-save">
             <ImageUp className="h-4 w-4" />
             {uploading ? "アップロード中..." : "画像を選択"}
-            <input type="file" accept="image/*" className="hidden" onChange={handleImageUpload} />
+            <input type="file" accept="image/*" className="hidden" onChange={handleImageUpload} data-testid="oshi-photo-input" />
           </label>
         </div>
       </Card>
