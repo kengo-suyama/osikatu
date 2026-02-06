@@ -756,7 +756,7 @@ export default function HomeScreen() {
         </CardContent>
         <div className="mt-3 space-y-2">
           <div className="text-sm font-semibold text-muted-foreground">予算設定</div>
-          <div className="grid gap-3 sm:grid-cols-2">
+          <div className="grid gap-3">
             <Input
               type="number"
               value={budgetInputs.budget}
@@ -764,15 +764,6 @@ export default function HomeScreen() {
                 setBudgetInputs((prev) => ({ ...prev, budget: Number(event.target.value) }))
               }
               placeholder="予算"
-              min={0}
-            />
-            <Input
-              type="number"
-              value={budgetInputs.spent}
-              onChange={(event) =>
-                setBudgetInputs((prev) => ({ ...prev, spent: Number(event.target.value) }))
-              }
-              placeholder="使用済み"
               min={0}
             />
           </div>
