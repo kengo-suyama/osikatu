@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { CalendarDays, Images, MessageCircle, Receipt, Settings, Users } from "lucide-react";
+import { CalendarDays, Images, MessageCircle, Receipt, Settings, Trash2, Users } from "lucide-react";
 
 import OwnerDashboardCard from "@/components/circle/OwnerDashboardCard";
 import { Button } from "@/components/ui/button";
@@ -12,9 +12,11 @@ import { circleRepo } from "@/lib/repo/circleRepo";
 import { meRepo } from "@/lib/repo/meRepo";
 import { postRepo } from "@/lib/repo/postRepo";
 import { inviteRepo } from "@/lib/repo/inviteRepo";
+import { chatRepo } from "@/lib/repo/chatRepo";
 import { ApiRequestError } from "@/lib/repo/http";
 import { listCircleLogs } from "@/lib/repo/operationLogRepo";
 import type {
+  CircleAnnouncementDto,
   CircleDto,
   MeDto,
   OperationLogDto,
@@ -68,6 +70,8 @@ export default function CircleHomeScreen({ circleId }: { circleId: number }) {
   const [inviteCode, setInviteCode] = useState("");
   const [joining, setJoining] = useState(false);
   const [joinError, setJoinError] = useState<string | null>(null);
+  const [announcement, setAnnouncement] = useState<CircleAnnouncementDto | null>(null);
+  const [deleting, setDeleting] = useState(false);
 
   const activityLabel = useMemo(
     () => resolveActivityLabel(circle?.lastActivityAt ?? null),
@@ -118,6 +122,24 @@ export default function CircleHomeScreen({ circleId }: { circleId: number }) {
       .finally(() => {
         if (!mounted) return;
         setLoading(false);
+      });
+
+    return () => {
+      mounted = false;
+    };
+  }, [circleId]);
+
+  useEffect(() => {
+    let mounted = true;
+    chatRepo
+      .getAnnouncement(circleId)
+      .then((data) => {
+        if (!mounted) return;
+        setAnnouncement(data);
+      })
+      .catch(() => {
+        if (!mounted) return;
+        setAnnouncement(null);
       });
 
     return () => {
@@ -300,6 +322,49 @@ export default function CircleHomeScreen({ circleId }: { circleId: number }) {
           </Link>
         </Button>
       </div>
+
+      {announcement?.text ? (
+        <Card className="rounded-2xl border border-amber-500/30 bg-amber-50/50 p-4 shadow-sm dark:bg-amber-950/20">
+          <div className="flex items-start justify-between gap-2">
+            <div className="flex-1">
+              <div className="text-xs font-semibold text-amber-600 dark:text-amber-400">
+                📢 お知らせ
+              </div>
+              <div className="mt-1 text-sm" data-testid="announcement-text">
+                {announcement.text}
+              </div>
+              {announcement.updatedAt ? (
+                <div className="mt-1 text-[10px] text-muted-foreground">
+                  {announcement.updatedAt.replace("T", " ").slice(0, 16)}
+                </div>
+              ) : null}
+            </div>
+            {isManager ? (
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={async () => {
+                  if (deleting) return;
+                  if (!window.confirm("周知メッセージを削除しますか？")) return;
+                  setDeleting(true);
+                  try {
+                    await chatRepo.deleteAnnouncement(circleId);
+                    setAnnouncement({ circleId, text: null, updatedAt: null, updatedBy: null });
+                  } catch {
+                    // ignore
+                  } finally {
+                    setDeleting(false);
+                  }
+                }}
+                disabled={deleting}
+                data-testid="announcement-delete"
+              >
+                <Trash2 className="h-4 w-4 text-muted-foreground hover:text-destructive" />
+              </Button>
+            ) : null}
+          </div>
+        </Card>
+      ) : null}
 
       <Card className="rounded-2xl border p-4 shadow-sm">
         <div className="text-sm font-semibold text-muted-foreground">最近の活動</div>
