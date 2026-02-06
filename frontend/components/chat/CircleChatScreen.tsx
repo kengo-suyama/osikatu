@@ -496,7 +496,12 @@ export default function CircleChatScreen({ circleId }: { circleId: number }) {
         <div className="flex items-end gap-2">
           <div className="flex flex-col gap-2">
             <div className="flex items-center gap-2">
-              <Button size="sm" variant="secondary" onClick={() => setStampOpen(true)}>
+              <Button
+                size="sm"
+                variant="secondary"
+                onClick={() => setStampOpen(true)}
+                data-testid="chat-stamp-open"
+              >
                 <Smile className="mr-1 h-4 w-4" />
                 スタンプ
               </Button>
@@ -504,6 +509,7 @@ export default function CircleChatScreen({ circleId }: { circleId: number }) {
                 size="sm"
                 variant="secondary"
                 onClick={() => fileInputRef.current?.click()}
+                data-testid="chat-attach-image"
               >
                 <Image className="mr-1 h-4 w-4" />
                 画像/動画
@@ -531,6 +537,7 @@ export default function CircleChatScreen({ circleId }: { circleId: number }) {
                       variant="secondary"
                       onClick={() => void handleSendStamp(stamp.id)}
                       className="text-2xl"
+                      data-testid="chat-stamp-item"
                     >
                       {stamp.label}
                     </Button>
@@ -544,6 +551,7 @@ export default function CircleChatScreen({ circleId }: { circleId: number }) {
             onChange={(event) => setDraft(event.target.value)}
             placeholder="メッセージを入力"
             rows={2}
+            data-testid="chat-input"
             onKeyDown={(event) => {
               if (event.key === "Enter" && !event.shiftKey) {
                 event.preventDefault();
@@ -555,6 +563,7 @@ export default function CircleChatScreen({ circleId }: { circleId: number }) {
             size="icon"
             onClick={handleSendText}
             disabled={sending || draft.trim().length === 0}
+            data-testid="chat-send"
           >
             <Send className="h-4 w-4" />
           </Button>

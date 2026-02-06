@@ -22,6 +22,7 @@ import OshiFabPanel from "@/components/oshi/OshiFabPanel";
 import QuickModeSwitch from "@/components/home/QuickModeSwitch";
 import NextDeadlines from "@/components/widgets/NextDeadlines";
 import { DailyLucky } from "@/components/widgets/DailyLucky";
+import { AdBanner } from "@/components/ads/AdBanner";
 import MoneyChart from "@/components/money/MoneyChart";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -466,6 +467,8 @@ export default function HomeScreen() {
       ) : null}
 
       {me ? <PlanStatusCard me={me} compact={isCompact} /> : null}
+
+      <AdBanner />
 
       {selectedOshi ? (
         <OshiAvatarCard
