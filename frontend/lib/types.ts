@@ -441,10 +441,29 @@ export type CircleAnnouncementDto = {
 };
 
 /** ---- Billing ---- */
+export type PlanQuotas = {
+  oshiMax: number | null;
+  scheduleMax: number | null;
+  albumMax: number | null;
+  chatMonthly: number | null;
+};
+
+export type PlanFeatures = {
+  adsEnabled: boolean;
+  chatImage: boolean;
+  chatVideo: boolean;
+  albumVideo: boolean;
+  circlePins: number;
+  ownerDashboard: boolean;
+};
+
 export type PlanStatusDto = {
   plan: Plan;
+  effectivePlan?: Plan;
   planStatus: PlanStatus;
   trialEndsAt: ISODateTime | null;
+  quotas?: PlanQuotas;
+  features?: PlanFeatures;
 };
 
 /** ---- Operation Logs ---- */

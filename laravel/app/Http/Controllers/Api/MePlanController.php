@@ -8,6 +8,7 @@ use App\Http\Controllers\Controller;
 use App\Models\User;
 use App\Support\ApiResponse;
 use App\Support\CurrentUser;
+use App\Support\Entitlements;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
 
@@ -20,11 +21,7 @@ class MePlanController extends Controller
             return ApiResponse::error('USER_NOT_FOUND', 'User not found.', null, 404);
         }
 
-        return ApiResponse::success([
-            'plan' => $user->plan ?? 'free',
-            'planStatus' => $user->plan_status ?? 'active',
-            'trialEndsAt' => $user->trial_ends_at?->toIso8601String(),
-        ]);
+        return ApiResponse::success(Entitlements::forApi($user));
     }
 
     public function update(Request $request)
@@ -47,11 +44,7 @@ class MePlanController extends Controller
         $user->plan_status = 'active';
         $user->save();
 
-        return ApiResponse::success([
-            'plan' => $user->plan,
-            'planStatus' => $user->plan_status ?? 'active',
-            'trialEndsAt' => $user->trial_ends_at?->toIso8601String(),
-        ]);
+        return ApiResponse::success(Entitlements::forApi($user));
     }
 
     public function cancel()
@@ -65,10 +58,6 @@ class MePlanController extends Controller
         $user->plan_status = 'canceled';
         $user->save();
 
-        return ApiResponse::success([
-            'plan' => $user->plan,
-            'planStatus' => $user->plan_status ?? 'canceled',
-            'trialEndsAt' => $user->trial_ends_at?->toIso8601String(),
-        ]);
+        return ApiResponse::success(Entitlements::forApi($user));
     }
 }
