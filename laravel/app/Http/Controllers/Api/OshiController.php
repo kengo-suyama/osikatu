@@ -16,6 +16,7 @@ use App\Support\ImageUploadService;
 use App\Support\OperationLogService;
 use App\Support\PlanGate;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Validator;
 
 class OshiController extends Controller
@@ -37,20 +38,21 @@ class OshiController extends Controller
             return ApiResponse::error('USER_NOT_FOUND', 'User not found.', null, 404);
         }
 
-        if (!PlanGate::hasPremium($user)) {
-            $count = Oshi::query()
-                ->where('user_id', $user->id)
-                ->count();
+        $count = Oshi::query()
+            ->where('user_id', $user->id)
+            ->count();
 
-            if ($count >= 1) {
-                return ApiResponse::error('PLAN_LIMIT', 'Free plan allows only 1 oshi.', [
-                    'limit' => 1,
-                    'current' => $count,
-                ], 403);
-            }
+        if (!PlanGate::hasPremium($user) && $count >= 1) {
+            return ApiResponse::error('PLAN_LIMIT', 'Free plan allows only 1 oshi.', [
+                'limit' => 1,
+                'current' => $count,
+            ], 403);
         }
 
         $payload = $this->mapOshiPayload($request->validated());
+        if ($count === 0) {
+            $payload['is_primary'] = true;
+        }
         $oshi = Oshi::create($payload + ['user_id' => CurrentUser::id()]);
 
         return ApiResponse::success(new OshiResource($oshi), null, 201);
@@ -126,6 +128,20 @@ class OshiController extends Controller
         }
 
         $oshi->update(['image_path' => $stored['path']]);
+
+        return ApiResponse::success(new OshiResource($oshi));
+    }
+
+    public function makePrimary(Request $request, int $id)
+    {
+        $userId = CurrentUser::id();
+        $oshi = Oshi::query()->where('user_id', $userId)->findOrFail($id);
+
+        DB::transaction(function () use ($userId, $oshi) {
+            Oshi::query()->where('user_id', $userId)->where('is_primary', true)->update(['is_primary' => false]);
+            $oshi->update(['is_primary' => true]);
+        });
+        $oshi->refresh();
 
         return ApiResponse::success(new OshiResource($oshi));
     }

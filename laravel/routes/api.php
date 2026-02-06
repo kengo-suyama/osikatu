@@ -72,6 +72,8 @@ Route::post('/oshis', [OshiController::class, 'store']);
 Route::get('/oshis/{oshi}', [OshiController::class, 'show']);
 Route::patch('/oshis/{oshi}', [OshiController::class, 'update']);
 Route::post('/oshis/{oshi}/image', [OshiController::class, 'uploadImage']);
+Route::post('/oshis/{oshi}/make-primary', [OshiController::class, 'makePrimary']);
+Route::delete('/oshis/{oshi}', [OshiController::class, 'destroy']);
 
 // Circles
 Route::get('/circles', [CircleController::class, 'index']);

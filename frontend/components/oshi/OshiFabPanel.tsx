@@ -167,6 +167,7 @@ export default function OshiFabPanel({
         animate={{ y: [0, -4, 0] }}
         transition={{ duration: 3, repeat: Infinity, ease: "easeInOut" }}
         aria-label="プロフィールを開く"
+        data-testid="fab-oshi-profile"
       >
         <User className="h-5 w-5" />
       </motion.button>

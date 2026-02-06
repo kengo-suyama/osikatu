@@ -1,0 +1,24 @@
+<?php
+
+use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Schema;
+
+return new class extends Migration
+{
+    public function up(): void
+    {
+        if (!Schema::hasColumn('oshis', 'is_primary')) {
+            Schema::table('oshis', function (Blueprint $table) {
+                $table->boolean('is_primary')->default(false)->after('category');
+            });
+        }
+    }
+
+    public function down(): void
+    {
+        Schema::table('oshis', function (Blueprint $table) {
+            $table->dropColumn('is_primary');
+        });
+    }
+};

@@ -37,10 +37,15 @@ class Oshi extends Model
         'user_id',
         'name',
         'category',
+        'is_primary',
         'color',
         'image_path',
         'image_frame_id',
         'memo',
+    ];
+
+    protected $casts = [
+        'is_primary' => 'boolean',
     ];
 
     public function user(): BelongsTo

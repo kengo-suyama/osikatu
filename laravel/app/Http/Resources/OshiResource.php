@@ -37,6 +37,8 @@ class OshiResource extends JsonResource
         return [
             'id' => $this->id,
             'name' => $this->name,
+            'category' => $this->category ?? null,
+            'isPrimary' => (bool) ($this->is_primary ?? false),
             'nickname' => $this->nickname ?? null,
             'birthday' => $this->birthday ?? null,
             'heightCm' => $this->height_cm ?? null,
