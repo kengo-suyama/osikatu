@@ -49,6 +49,13 @@ import { getSafeDisplayName, isProfileNameMissing } from "@/lib/ui/profileDispla
 import { formatLogTime, logSentence } from "@/lib/ui/logText";
 import { isApiMode } from "@/lib/config";
 
+const OSHI_CATEGORIES = [
+  "人物", "キャラ", "アニメ作品", "漫画作品", "映画作品", "ドラマ作品",
+  "音楽", "俳優", "女優", "声優", "スポーツ選手", "チーム", "ペット",
+  "家族", "友達", "恋人", "グッズ", "ブランド", "場所", "乗り物",
+  "食べ物", "趣味", "その他",
+] as const;
+
 const supplyTabs = [
   { value: "today", label: "今日" },
   { value: "week", label: "今週" },
@@ -94,7 +101,12 @@ export default function HomeScreen() {
   const [filter, setFilter] = useState<CategoryFilter>("全部");
   const [laterIds, setLaterIds] = useState<string[]>([]);
   const [oshis, setOshis] = useState<Oshi[]>([]);
+  const [oshisLoaded, setOshisLoaded] = useState(false);
   const [selectedOshi, setSelectedOshi] = useState<Oshi | null>(null);
+  const [gateOshiName, setGateOshiName] = useState("");
+  const [gateCategory, setGateCategory] = useState("");
+  const [gateCreating, setGateCreating] = useState(false);
+  const [gateError, setGateError] = useState<string | null>(null);
   const [selectedCircleId, setSelectedCircleId] = useState<number | null>(null);
   const [ownerDashboard, setOwnerDashboard] = useState<OwnerDashboardDto | null>(null);
   const [ownerLoading, setOwnerLoading] = useState(false);
@@ -126,12 +138,14 @@ export default function HomeScreen() {
       try {
         const list = await oshiRepo.getOshis();
         setOshis(list);
+        setOshisLoaded(true);
         const storedOshi = loadString(OSHI_KEY);
         const resolved =
           list.find((oshi) => String(oshi.id) === String(storedOshi)) ?? list[0] ?? null;
         setSelectedOshi(resolved);
       } catch {
         setOshis([]);
+        setOshisLoaded(true);
         setSelectedOshi(null);
       }
     };
@@ -365,6 +379,25 @@ export default function HomeScreen() {
     }
   };
 
+  const handleCreateFirstOshi = async () => {
+    if (!gateOshiName.trim()) return;
+    setGateCreating(true);
+    setGateError(null);
+    try {
+      const created = await oshiRepo.createOshi({
+        name: gateOshiName.trim(),
+        category: gateCategory || undefined,
+      });
+      setOshis([created]);
+      setSelectedOshi(created);
+      saveString(OSHI_KEY, String(created.id));
+    } catch {
+      setGateError("登録に失敗しました。もう一度お試しください。");
+    } finally {
+      setGateCreating(false);
+    }
+  };
+
   useEffect(() => {
     const queryValue = resolveCompact(queryCompact);
     if (queryValue !== null) {
@@ -447,6 +480,44 @@ export default function HomeScreen() {
             " さんのホーム"
           )}
         </div>
+      ) : null}
+
+      {oshisLoaded && oshis.length === 0 ? (
+        <Card className="rounded-2xl border p-4 shadow-sm" data-testid="oshi-onboarding-gate">
+          <CardHeader className="p-0 pb-3">
+            <CardTitle className="text-sm font-semibold">まず推しを登録しましょう</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3 p-0">
+            <Input
+              placeholder="推しの名前"
+              value={gateOshiName}
+              onChange={(e) => setGateOshiName(e.target.value)}
+              data-testid="oshi-gate-name"
+            />
+            <select
+              aria-label="推しカテゴリ"
+              className="w-full rounded-md border px-3 py-2 text-sm"
+              value={gateCategory}
+              onChange={(e) => setGateCategory(e.target.value)}
+              data-testid="oshi-gate-category"
+            >
+              <option value="">カテゴリを選択（任意）</option>
+              {OSHI_CATEGORIES.map((cat) => (
+                <option key={cat} value={cat}>{cat}</option>
+              ))}
+            </select>
+            {gateError ? (
+              <div className="text-xs text-destructive">{gateError}</div>
+            ) : null}
+            <Button
+              onClick={handleCreateFirstOshi}
+              disabled={!gateOshiName.trim() || gateCreating}
+              data-testid="oshi-gate-submit"
+            >
+              {gateCreating ? "登録中..." : "推しを登録する"}
+            </Button>
+          </CardContent>
+        </Card>
       ) : null}
 
       {me?.plan === "plus" && selectedCircleId ? (

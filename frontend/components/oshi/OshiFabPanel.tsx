@@ -152,6 +152,7 @@ export default function OshiFabPanel({
           }
           event.currentTarget.releasePointerCapture(event.pointerId);
         }}
+        data-testid="fab-oshi-profile"
         className="fixed bottom-20 right-4 z-40 flex h-12 w-12 items-center justify-center rounded-full bg-[hsl(var(--accent))] text-white shadow-lg"
         style={
           position

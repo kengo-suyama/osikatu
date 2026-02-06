@@ -106,6 +106,8 @@ const fromOshiDto = (dto: OshiDto): Oshi => {
   return {
     id: dto.id,
     name: dto.name ?? "推し",
+    category: dto.category ?? null,
+    is_primary: dto.isPrimary ?? false,
     profile,
     updated_at: dto.updatedAt,
   };
@@ -216,6 +218,23 @@ export const oshiRepo = {
     );
     saveJson(OSHIS_KEY, nextList);
     return updated;
+  },
+
+  async createOshi(data: { name: string; category?: string }): Promise<Oshi> {
+    const item = await apiSend<OshiDto>("/api/oshis", "POST", data, {
+      headers: {
+        "Content-Type": "application/json",
+        "X-Device-Id": getDeviceId(),
+      },
+    });
+    return fromOshiDto(item);
+  },
+
+  async makePrimary(id: string | number): Promise<Oshi> {
+    const item = await apiSend<OshiDto>(`/api/oshis/${id}/make-primary`, "POST", null, {
+      headers: { "X-Device-Id": getDeviceId() },
+    });
+    return fromOshiDto(item);
   },
 
   async uploadImage(id: string | number, file: File): Promise<Oshi | null> {
