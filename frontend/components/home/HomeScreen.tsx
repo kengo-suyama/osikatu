@@ -2,7 +2,7 @@
 
 import type { CSSProperties } from "react";
 import { useEffect, useMemo, useState } from "react";
-import { Bookmark, BookmarkCheck, Trash2 } from "lucide-react";
+import { Bookmark, BookmarkCheck, CalendarDays, Trash2 } from "lucide-react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 
@@ -39,10 +39,11 @@ import { eventsRepo } from "@/lib/repo/eventsRepo";
 import { meRepo } from "@/lib/repo/meRepo";
 import { deleteMeLog, listMyLogs } from "@/lib/repo/operationLogRepo";
 import { oshiRepo } from "@/lib/repo/oshiRepo";
+import { fetchMySchedules } from "@/lib/repo/scheduleRepo";
 import { useBudgetState } from "@/lib/budgetState";
 import { BudgetResponse } from "@/lib/repo/budgetRepo";
 import { loadJson, loadString, removeString, saveJson, saveString } from "@/lib/storage";
-import type { CircleDto, MeDto, OperationLogDto, OwnerDashboardDto } from "@/lib/types";
+import type { CircleDto, MeDto, OperationLogDto, OwnerDashboardDto, ScheduleDto } from "@/lib/types";
 import type { Oshi, SupplyItem } from "@/lib/uiTypes";
 import { cn } from "@/lib/utils";
 import { getSafeDisplayName, isProfileNameMissing } from "@/lib/ui/profileDisplay";
@@ -110,6 +111,8 @@ export default function HomeScreen() {
   const [me, setMe] = useState<MeDto | null>(null);
   const [myLogs, setMyLogs] = useState<OperationLogDto[]>([]);
   const [myLogsLoading, setMyLogsLoading] = useState(false);
+  const [upcomingSchedules, setUpcomingSchedules] = useState<ScheduleDto[]>([]);
+  const [schedulesLoading, setSchedulesLoading] = useState(false);
   const [deletingLogId, setDeletingLogId] = useState<string | null>(null);
   const defaultBudgetState = useMemo<BudgetResponse>(() => {
     const currentMonth = new Date().toISOString().slice(0, 7);
@@ -304,6 +307,28 @@ export default function HomeScreen() {
         setMyLogsLoading(false);
       });
 
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    let mounted = true;
+    setSchedulesLoading(true);
+    const today = new Date().toISOString().slice(0, 10);
+    fetchMySchedules({ from: today })
+      .then((items) => {
+        if (!mounted) return;
+        setUpcomingSchedules(items.slice(0, 5));
+      })
+      .catch(() => {
+        if (!mounted) return;
+        setUpcomingSchedules([]);
+      })
+      .finally(() => {
+        if (!mounted) return;
+        setSchedulesLoading(false);
+      });
     return () => {
       mounted = false;
     };
@@ -586,6 +611,45 @@ export default function HomeScreen() {
             ))
           ) : (
             <div className="text-xs text-muted-foreground">ログがまだありません</div>
+          )}
+        </CardContent>
+      </Card>
+
+      <Card className="rounded-2xl border p-4 shadow-sm" data-testid="home-schedule-summary">
+        <CardHeader className="p-0 pb-3">
+          <div className="flex items-center justify-between">
+            <CardTitle className="flex items-center gap-1.5 text-sm font-semibold text-muted-foreground">
+              <CalendarDays className="h-4 w-4" />
+              次の予定
+            </CardTitle>
+            <Link href="/schedule" className="text-xs underline opacity-80 hover:opacity-100">
+              すべて見る
+            </Link>
+          </div>
+        </CardHeader>
+        <CardContent className="space-y-2 p-0">
+          {schedulesLoading ? (
+            <div className="text-xs text-muted-foreground">読み込み中...</div>
+          ) : upcomingSchedules.length > 0 ? (
+            upcomingSchedules.map((s) => (
+              <div
+                key={s.id}
+                className="rounded-xl border border-border/60 bg-muted/30 p-3"
+                data-testid="home-schedule-item"
+              >
+                <div className="text-sm font-medium">{s.title}</div>
+                <div className="mt-1 flex flex-wrap gap-2 text-xs text-muted-foreground">
+                  <span>
+                    {s.isAllDay
+                      ? new Date(s.startAt).toLocaleDateString("ja-JP", { month: "short", day: "numeric" })
+                      : new Date(s.startAt).toLocaleDateString("ja-JP", { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })}
+                  </span>
+                  {s.location ? <span>· {s.location}</span> : null}
+                </div>
+              </div>
+            ))
+          ) : (
+            <div className="text-xs text-muted-foreground">予定がありません</div>
           )}
         </CardContent>
       </Card>
