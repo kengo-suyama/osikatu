@@ -32,6 +32,7 @@ const normalizeProfile = (profile?: MeProfileDto | null): MeProfileDto => ({
 
 const normalizeMe = (value: MeDto): MeDto => {
   const plan = value.plan ?? "free";
+  const planStatus = value.planStatus ?? "active";
   const trialEndsAt = value.trialEndsAt ?? null;
   const themeId = value.ui?.themeId ?? getStoredThemeId();
   const specialBgEnabled =
@@ -41,6 +42,7 @@ const normalizeMe = (value: MeDto): MeDto => {
   return {
     ...value,
     plan,
+    planStatus,
     trialEndsAt,
     effectivePlan: resolveEffectivePlan(plan, trialEndsAt),
     profile: normalizeProfile(value.profile),
@@ -57,6 +59,7 @@ const defaultMe = (): MeDto => {
     name: "Me",
     email: "me@example.com",
     plan: "free",
+    planStatus: "active",
     effectivePlan: "free",
     trialEndsAt: null,
     profile: normalizeProfile(null),

@@ -2,6 +2,7 @@ export type ISODate = string; // "YYYY-MM-DD"
 export type ISODateTime = string; // ISO 8601
 
 export type Plan = "free" | "premium" | "plus";
+export type PlanStatus = "active" | "canceled";
 
 export type ApiSuccess<T, M = unknown> = {
   success: {
@@ -129,6 +130,7 @@ export type UserDTO = {
   name: string;
   email: string;
   plan: Plan;
+  planStatus?: PlanStatus;
   profile?: UserProfile;
 };
 
@@ -142,6 +144,7 @@ export type MeDto = {
   name: string;
   email: string;
   plan: Plan;
+  planStatus?: PlanStatus;
   effectivePlan: Plan;
   trialEndsAt: ISODateTime | null;
   trialActive?: boolean;
@@ -194,7 +197,9 @@ export type CircleInviteDTO = {
   type: InviteType;
   code: string | null; // 8 chars
   inviteUrl: string | null;
+  role?: Role;
   expiresAt: ISODateTime | null;
+  revokedAt?: ISODateTime | null;
   createdAt: ISODateTime;
 };
 
@@ -253,6 +258,8 @@ export type InviteDto = {
   expiresAt: string | null;
   maxUses: number | null;
   usedCount: number;
+  role?: Role;
+  revokedAt?: string | null;
   createdAt: string;
 };
 
@@ -276,6 +283,8 @@ export type PostDto = {
   source?: "chat" | "legacy";
   postType?: "post" | "chat" | "system";
   body: string;
+  messageType?: "text" | "stamp" | "media";
+  stampId?: string | null;
   tags: string[];
   media: PostMediaDto[];
   imageUrl?: string | null;
@@ -367,6 +376,75 @@ export type JoinRequestDto = {
   message?: string | null;
   status: "pending" | "approved" | "rejected";
   requestedAt?: string | null;
+};
+
+/** ---- Oshi Actions ---- */
+export type OshiActionTodayDto = {
+  dateKey: string;
+  actionText: string;
+  completed: boolean;
+  completedAt: ISODateTime | null;
+  currentTitleId?: string | null;
+  actionTotal?: number;
+  streak?: number;
+};
+
+export type TitleAwardDto = {
+  id: number;
+  titleId: string;
+  reason: "action" | "streak" | "days_total";
+  meta?: Record<string, unknown>;
+  awardedAt: ISODateTime | null;
+};
+
+export type OshiActionCompleteDto = {
+  dateKey: string;
+  actionText: string;
+  completedAt: ISODateTime | null;
+  awardedTitleId: string | null;
+  currentTitleId: string | null;
+  actionTotal: number;
+  streak: number;
+  awards?: TitleAwardDto[];
+};
+
+export type TitlesResponseDto = {
+  currentTitleId: string | null;
+  actionTotal: number;
+  streak: number;
+  awards: TitleAwardDto[];
+};
+
+/** ---- Circle Media / Album ---- */
+export type CircleMediaDto = {
+  id: number;
+  circleId: number;
+  type: "image" | "video";
+  url: string;
+  mime?: string | null;
+  sizeBytes?: number | null;
+  width?: number | null;
+  height?: number | null;
+  caption?: string | null;
+  createdAt: ISODateTime | null;
+};
+
+export type CircleMediaListDto = {
+  items: CircleMediaDto[];
+};
+
+export type CircleAnnouncementDto = {
+  circleId: number;
+  text: string | null;
+  updatedAt: ISODateTime | null;
+  updatedBy?: MemberBriefDto | null;
+};
+
+/** ---- Billing ---- */
+export type PlanStatusDto = {
+  plan: Plan;
+  planStatus: PlanStatus;
+  trialEndsAt: ISODateTime | null;
 };
 
 /** ---- Operation Logs ---- */

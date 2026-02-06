@@ -4,12 +4,15 @@ import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 
+import { isApiMode } from "@/lib/config";
 import { getDeviceId } from "@/lib/device";
 import { getDailyLucky } from "@/lib/lucky";
 import { OSHI_ACTIONS_POOL } from "@/lib/oshiActionsPool";
 import { fetchTodayFortune } from "@/lib/repo/fortuneRepo";
+import { oshiActionRepo } from "@/lib/repo/oshiActionRepo";
 import { inferTagsFromAction } from "@/lib/titles/tag_infer";
 import { pickTitle } from "@/lib/titles/titlePicker";
+import { TITLES_JA_1000_UNIVERSAL } from "@/lib/titles/titles_ja_1000_universal";
 import {
   applyCompletion,
   loadTitleState,
@@ -18,7 +21,7 @@ import {
   saveTitleState,
   type TitleState,
 } from "@/lib/titles/titleState";
-import type { FortuneDto } from "@/lib/types";
+import type { FortuneDto, OshiActionCompleteDto, OshiActionTodayDto } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
 const buildDateKey = () => {
@@ -194,16 +197,26 @@ const rarityTitle: Record<string, string> = {
   legendary: "Legendary",
 };
 
+const resolveTitleEntry = (titleId?: string | null) =>
+  TITLES_JA_1000_UNIVERSAL.find((entry) => entry.id === titleId) ?? null;
+
 export function DailyLucky({ compact = false }: { compact?: boolean }) {
   const [fortune, setFortune] = useState<FortuneDto | null>(null);
   const [loading, setLoading] = useState(true);
   const dateKey = useMemo(() => buildDateKey(), []);
   const [deviceId, setDeviceId] = useState<string | null>(null);
+  const apiMode = isApiMode();
+  const [apiAction, setApiAction] = useState<OshiActionTodayDto | null>(null);
   const searchParams = useSearchParams();
   const debugTagsEnabled = searchParams?.get("debugTags") === "1";
   const dailyActions = useMemo(
-    () => (deviceId ? pickDailyActions(deviceId, dateKey) : []),
-    [deviceId, dateKey]
+    () => {
+      if (apiMode) {
+        return apiAction?.actionText ? [apiAction.actionText] : [];
+      }
+      return deviceId ? pickDailyActions(deviceId, dateKey) : [];
+    },
+    [apiAction?.actionText, apiMode, deviceId, dateKey]
   );
   const [doneMap, setDoneMap] = useState<Record<string, boolean>>({});
   const [showCelebration, setShowCelebration] = useState(false);
@@ -250,9 +263,14 @@ export function DailyLucky({ compact = false }: { compact?: boolean }) {
   }, []);
 
   useEffect(() => {
+    if (apiMode) {
+      setDoneMap({});
+      setTitleState(loadTitleState(dateKey));
+      return;
+    }
     setDoneMap(loadDoneMap(dateKey));
     setTitleState(loadTitleState(dateKey));
-  }, [dateKey]);
+  }, [dateKey, apiMode]);
 
   useEffect(() => {
     let canceled = false;
@@ -274,6 +292,42 @@ export function DailyLucky({ compact = false }: { compact?: boolean }) {
     };
   }, []);
 
+  useEffect(() => {
+    if (!apiMode) return;
+    let canceled = false;
+    oshiActionRepo
+      .getToday()
+      .then((data) => {
+        if (canceled || !data) return;
+        setApiAction(data);
+        if (data.actionText) {
+          setDoneMap({ [data.actionText]: Boolean(data.completed) });
+        }
+        const entry = resolveTitleEntry(data.currentTitleId ?? null);
+        setTitleState((prev) => ({
+          ...prev,
+          dateKey,
+          completed: Boolean(data.completed),
+          titleId: data.currentTitleId ?? null,
+          titleText: entry?.title ?? null,
+          rarity: entry?.rarity ?? null,
+          titleTags: entry?.tags ?? null,
+          inferredTags: null,
+          streakCount: data.streak ?? 0,
+          lastCompletedDate: data.completed ? dateKey : prev.lastCompletedDate,
+        }));
+      })
+      .catch(() => {
+        if (!canceled) {
+          setApiAction(null);
+        }
+      });
+
+    return () => {
+      canceled = true;
+    };
+  }, [apiMode, dateKey]);
+
   const doneCount = dailyActions.filter((action) => doneMap[action]).length;
   const localizedFortune = fortune ? normalizeFortuneToJa(fortune) : null;
   const status = loading ? "loading" : fortune ? "ready" : "error";
@@ -283,6 +337,32 @@ export function DailyLucky({ compact = false }: { compact?: boolean }) {
       ? titleState.titleTags.length - 3
       : 0;
   const rarityText = titleState.rarity ? rarityTitle[titleState.rarity] : null;
+
+  const applyApiCompletion = (result: OshiActionCompleteDto) => {
+    const entry = resolveTitleEntry(result.currentTitleId ?? null);
+    setApiAction({
+      dateKey: result.dateKey,
+      actionText: result.actionText,
+      completed: true,
+      completedAt: result.completedAt ?? null,
+      currentTitleId: result.currentTitleId ?? null,
+      actionTotal: result.actionTotal,
+      streak: result.streak,
+    });
+    setDoneMap({ [result.actionText]: true });
+    setTitleState((prev) => ({
+      ...prev,
+      dateKey: result.dateKey,
+      completed: true,
+      titleId: result.currentTitleId ?? null,
+      titleText: entry?.title ?? null,
+      rarity: entry?.rarity ?? null,
+      titleTags: entry?.tags ?? null,
+      inferredTags: null,
+      streakCount: result.streak,
+      lastCompletedDate: result.dateKey,
+    }));
+  };
 
   return (
     <div
@@ -360,6 +440,22 @@ export function DailyLucky({ compact = false }: { compact?: boolean }) {
                   className="mt-0.5"
                   checked={Boolean(doneMap[action])}
                   onChange={(event) => {
+                    if (apiMode) {
+                      if (doneMap[action] || !event.target.checked) return;
+                      oshiActionRepo
+                        .complete(dateKey)
+                        .then((result) => {
+                          applyApiCompletion(result);
+                          setCelebrationKey((prev) => prev + 1);
+                          setShowCelebration(true);
+                          window.setTimeout(() => setShowCelebration(false), 2800);
+                        })
+                        .catch(() => {
+                          return;
+                        });
+                      return;
+                    }
+
                     const wasChecked = Boolean(doneMap[action]);
                     const next = { ...doneMap, [action]: event.target.checked };
                     setDoneMap(next);
@@ -412,7 +508,9 @@ export function DailyLucky({ compact = false }: { compact?: boolean }) {
           </div>
           {titleState.completed && titleState.titleText ? (
             <div className="mt-1">
-              <div className="font-semibold">{titleState.titleText}</div>
+              <div className="font-semibold" data-testid="oshi-title-current">
+                {titleState.titleText}
+              </div>
               <div className="text-xs text-muted-foreground">
                 {rarityTitle[titleState.rarity ?? "common"]} · 連続 {titleState.streakCount} 日
               </div>

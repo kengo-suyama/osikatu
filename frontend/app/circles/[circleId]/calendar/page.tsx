@@ -28,6 +28,7 @@ import {
   createCircleSchedule,
   deleteCircleSchedule,
   listCircleSchedules,
+  updateCircleSchedule,
 } from "@/lib/repo/circleCalendarRepo";
 import type { CircleScheduleDto, MeDto } from "@/lib/types";
 
@@ -45,6 +46,7 @@ export default function CircleCalendarPage({
   const [myRole, setMyRole] = useState<string | null>(null);
   const [me, setMe] = useState<MeDto | null>(null);
   const [open, setOpen] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
   const [title, setTitle] = useState("");
   const [startAt, setStartAt] = useState("");
   const [endAt, setEndAt] = useState("");
@@ -76,6 +78,34 @@ export default function CircleCalendarPage({
   const isPremium = ["premium", "plus"].includes(me?.effectivePlan ?? me?.plan ?? "free");
   const isManager = myRole === "owner" || myRole === "admin";
   const canEdit = isPremium && isManager;
+
+  const calendar = useMemo(() => {
+    const now = new Date();
+    const year = now.getFullYear();
+    const month = now.getMonth();
+    const start = new Date(year, month, 1);
+    const end = new Date(year, month + 1, 0);
+    const startWeekday = start.getDay();
+    const daysInMonth = end.getDate();
+    const days = Array.from({ length: startWeekday + daysInMonth }, (_, idx) =>
+      idx < startWeekday ? null : idx - startWeekday + 1
+    );
+
+    const counts: Record<string, number> = {};
+    items.forEach((item) => {
+      if (!item.startAt) return;
+      const key = item.startAt.slice(0, 10);
+      counts[key] = (counts[key] ?? 0) + 1;
+    });
+
+    return {
+      year,
+      month,
+      days,
+      counts,
+      label: `${year}年${month + 1}月`,
+    };
+  }, [items]);
 
   useEffect(() => {
     let mounted = true;
@@ -114,7 +144,7 @@ export default function CircleCalendarPage({
       .catch((errorValue: any) => {
         if (!mounted) return;
         const status = errorValue?.status ?? errorValue?.statusCode;
-        if (status === 404) {
+        if (status === 404 || status === 403) {
           setAccessDenied(true);
           setError("このサークルの予定にアクセスできません");
           return;
@@ -136,6 +166,14 @@ export default function CircleCalendarPage({
     return value.replace("T", " ").slice(0, 16);
   };
 
+  const toInputValue = (value: string | null) => {
+    if (!value) return "";
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return "";
+    const local = new Date(date.getTime() - date.getTimezoneOffset() * 60_000);
+    return local.toISOString().slice(0, 16);
+  };
+
   const formatRange = (item: CircleScheduleDto) => {
     if (item.isAllDay) {
       return `${formatDate(item.startAt).slice(0, 10)} 終日`;
@@ -146,7 +184,29 @@ export default function CircleCalendarPage({
     return `${formatDate(item.startAt)} 〜 ${formatDate(item.endAt)}`;
   };
 
-  const handleCreate = async () => {
+  const openCreate = () => {
+    setEditingId(null);
+    setTitle("");
+    setStartAt("");
+    setEndAt("");
+    setIsAllDay(false);
+    setNote("");
+    setLocation("");
+    setOpen(true);
+  };
+
+  const openEdit = (item: CircleScheduleDto) => {
+    setEditingId(item.id);
+    setTitle(item.title);
+    setStartAt(toInputValue(item.startAt));
+    setEndAt(toInputValue(item.endAt ?? item.startAt));
+    setIsAllDay(Boolean(item.isAllDay));
+    setNote(item.note ?? "");
+    setLocation(item.location ?? "");
+    setOpen(true);
+  };
+
+  const handleSave = async () => {
     if (!title.trim()) {
       showToast("入力不足", "タイトルを入力してください");
       return;
@@ -158,23 +218,27 @@ export default function CircleCalendarPage({
 
     setActionLoading(true);
     try {
-      const created = await createCircleSchedule(circleId, {
+      const payload = {
         title: title.trim(),
         startAt: new Date(startAt).toISOString(),
         endAt: endAt ? new Date(endAt).toISOString() : undefined,
         isAllDay,
         note: note.trim() ? note.trim() : null,
         location: location.trim() ? location.trim() : null,
-      });
-      setItems((prev) => [created, ...prev]);
+      };
+
+      if (editingId) {
+        const updated = await updateCircleSchedule(circleId, editingId, payload);
+        setItems((prev) => prev.map((item) => (item.id === editingId ? updated : item)));
+        showToast("保存しました", "予定を更新しました");
+      } else {
+        const created = await createCircleSchedule(circleId, payload);
+        setItems((prev) => [created, ...prev]);
+        showToast("保存しました", "予定を追加しました");
+      }
+
       setOpen(false);
-      setTitle("");
-      setStartAt("");
-      setEndAt("");
-      setIsAllDay(false);
-      setNote("");
-      setLocation("");
-      showToast("保存しました", "予定を追加しました");
+      setEditingId(null);
     } catch (errorValue: any) {
       const status = errorValue?.status ?? errorValue?.statusCode;
       if (status === 403) {
@@ -182,7 +246,7 @@ export default function CircleCalendarPage({
       } else if (status === 422) {
         showToast("入力エラー", "入力内容を確認してください");
       } else {
-        showToast("保存失敗", "予定の追加に失敗しました");
+        showToast("保存失敗", "予定の保存に失敗しました");
       }
     } finally {
       setActionLoading(false);
@@ -231,6 +295,44 @@ export default function CircleCalendarPage({
         ) : (
           <>
             <Card className="rounded-2xl border p-4 shadow-sm">
+              <div className="flex items-center justify-between">
+                <div>
+                  <div className="text-sm font-semibold text-muted-foreground">月カレンダー</div>
+                  <div className="text-xs text-muted-foreground">{calendar.label}</div>
+                </div>
+              </div>
+              <div className="mt-3 grid grid-cols-7 gap-1 text-[11px] text-muted-foreground">
+                {["日", "月", "火", "水", "木", "金", "土"].map((label) => (
+                  <div key={label} className="text-center">
+                    {label}
+                  </div>
+                ))}
+                {calendar.days.map((day, idx) => {
+                  if (!day) {
+                    return <div key={`empty-${idx}`} className="h-8" />;
+                  }
+                  const dateKey = `${calendar.year}-${String(calendar.month + 1).padStart(2, "0")}-${String(
+                    day
+                  ).padStart(2, "0")}`;
+                  const count = calendar.counts[dateKey] ?? 0;
+                  return (
+                    <div
+                      key={dateKey}
+                      className="flex h-8 flex-col items-center justify-center rounded-lg border border-border/60"
+                    >
+                      <div className="text-xs">{day}</div>
+                      {count > 0 ? (
+                        <div className="mt-0.5 text-[10px] text-primary">
+                          {count}件
+                        </div>
+                      ) : null}
+                    </div>
+                  );
+                })}
+              </div>
+            </Card>
+
+            <Card className="rounded-2xl border p-4 shadow-sm">
               <div className="flex items-center justify-between gap-3">
                 <div>
                   <div className="text-sm font-semibold text-muted-foreground">予定一覧</div>
@@ -239,15 +341,26 @@ export default function CircleCalendarPage({
                   </div>
                 </div>
                 {canEdit ? (
-                  <Dialog open={open} onOpenChange={setOpen}>
+                  <Dialog
+                    open={open}
+                    onOpenChange={(next) => {
+                      if (!next) setEditingId(null);
+                      setOpen(next);
+                    }}
+                  >
                     <DialogTrigger asChild>
-                      <Button size="sm" variant="secondary">
+                      <Button
+                        size="sm"
+                        variant="secondary"
+                        onClick={openCreate}
+                        data-testid="event-create"
+                      >
                         予定を追加
                       </Button>
                     </DialogTrigger>
                     <DialogContent>
                       <DialogHeader>
-                        <DialogTitle>予定を追加</DialogTitle>
+                        <DialogTitle>{editingId ? "予定を編集" : "予定を追加"}</DialogTitle>
                       </DialogHeader>
                       <div className="grid gap-3">
                         <div className="grid gap-2">
@@ -295,8 +408,8 @@ export default function CircleCalendarPage({
                           />
                         </div>
                         <div className="flex justify-end">
-                          <Button size="sm" onClick={handleCreate} disabled={actionLoading}>
-                            追加する
+                          <Button size="sm" onClick={handleSave} disabled={actionLoading}>
+                            {editingId ? "保存する" : "追加する"}
                           </Button>
                         </div>
                       </div>
@@ -331,14 +444,25 @@ export default function CircleCalendarPage({
                           ) : null}
                         </div>
                         {canEdit ? (
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => handleDelete(item.id)}
-                            disabled={actionLoading}
-                          >
-                            削除
-                          </Button>
+                          <div className="flex items-center gap-2">
+                            <Button
+                              size="sm"
+                              variant="secondary"
+                              onClick={() => openEdit(item)}
+                              disabled={actionLoading}
+                            >
+                              編集
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => handleDelete(item.id)}
+                              disabled={actionLoading}
+                              data-testid="event-delete"
+                            >
+                              削除
+                            </Button>
+                          </div>
                         ) : null}
                       </div>
                     </div>

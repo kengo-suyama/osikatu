@@ -13,7 +13,9 @@ class ChatMessage extends Model
     protected $fillable = [
         'circle_id',
         'sender_member_id',
+        'message_type',
         'body',
+        'stamp_id',
         'created_at',
     ];
 

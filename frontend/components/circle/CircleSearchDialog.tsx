@@ -14,9 +14,7 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { circleRepo } from "@/lib/repo/circleRepo";
-import { joinRequestRepo } from "@/lib/repo/joinRequestRepo";
 import PlanLimitDialog from "@/components/common/PlanLimitDialog";
-import { ApiRequestError } from "@/lib/repo/http";
 import { ANALYTICS_EVENTS } from "@/lib/events";
 import { eventsRepo } from "@/lib/repo/eventsRepo";
 import type { CircleDto, MeDto } from "@/lib/types";
@@ -60,23 +58,11 @@ export default function CircleSearchDialog({
   const [searched, setSearched] = useState(false);
   const [results, setResults] = useState<CircleDto[]>([]);
   const [error, setError] = useState<string | null>(null);
-  const [requestingId, setRequestingId] = useState<number | null>(null);
-  const [requestMessage, setRequestMessage] = useState("");
-  const [requestOpen, setRequestOpen] = useState(false);
-  const [requestedIds, setRequestedIds] = useState<number[]>([]);
-  const [requestError, setRequestError] = useState<string | null>(null);
   const [planLimitOpen, setPlanLimitOpen] = useState(false);
 
   const normalizedTag = useMemo(() => tag.replace(/^#/, "").trim(), [tag]);
   const normalizedLabel = useMemo(() => oshiLabel.trim(), [oshiLabel]);
   const normalizedName = useMemo(() => name.trim(), [name]);
-  const selectedCircle = useMemo(
-    () => results.find((circle) => circle.id === requestingId) ?? null,
-    [results, requestingId]
-  );
-  const approvalRequired =
-    (selectedCircle?.joinPolicy ?? "request") !== "instant";
-
   const handleSearch = async () => {
     setLoading(true);
     setError(null);
@@ -105,10 +91,6 @@ export default function CircleSearchDialog({
       setResults([]);
       setSearched(false);
       setError(null);
-      setRequestOpen(false);
-      setRequestMessage("");
-      setRequestingId(null);
-      setRequestError(null);
     }
     onOpenChange(nextOpen);
   };
@@ -244,32 +226,12 @@ export default function CircleSearchDialog({
                     </div>
                     <div className="flex flex-wrap gap-2">{renderTags(circle)}</div>
                     <div className="text-[11px] text-muted-foreground">
-                      {circle.joinPolicy === "instant"
-                        ? "すぐ参加できます（あとから抜けられます）"
-                        : "サークル運営者が確認後に参加できます"}
+                      招待制のサークルです（招待コードが必要です）
                     </div>
                     <div className="flex items-center gap-2 pt-2">
                       <Button
                         size="sm"
                         variant="secondary"
-                        disabled={requestedIds.includes(circle.id)}
-                        onClick={() => {
-                          setRequestingId(circle.id);
-                          setRequestOpen(true);
-                          eventsRepo.track(ANALYTICS_EVENTS.JOIN_REQUEST_SUBMIT, pathname, circle.id, {
-                            stage: "open",
-                          });
-                        }}
-                      >
-                        {requestedIds.includes(circle.id)
-                          ? "リクエスト済み"
-                          : circle.joinPolicy === "instant"
-                            ? "参加する"
-                            : "参加リクエスト"}
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="ghost"
                         onClick={() => {
                           handleClose(false);
                           eventsRepo.track(ANALYTICS_EVENTS.CIRCLE_JOIN_OPEN, pathname);
@@ -301,56 +263,6 @@ export default function CircleSearchDialog({
             迷ったら推しタグから探すのがおすすめです。
           </div>
         ) : null}
-
-        <Dialog open={requestOpen} onOpenChange={setRequestOpen}>
-          <DialogContent className="space-y-3">
-            <DialogHeader>
-              <DialogTitle>このサークルに参加しますか？</DialogTitle>
-              <DialogDescription>
-                {approvalRequired
-                  ? "このサークルは安心して交流できるよう、参加前に簡単な確認をしています。無言でもOKです。"
-                  : "すぐ参加できます。あとから抜けることもできます。"}
-              </DialogDescription>
-            </DialogHeader>
-            {approvalRequired ? (
-              <>
-                <Input
-                  placeholder="ひとことあればどうぞ（省略OK）"
-                  value={requestMessage}
-                  onChange={(event) => setRequestMessage(event.target.value)}
-                />
-                <div className="text-xs text-muted-foreground">※ 未入力でも問題ありません</div>
-              </>
-            ) : null}
-            {requestError ? <div className="text-xs text-red-500">{requestError}</div> : null}
-            <Button
-              onClick={async () => {
-                if (!requestingId) return;
-                setRequestError(null);
-                try {
-                  await joinRequestRepo.requestJoin(
-                    requestingId,
-                    requestMessage.trim() || undefined
-                  );
-                  setRequestedIds((prev) => [...prev, requestingId]);
-                  setRequestMessage("");
-                  setRequestOpen(false);
-                  eventsRepo.track(ANALYTICS_EVENTS.JOIN_REQUEST_SUBMIT, pathname, requestingId);
-                } catch (err) {
-                  if (err instanceof ApiRequestError && err.code === "PLAN_CIRCLE_LIMIT") {
-                    setRequestError(null);
-                    setPlanLimitOpen(true);
-                    setRequestOpen(false);
-                    return;
-                  }
-                  setRequestError(err instanceof Error ? err.message : "参加リクエストに失敗しました");
-                }
-              }}
-            >
-              参加リクエストを送る
-            </Button>
-          </DialogContent>
-        </Dialog>
 
         <PlanLimitDialog
           open={planLimitOpen}

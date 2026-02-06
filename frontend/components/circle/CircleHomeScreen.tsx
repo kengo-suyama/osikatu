@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { CalendarDays, MessageCircle, Receipt, Settings, Users } from "lucide-react";
+import { CalendarDays, Images, MessageCircle, Receipt, Settings, Users } from "lucide-react";
 
 import OwnerDashboardCard from "@/components/circle/OwnerDashboardCard";
 import { Button } from "@/components/ui/button";
@@ -11,6 +11,8 @@ import { circleOwnerRepo } from "@/lib/repo/circleOwnerRepo";
 import { circleRepo } from "@/lib/repo/circleRepo";
 import { meRepo } from "@/lib/repo/meRepo";
 import { postRepo } from "@/lib/repo/postRepo";
+import { inviteRepo } from "@/lib/repo/inviteRepo";
+import { ApiRequestError } from "@/lib/repo/http";
 import { listCircleLogs } from "@/lib/repo/operationLogRepo";
 import type {
   CircleDto,
@@ -21,6 +23,7 @@ import type {
 } from "@/lib/types";
 import { formatLogTime, logSentence } from "@/lib/ui/logText";
 import { cn } from "@/lib/utils";
+import { Input } from "@/components/ui/input";
 
 type ActivityLabel = {
   text: string;
@@ -61,6 +64,10 @@ export default function CircleHomeScreen({ circleId }: { circleId: number }) {
   const [logPreview, setLogPreview] = useState<OperationLogDto[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [forbidden, setForbidden] = useState(false);
+  const [inviteCode, setInviteCode] = useState("");
+  const [joining, setJoining] = useState(false);
+  const [joinError, setJoinError] = useState<string | null>(null);
 
   const activityLabel = useMemo(
     () => resolveActivityLabel(circle?.lastActivityAt ?? null),
@@ -85,6 +92,7 @@ export default function CircleHomeScreen({ circleId }: { circleId: number }) {
     let mounted = true;
     setLoading(true);
     setError(null);
+    setForbidden(false);
     Promise.all([circleRepo.get(circleId), meRepo.getMe()])
       .then(([circleData, meData]) => {
         if (!mounted) return;
@@ -97,8 +105,13 @@ export default function CircleHomeScreen({ circleId }: { circleId: number }) {
         setCircle(circleData);
         setMe(meData);
       })
-      .catch(() => {
+      .catch((err) => {
         if (!mounted) return;
+        if (err instanceof ApiRequestError && err.status === 403) {
+          setForbidden(true);
+          setError(null);
+          return;
+        }
         setError("サークル情報を取得できませんでした");
         setCircle(null);
       })
@@ -211,9 +224,46 @@ export default function CircleHomeScreen({ circleId }: { circleId: number }) {
   if (error || !circle) {
     return (
       <div className="space-y-3">
-        <Card className="rounded-2xl border p-6 text-center text-sm text-muted-foreground">
-          {error ?? "このサークルは表示できません"}
-        </Card>
+        {forbidden ? (
+          <Card className="rounded-2xl border p-6 text-center text-sm text-muted-foreground">
+            <div className="text-sm font-semibold">このサークルは招待制です</div>
+            <div className="mt-2 text-xs text-muted-foreground">
+              招待コードを入力すると参加できます。
+            </div>
+            <div className="mt-3 flex gap-2">
+              <Input
+                placeholder="招待コード"
+                value={inviteCode}
+                onChange={(event) => setInviteCode(event.target.value)}
+              />
+              <Button
+                onClick={async () => {
+                  if (!inviteCode.trim() || joining) return;
+                  setJoining(true);
+                  setJoinError(null);
+                  try {
+                    await inviteRepo.joinByCode(inviteCode.trim());
+                    window.location.reload();
+                  } catch (err) {
+                    setJoinError(
+                      err instanceof Error ? err.message : "招待コードが無効です"
+                    );
+                  } finally {
+                    setJoining(false);
+                  }
+                }}
+                disabled={!inviteCode.trim() || joining}
+              >
+                {joining ? "参加中..." : "参加"}
+              </Button>
+            </div>
+            {joinError ? <div className="mt-2 text-xs text-red-500">{joinError}</div> : null}
+          </Card>
+        ) : (
+          <Card className="rounded-2xl border p-6 text-center text-sm text-muted-foreground">
+            {error ?? "このサークルは表示できません"}
+          </Card>
+        )}
         <Link href="/home" className="text-sm underline">
           Homeへ戻る
         </Link>
@@ -361,6 +411,21 @@ export default function CircleHomeScreen({ circleId }: { circleId: number }) {
           <div className="mt-3">
             <Button asChild variant="secondary" size="sm">
               <Link href={`/circles/${circleId}/members`}>一覧へ</Link>
+            </Button>
+          </div>
+        </Card>
+
+        <Card className="rounded-2xl border p-4 shadow-sm">
+          <div className="flex items-center justify-between">
+            <div>
+              <div className="text-sm font-semibold text-muted-foreground">アルバム</div>
+              <div className="text-xs text-muted-foreground">画像・動画の思い出</div>
+            </div>
+            <Images className="h-4 w-4 text-muted-foreground" />
+          </div>
+          <div className="mt-3">
+            <Button asChild variant="secondary" size="sm">
+              <Link href={`/circles/${circleId}/album`}>アルバムへ</Link>
             </Button>
           </div>
         </Card>

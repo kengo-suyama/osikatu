@@ -141,9 +141,12 @@ class CircleChatController extends Controller
         }
 
         $validator = Validator::make($request->all(), [
+            'messageType' => ['nullable', 'in:text,stamp,media'],
+            'type' => ['nullable', 'in:text,stamp,media'],
             'body' => ['nullable', 'string'],
-            'image' => ['nullable', 'file', 'mimes:jpg,jpeg,png,webp', 'max:5120'],
-            'file' => ['nullable', 'file', 'mimes:jpg,jpeg,png,webp', 'max:5120'],
+            'stampId' => ['nullable', 'string', 'max:40'],
+            'image' => ['nullable', 'file', 'mimes:jpg,jpeg,png,webp,mp4', 'max:10240'],
+            'file' => ['nullable', 'file', 'mimes:jpg,jpeg,png,webp,mp4', 'max:10240'],
         ]);
 
         if ($validator->fails()) {
@@ -153,10 +156,32 @@ class CircleChatController extends Controller
         $data = $validator->validated();
         $body = isset($data['body']) ? trim((string) $data['body']) : '';
         $file = $request->file('image') ?? $request->file('file');
+        $stampId = isset($data['stampId']) ? trim((string) $data['stampId']) : '';
+        $messageType = $data['messageType'] ?? $data['type'] ?? null;
 
-        if ($body === '' && !$file) {
+        if ($file) {
+            $messageType = 'media';
+        } elseif ($stampId !== '') {
+            $messageType = 'stamp';
+        } else {
+            $messageType = $messageType ?? 'text';
+        }
+
+        if ($messageType === 'text' && $body === '') {
             return ApiResponse::error('VALIDATION_ERROR', 'Validation failed', [
-                'body' => ['Message body or image is required.'],
+                'body' => ['Message body is required.'],
+            ], 422);
+        }
+
+        if ($messageType === 'stamp' && $stampId === '') {
+            return ApiResponse::error('VALIDATION_ERROR', 'Validation failed', [
+                'stampId' => ['Stamp ID is required.'],
+            ], 422);
+        }
+
+        if ($messageType === 'media' && !$file) {
+            return ApiResponse::error('VALIDATION_ERROR', 'Validation failed', [
+                'file' => ['Media file is required.'],
             ], 422);
         }
 
@@ -177,16 +202,18 @@ class CircleChatController extends Controller
         $message = ChatMessage::create([
             'circle_id' => $circle,
             'sender_member_id' => $member->id,
+            'message_type' => $messageType,
             'body' => $body !== '' ? $body : null,
+            'stamp_id' => $messageType === 'stamp' ? $stampId : null,
             'created_at' => now(),
         ]);
 
         if ($file) {
-            $stored = ImageUploadService::storePublicImage($file, 'chat');
+            $stored = $this->storeChatMedia($file);
             if (isset($stored['error'])) {
                 return ApiResponse::error(
-                    $stored['error']['code'] ?? 'IMAGE_PROCESS_FAILED',
-                    $stored['error']['message'] ?? 'Image upload failed.',
+                    $stored['error']['code'] ?? 'MEDIA_UPLOAD_FAILED',
+                    $stored['error']['message'] ?? 'Media upload failed.',
                     null,
                     422
                 );
@@ -194,7 +221,7 @@ class CircleChatController extends Controller
 
             ChatMessageMedia::create([
                 'chat_message_id' => $message->id,
-                'type' => 'image',
+                'type' => $stored['type'] ?? 'image',
                 'path' => $stored['path'],
                 'url' => $stored['url'],
                 'width' => $stored['width'] ?? null,
@@ -211,7 +238,8 @@ class CircleChatController extends Controller
             ->update(['last_activity_at' => now()]);
 
         OperationLogService::log($request, 'chat_message.create', $circle, [
-            'hasImage' => (bool) $file,
+            'hasMedia' => (bool) $file,
+            'messageType' => $messageType,
         ]);
 
         return ApiResponse::success(new ChatMessageResource($message), null, 201);
@@ -310,5 +338,29 @@ class CircleChatController extends Controller
     private function resolveUser(): ?User
     {
         return User::query()->find(CurrentUser::id());
+    }
+
+    private function storeChatMedia(\Illuminate\Http\UploadedFile $file): array
+    {
+        $mime = $file->getMimeType() ?? '';
+        if (str_starts_with($mime, 'video/')) {
+            $directory = 'chat';
+            Storage::disk('public')->makeDirectory($directory);
+            $extension = $file->getClientOriginalExtension() ?: 'mp4';
+            $filename = \Illuminate\Support\Str::uuid()->toString() . '.' . $extension;
+            $path = $file->storeAs($directory, $filename, 'public');
+            $url = Storage::disk('public')->url($path);
+
+            return [
+                'type' => 'video',
+                'path' => $path,
+                'url' => $url,
+                'width' => null,
+                'height' => null,
+                'sizeBytes' => $file->getSize() ?: null,
+            ];
+        }
+
+        return ImageUploadService::storePublicImage($file, 'chat');
     }
 }

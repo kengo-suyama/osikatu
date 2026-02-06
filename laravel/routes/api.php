@@ -3,20 +3,24 @@
 use App\Http\Controllers\Api\BudgetController;
 use App\Http\Controllers\Api\CircleController;
 use App\Http\Controllers\Api\CircleChatController;
+use App\Http\Controllers\Api\CircleAnnouncementController;
 use App\Http\Controllers\Api\CircleJoinRequestController;
 use App\Http\Controllers\Api\CircleOwnerController;
 use App\Http\Controllers\Api\CircleScheduleController;
 use App\Http\Controllers\Api\CircleUiSettingsController;
+use App\Http\Controllers\Api\CircleMediaController;
 use App\Http\Controllers\Api\DiaryController;
 use App\Http\Controllers\Api\ExpenseController;
 use App\Http\Controllers\Api\EventController;
 use App\Http\Controllers\Api\FortuneController;
 use App\Http\Controllers\Api\GoodController;
 use App\Http\Controllers\Api\InviteController;
+use App\Http\Controllers\Api\MePlanController;
 use App\Http\Controllers\Api\MeController;
 use App\Http\Controllers\Api\NotificationController;
 use App\Http\Controllers\Api\OshiController;
 use App\Http\Controllers\Api\OperationLogController;
+use App\Http\Controllers\Api\OshiActionController;
 use App\Http\Controllers\Api\UserScheduleController;
 use App\Http\Controllers\Api\PostController;
 use App\Http\Controllers\Api\SettlementController;
@@ -26,6 +30,12 @@ Route::get('/me', [MeController::class, 'show']);
 Route::put('/me/ui-settings', [MeController::class, 'updateUiSettings']);
 Route::put('/me/profile', [MeController::class, 'updateProfile']);
 Route::post('/me/onboarding/skip', [MeController::class, 'skipOnboarding']);
+Route::get('/me/plan', [MePlanController::class, 'show']);
+Route::put('/me/plan', [MePlanController::class, 'update']);
+Route::post('/me/cancel', [MePlanController::class, 'cancel']);
+Route::get('/me/oshi-actions/today', [OshiActionController::class, 'today']);
+Route::post('/me/oshi-actions/complete', [OshiActionController::class, 'complete']);
+Route::get('/me/titles', [OshiActionController::class, 'titles']);
 Route::get('/me/notifications', [NotificationController::class, 'index']);
 Route::post('/me/notifications/{notification}/read', [NotificationController::class, 'read']);
 Route::get('/me/logs', [OperationLogController::class, 'myIndex']);
@@ -84,6 +94,9 @@ Route::get('/circles/{circle}/chat/messages', [CircleChatController::class, 'ind
 Route::post('/circles/{circle}/chat/messages', [CircleChatController::class, 'store']);
 Route::post('/circles/{circle}/chat/read', [CircleChatController::class, 'read']);
 Route::delete('/circles/{circle}/chat/messages/{message}', [CircleChatController::class, 'destroy']);
+Route::get('/circles/{circle}/announcement', [CircleAnnouncementController::class, 'show']);
+Route::put('/circles/{circle}/announcement', [CircleAnnouncementController::class, 'update']);
+Route::delete('/circles/{circle}/announcement', [CircleAnnouncementController::class, 'destroy']);
 
 // Circle schedules (shared calendar)
 Route::get('/circles/{circle}/calendar', [CircleScheduleController::class, 'index']);
@@ -110,7 +123,16 @@ Route::post('/circles/{circle}/join-reject', [CircleJoinRequestController::class
 
 // Invites
 Route::post('/circles/{circle}/invites', [InviteController::class, 'store']);
+Route::get('/circles/{circle}/invites', [InviteController::class, 'index']);
+Route::post('/circles/{circle}/invites/{invite}/revoke', [InviteController::class, 'revoke']);
 Route::post('/invites/join', [InviteController::class, 'join']);
+Route::post('/invites/accept', [InviteController::class, 'accept']);
+
+// Circle album / media
+Route::get('/circles/{circle}/media', [CircleMediaController::class, 'index']);
+Route::post('/circles/{circle}/media', [CircleMediaController::class, 'store']);
+Route::get('/circles/{circle}/media/{media}', [CircleMediaController::class, 'show']);
+Route::delete('/circles/{circle}/media/{media}', [CircleMediaController::class, 'destroy']);
 
 // Posts
 Route::get('/circles/{circle}/posts', [PostController::class, 'index']);

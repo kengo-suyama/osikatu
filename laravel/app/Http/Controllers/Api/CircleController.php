@@ -141,9 +141,6 @@ class CircleController extends Controller
 
         $circle = Circle::query()
             ->where('id', $circle)
-            ->whereHas('members', function ($query) use ($userId): void {
-                $query->where('user_id', $userId);
-            })
             ->with('uiSetting')
             ->withCount('members')
             ->first();
@@ -156,6 +153,9 @@ class CircleController extends Controller
             ->where('circle_id', $circle->id)
             ->where('user_id', $userId)
             ->value('role');
+        if (!$role) {
+            return ApiResponse::error('FORBIDDEN', 'Not a circle member.', null, 403);
+        }
         $circle->setAttribute('my_role', $role);
 
         return ApiResponse::success(new CircleResource($circle));

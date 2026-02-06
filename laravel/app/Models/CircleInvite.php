@@ -17,14 +17,18 @@ class CircleInvite extends Model
         'type',
         'code',
         'token',
+        'role',
         'expires_at',
+        'revoked_at',
         'max_uses',
         'used_count',
         'created_by',
+        'created_by_device_id',
     ];
 
     protected $casts = [
         'expires_at' => 'datetime',
+        'revoked_at' => 'datetime',
         'max_uses' => 'integer',
         'used_count' => 'integer',
     ];

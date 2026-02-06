@@ -44,8 +44,10 @@ class InviteController extends Controller
         }
 
         $validator = Validator::make($request->all(), [
-            'type' => ['required', 'in:code,link'],
+            'type' => ['nullable', 'in:code,link'],
+            'role' => ['nullable', 'in:member,admin'],
             'expiresInHours' => ['nullable', 'integer', 'min:1', 'max:720'],
+            'expiresInDays' => ['nullable', 'integer', 'min:1', 'max:90'],
             'maxUses' => ['nullable', 'integer', 'min:1', 'max:9999'],
         ]);
 
@@ -54,13 +56,21 @@ class InviteController extends Controller
         }
 
         $data = $validator->validated();
-        $expiresAt = isset($data['expiresInHours']) ? now()->addHours((int) $data['expiresInHours']) : null;
+        $expiresAt = null;
+        if (isset($data['expiresInDays'])) {
+            $expiresAt = now()->addDays((int) $data['expiresInDays'])->endOfDay();
+        } elseif (isset($data['expiresInHours'])) {
+            $expiresAt = now()->addHours((int) $data['expiresInHours']);
+        }
         $maxUses = isset($data['maxUses']) ? (int) $data['maxUses'] : null;
+        $role = $data['role'] ?? 'member';
 
         $code = null;
         $token = null;
 
-        if ($data['type'] === 'code') {
+        $type = $data['type'] ?? 'code';
+
+        if ($type === 'code') {
             do {
                 $code = str_pad((string) random_int(0, 99999999), 8, '0', STR_PAD_LEFT);
             } while (CircleInvite::query()->where('code', $code)->exists());
@@ -70,13 +80,15 @@ class InviteController extends Controller
 
         $invite = CircleInvite::create([
             'circle_id' => $circleModel->id,
-            'type' => $data['type'],
+            'type' => $type,
             'code' => $code,
             'token' => $token,
+            'role' => $role,
             'expires_at' => $expiresAt,
             'max_uses' => $maxUses,
             'used_count' => 0,
             'created_by' => $userId,
+            'created_by_device_id' => $request->header('X-Device-Id'),
         ]);
 
         return ApiResponse::success(new InviteResource($invite), null, 201);
@@ -111,7 +123,11 @@ class InviteController extends Controller
         }
 
         if (!$invite) {
-            return ApiResponse::error('INVITE_NOT_FOUND', 'Invite not found', null, 404);
+            return ApiResponse::error('INVITE_INVALID', 'Invite not found', null, 404);
+        }
+
+        if ($invite->revoked_at) {
+            return ApiResponse::error('INVITE_REVOKED', 'Invite has been revoked', null, 410);
         }
 
         if ($invite->expires_at && $invite->expires_at->isPast()) {
@@ -147,7 +163,7 @@ class InviteController extends Controller
         $meProfile = MeProfileResolver::resolve($deviceId);
 
         if ($invite->max_uses !== null && $invite->used_count >= $invite->max_uses) {
-            return ApiResponse::error('INVITE_LIMIT', 'Invite usage limit reached', null, 410);
+            return ApiResponse::error('INVITE_USED_UP', 'Invite usage limit reached', null, 410);
         }
 
         CircleMember::firstOrCreate(
@@ -157,7 +173,7 @@ class InviteController extends Controller
             ],
             [
                 'me_profile_id' => $meProfile?->id,
-                'role' => 'member',
+                'role' => in_array($invite->role, ['admin', 'member'], true) ? $invite->role : 'member',
                 'joined_at' => now(),
             ]
         );
@@ -186,6 +202,11 @@ class InviteController extends Controller
         return ApiResponse::success(new CircleResource($circle));
     }
 
+    public function accept(Request $request)
+    {
+        return $this->join($request);
+    }
+
     public function show(Request $request, int $circle)
     {
         $userId = CurrentUser::id();
@@ -211,6 +232,7 @@ class InviteController extends Controller
         $invite = CircleInvite::query()
             ->where('circle_id', $circle)
             ->where('type', 'code')
+            ->whereNull('revoked_at')
             ->where(function ($query): void {
                 $query->whereNull('expires_at')->orWhere('expires_at', '>', now());
             })
@@ -227,13 +249,80 @@ class InviteController extends Controller
                 'type' => 'code',
                 'code' => $code,
                 'token' => null,
+                'role' => 'member',
                 'expires_at' => null,
+                'revoked_at' => null,
                 'max_uses' => null,
                 'used_count' => 0,
                 'created_by' => $userId,
+                'created_by_device_id' => $request->header('X-Device-Id'),
             ]);
         }
 
         return ApiResponse::success(new InviteResource($invite));
+    }
+
+    public function index(Request $request, int $circle)
+    {
+        $userId = CurrentUser::id();
+        $circleModel = Circle::query()->where('id', $circle)->first();
+
+        if (!$circleModel) {
+            return ApiResponse::error('NOT_FOUND', 'Circle not found.', null, 404);
+        }
+
+        $member = CircleMember::query()
+            ->where('circle_id', $circle)
+            ->where('user_id', $userId)
+            ->first();
+
+        if (!$member || !in_array($member->role, ['owner', 'admin'], true)) {
+            return ApiResponse::error('FORBIDDEN', 'Owner/Admin only', null, 403);
+        }
+
+        $invites = CircleInvite::query()
+            ->where('circle_id', $circle)
+            ->whereNull('revoked_at')
+            ->where(function ($query): void {
+                $query->whereNull('expires_at')->orWhere('expires_at', '>', now());
+            })
+            ->orderByDesc('id')
+            ->limit(50)
+            ->get();
+
+        return ApiResponse::success(InviteResource::collection($invites));
+    }
+
+    public function revoke(Request $request, int $circle, int $invite)
+    {
+        $userId = CurrentUser::id();
+        $circleModel = Circle::query()->where('id', $circle)->first();
+
+        if (!$circleModel) {
+            return ApiResponse::error('NOT_FOUND', 'Circle not found.', null, 404);
+        }
+
+        $member = CircleMember::query()
+            ->where('circle_id', $circle)
+            ->where('user_id', $userId)
+            ->first();
+
+        if (!$member || !in_array($member->role, ['owner', 'admin'], true)) {
+            return ApiResponse::error('FORBIDDEN', 'Owner/Admin only', null, 403);
+        }
+
+        $inviteModel = CircleInvite::query()
+            ->where('circle_id', $circle)
+            ->where('id', $invite)
+            ->first();
+
+        if (!$inviteModel) {
+            return ApiResponse::error('NOT_FOUND', 'Invite not found.', null, 404);
+        }
+
+        $inviteModel->revoked_at = now();
+        $inviteModel->save();
+
+        return ApiResponse::success(new InviteResource($inviteModel));
     }
 }
