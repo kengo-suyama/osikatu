@@ -7,8 +7,10 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Models\CircleMedia;
 use App\Models\CircleMember;
+use App\Models\User;
 use App\Support\ApiResponse;
 use App\Support\CurrentUser;
+use App\Support\Entitlements;
 use App\Support\ImageUploadService;
 use App\Support\MeProfileResolver;
 use Illuminate\Http\Request;
@@ -62,6 +64,27 @@ class CircleMediaController extends Controller
             return ApiResponse::error('FORBIDDEN', 'Not a circle member.', null, 403);
         }
 
+        $user = User::query()->find(CurrentUser::id());
+        if ($user) {
+            $currentCount = CircleMedia::query()
+                ->where('circle_id', $circle)
+                ->count();
+
+            if (!Entitlements::canAddAlbum($user, $currentCount)) {
+                $quotas = Entitlements::quotas($user);
+                return ApiResponse::error(
+                    'QUOTA_EXCEEDED',
+                    'アルバムの上限に達しました。',
+                    [
+                        'limit' => $quotas['albumMax'],
+                        'current' => $currentCount,
+                        'plan' => $user->plan ?? 'free',
+                    ],
+                    403
+                );
+            }
+        }
+
         $validator = Validator::make($request->all(), [
             'caption' => ['nullable', 'string', 'max:200'],
             'file' => ['required', 'file', 'mimes:jpg,jpeg,png,webp,mp4', 'max:10240'],
@@ -78,6 +101,16 @@ class CircleMediaController extends Controller
             return ApiResponse::error('VALIDATION_ERROR', 'Validation failed', [
                 'file' => ['Media file is required.'],
             ], 422);
+        }
+
+        $mime = $file->getMimeType() ?? '';
+        if (str_starts_with($mime, 'video/') && $user && !Entitlements::canUploadAlbumVideo($user)) {
+            return ApiResponse::error(
+                'FEATURE_NOT_AVAILABLE',
+                '動画アップロードはPlus/Premium限定です。',
+                ['plan' => $user->plan ?? 'free'],
+                403
+            );
         }
 
         $stored = $this->storeMediaFile($file);
