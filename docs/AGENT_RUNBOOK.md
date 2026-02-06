@@ -3,6 +3,8 @@
 This doc is a practical checklist for continuing development autonomously.
 Project rules live in `AGENTS.md` (DTO fixed, repo-layer only for data access, UTF-8 NO BOM).
 
+For a Japanese "first paste" instruction block, see `docs/CODEX_FIRST_PASTE.md`.
+
 ## Repo Snapshot (As Of 2026-02-06)
 
 - Default branch: `main`
