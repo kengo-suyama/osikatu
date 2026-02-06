@@ -58,10 +58,11 @@ const assertFrontendUp = async (request: Parameters<typeof test>[1]["request"]) 
 };
 
 const assertBackendUp = async (request: Parameters<typeof test>[1]["request"]) => {
-  const attempts = 5;
+  // Backend can be temporarily slow under parallel e2e load on Windows.
+  const attempts = 12;
   for (let i = 0; i < attempts; i += 1) {
     try {
-      const res = await request.get(`${API_BASE}/api/oshis`, { timeout: 3000 });
+      const res = await request.get(`${API_BASE}/api/oshis`, { timeout: 8000 });
       if (res.status() >= 200 && res.status() < 500) return;
     } catch {
       // retry
