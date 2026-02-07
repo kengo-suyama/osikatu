@@ -40,6 +40,7 @@ import { meRepo } from "@/lib/repo/meRepo";
 import { deleteMeLog, listMyLogs } from "@/lib/repo/operationLogRepo";
 import { oshiRepo } from "@/lib/repo/oshiRepo";
 import { fetchMySchedules } from "@/lib/repo/scheduleRepo";
+import { fetchExpensesSummary } from "@/lib/repo/expenseRepo";
 
 import { localYearMonth, localDate } from "@/lib/date";
 import { useBudgetState } from "@/lib/budgetState";
@@ -605,7 +606,7 @@ export default function HomeScreen() {
             <CardTitle className="text-sm font-semibold text-muted-foreground">
               操作ログ
             </CardTitle>
-            <Link href="/logs" className="text-xs underline opacity-80 hover:opacity-100">
+            <Link href="/logs" className="text-xs underline opacity-80 hover:opacity-100" data-testid="home-log-more">
               もっと見る
             </Link>
           </div>
@@ -930,6 +931,53 @@ export default function HomeScreen() {
               <div className="text-xs text-muted-foreground">{budgetMessage}</div>
             ) : null}
           </div>
+          <Link
+            href="/money"
+            className="text-xs font-medium text-primary hover:underline"
+            data-testid="budget-to-money"
+          >
+            詳細へ →
+          </Link>
+        </div>
+      </Card>
+
+      <Card className="rounded-2xl border p-4 shadow-sm" data-testid="expenses-summary-card">
+        <CardHeader className="space-y-1 p-0 pb-3">
+          <CardTitle className="text-sm font-semibold text-muted-foreground">今月の推し別支出</CardTitle>
+          {expensesTotal > 0 ? (
+            <div className="text-2xl font-semibold">
+              合計 ¥{expensesTotal.toLocaleString("ja-JP")}
+            </div>
+          ) : null}
+        </CardHeader>
+        <CardContent className="space-y-2 p-0">
+          {expensesLoading ? (
+            <div className="text-xs text-muted-foreground">読み込み中…</div>
+          ) : expensesByOshi.length === 0 ? (
+            <div className="text-xs text-muted-foreground">支出がありません</div>
+          ) : (
+            expensesByOshi.map((item) => (
+              <div
+                key={item.oshiId}
+                className="flex items-center justify-between rounded-lg border px-3 py-2"
+                data-testid="expenses-summary-item"
+              >
+                <span className="text-sm font-medium">{item.oshiName}</span>
+                <span className="text-sm text-muted-foreground">
+                  ¥{item.totalAmount.toLocaleString("ja-JP")}
+                </span>
+              </div>
+            ))
+          )}
+        </CardContent>
+        <div className="mt-3">
+          <Link
+            href="/money"
+            className="text-xs font-medium text-primary hover:underline"
+            data-testid="expenses-summary-more"
+          >
+            もっと見る →
+          </Link>
         </div>
       </Card>
 
