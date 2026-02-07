@@ -18,6 +18,7 @@ use Illuminate\Database\Eloquent\SoftDeletes;
  * @property string $content
  * @property \Illuminate\Support\Carbon $diary_date
  * @property bool $is_locked
+ * @property array|null $tags
  * @property \Illuminate\Support\Carbon|null $created_at
  * @property \Illuminate\Support\Carbon|null $updated_at
  * @property \Illuminate\Support\Carbon|null $deleted_at
@@ -38,11 +39,13 @@ class Diary extends Model
         'content',
         'diary_date',
         'is_locked',
+        'tags',
     ];
 
     protected $casts = [
         'diary_date' => 'date',
         'is_locked' => 'boolean',
+        'tags' => 'array',
     ];
 
     public function user(): BelongsTo
