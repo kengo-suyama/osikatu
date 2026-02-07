@@ -158,7 +158,6 @@ portChecks.then(() => {
       cwd: frontendDir,
       encoding: "utf8",
       stdio: ["ignore", "pipe", "pipe"],
-      shell: true,
     });
     if (/already installed/i.test(out) || out.trim() === "") {
       ok("Playwright browsers appear installed");
@@ -172,7 +171,7 @@ portChecks.then(() => {
   // ── 8. Conflict markers ──────────────────────────────────────────────────
   console.log("\n8) Conflict markers");
   try {
-    const result = execFileSync("git", ["-C", repoDir, "grep", "-rn", "^<<<<<<<\\|^=======\\|^>>>>>>>", "--", "*.ts", "*.tsx", "*.cjs", "*.mjs", "*.js", "*.json", "*.md", "*.php"], {
+    const result = execFileSync("git", ["-C", repoDir, "grep", "-E", "-rn", "^(<<<<<<<|=======|>>>>>>>)", "--", "*.ts", "*.tsx", "*.cjs", "*.mjs", "*.js", "*.json", "*.md", "*.php"], {
       encoding: "utf8",
       stdio: ["ignore", "pipe", "pipe"],
     });

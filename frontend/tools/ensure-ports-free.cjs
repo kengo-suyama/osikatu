@@ -64,7 +64,7 @@ const getImageName = (pid) => {
   }
 };
 
-const KILLABLE = new Set(["php.exe", "node.exe", "cmd.exe"]);
+const AUTO_KILL_ALLOWLIST = new Set(["php.exe", "node.exe", "cmd.exe"]);
 
 const tryAutoKill = (port) => {
   if (process.platform !== "win32") return false;
@@ -73,7 +73,7 @@ const tryAutoKill = (port) => {
   let killed = false;
   for (const pid of pids) {
     const image = (getImageName(pid) || "").toLowerCase();
-    if (!KILLABLE.has(image)) {
+    if (!AUTO_KILL_ALLOWLIST.has(image)) {
       console.warn(`[preflight] port ${port} in use by pid=${pid} (${image || "unknown"}); not killing.`);
       continue;
     }

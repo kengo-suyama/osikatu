@@ -46,15 +46,16 @@ try {
 }
 
 // ── Crash handlers ─────────────────────────────────────────────────────────
+const EXIT_CODE_FATAL = 99;
 process.on("uncaughtException", (err) => {
   console.error(`[run-e2e-ci] FATAL uncaughtException: ${err instanceof Error ? err.stack : String(err)}`);
   try { fs.unlinkSync(REENTRY_LOCK); } catch { /* ignore */ }
-  process.exit(99);
+  process.exit(EXIT_CODE_FATAL);
 });
 process.on("unhandledRejection", (reason) => {
   console.error(`[run-e2e-ci] FATAL unhandledRejection: ${reason instanceof Error ? reason.stack : String(reason)}`);
   try { fs.unlinkSync(REENTRY_LOCK); } catch { /* ignore */ }
-  process.exit(99);
+  process.exit(EXIT_CODE_FATAL);
 });
 
 const frontendDir = path.resolve(__dirname, "..");
@@ -413,6 +414,7 @@ const setupLaravelSqliteDb = (dbPath) => {
     if (/malformed|corrupt|not a database|disk image/i.test(message)) {
       console.warn(`[run-e2e-ci] WARN: sqlite DB appears corrupt, recreating: ${message}`);
       try { fs.unlinkSync(dbPath); } catch { /* ignore */ }
+      // Laravel's SQLite driver requires the file to exist before connecting.
       try { fs.writeFileSync(dbPath, ""); } catch { /* ignore */ }
       try {
         attemptMigrate();
