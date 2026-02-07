@@ -605,7 +605,7 @@ export default function HomeScreen() {
             <CardTitle className="text-sm font-semibold text-muted-foreground">
               操作ログ
             </CardTitle>
-            <Link href="/logs" className="text-xs underline opacity-80 hover:opacity-100">
+            <Link href="/logs" className="text-xs underline opacity-80 hover:opacity-100" data-testid="home-log-more">
               もっと見る
             </Link>
           </div>
@@ -930,6 +930,13 @@ export default function HomeScreen() {
               <div className="text-xs text-muted-foreground">{budgetMessage}</div>
             ) : null}
           </div>
+          <Link
+            href="/money"
+            className="text-xs font-medium text-primary hover:underline"
+            data-testid="budget-to-money"
+          >
+            詳細へ →
+          </Link>
         </div>
       </Card>
 
