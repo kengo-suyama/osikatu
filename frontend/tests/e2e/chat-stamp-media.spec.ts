@@ -161,16 +161,19 @@ test.describe("chat stamp and media", () => {
     await initStorage(page, deviceId);
     await page.goto(`/circles/${circleId}/chat`, { waitUntil: "domcontentloaded" });
 
+    // Ensure the client has hydrated and initial chat fetch has completed.
+    await expect(page.locator("text=読み込み中...")).toBeHidden({ timeout: 45_000 });
+
     const chatInput = page.locator('[data-testid="chat-input"]');
     await expect(chatInput).toBeVisible({ timeout: 30_000 });
+    await expect(chatInput).toBeEditable();
 
     const testMessage = `E2E test message ${Date.now()}`;
-    await chatInput.click();
-    await page.keyboard.type(testMessage);
+    await chatInput.fill(testMessage);
     await expect(chatInput).toHaveValue(testMessage);
 
     const sendButton = page.locator('[data-testid="chat-send"]');
-    await expect(sendButton).toBeEnabled({ timeout: 30_000 });
+    await expect(sendButton).toBeEnabled({ timeout: 45_000 });
     await sendButton.click();
 
     // Wait for message to appear
