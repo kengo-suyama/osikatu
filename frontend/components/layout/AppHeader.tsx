@@ -12,6 +12,7 @@ import { fetchNotifications } from "@/lib/repo/notificationRepo";
 import { oshiRepo } from "@/lib/repo/oshiRepo";
 import type { BudgetResponse } from "@/lib/repo/budgetRepo";
 import { moneySnapshot } from "@/lib/dummy";
+import { localYearMonth } from "@/lib/date";
 import { loadString, saveString } from "@/lib/storage";
 import type { CircleDto } from "@/lib/types";
 import type { Oshi } from "@/lib/uiTypes";
@@ -21,7 +22,7 @@ const CIRCLE_KEY = "osikatu:circle:selected";
 
 export default function AppHeader() {
   const defaultBudgetState = useMemo<BudgetResponse>(() => {
-    const currentMonth = new Date().toISOString().slice(0, 7);
+    const currentMonth = localYearMonth();
     return {
       budget: moneySnapshot.budget,
       spent: moneySnapshot.spent,

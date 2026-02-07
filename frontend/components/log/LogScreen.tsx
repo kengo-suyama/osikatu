@@ -18,7 +18,8 @@ import {
 } from "@/components/ui/toast";
 import { isApiMode } from "@/lib/config";
 import { logPosts, logTemplates } from "@/lib/dummy";
-import { deleteDiary, listDiaries } from "@/lib/repo/diaryRepo";
+import { createDiary, deleteDiary, listDiaries } from "@/lib/repo/diaryRepo";
+import { oshiRepo } from "@/lib/repo/oshiRepo";
 import { loadJson, saveJson } from "@/lib/storage";
 import type { DiaryDto } from "@/lib/types";
 import type { LogPost } from "@/lib/uiTypes";
@@ -40,7 +41,7 @@ const readImages = async (files: FileList, limit: number) => {
     .filter((file) => file.type.startsWith("image/"))
     .slice(0, limit);
   const urls = await Promise.all(targets.map((file) => readFileAsDataUrl(file)));
-  return urls;
+  return { urls, files: targets };
 };
 
 
@@ -50,12 +51,15 @@ export default function LogScreen() {
   const [posts, setPosts] = useState<LogPost[]>(logPosts);
   const [diaries, setDiaries] = useState<DiaryDto[]>([]);
   const [loadingDiaries, setLoadingDiaries] = useState(false);
+  const [primaryOshiId, setPrimaryOshiId] = useState<number | null>(null);
   const [title, setTitle] = useState("");
   const [body, setBody] = useState("");
   const [tags, setTags] = useState("");
   const [logDate, setLogDate] = useState(() => new Date().toISOString().slice(0, 10));
   const [logImages, setLogImages] = useState<string[]>([]);
+  const [imageFiles, setImageFiles] = useState<File[]>([]);
   const [isPrivate, setIsPrivate] = useState(false);
+  const [saving, setSaving] = useState(false);
   const [deletingId, setDeletingId] = useState<string | number | null>(null);
   const [toastOpen, setToastOpen] = useState(false);
   const [toastTitle, setToastTitle] = useState("");
@@ -66,6 +70,26 @@ export default function LogScreen() {
   const [hydrated, setHydrated] = useState(false);
   const dragTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  const mergeDiariesById = (prev: DiaryDto[], incoming: DiaryDto[]) => {
+    // Prevent overwriting freshly-created items when a slower initial list response resolves later.
+    // Prefer `incoming` values for the same `id` (server is source of truth).
+    const out = [...prev];
+    const indexById = new Map<number, number>();
+    out.forEach((item, idx) => indexById.set(item.id, idx));
+
+    for (const item of incoming) {
+      const existingIdx = indexById.get(item.id);
+      if (existingIdx === undefined) {
+        indexById.set(item.id, out.length);
+        out.push(item);
+      } else {
+        out[existingIdx] = item;
+      }
+    }
+
+    return out;
+  };
+
   useEffect(() => {
     setHydrated(true);
   }, []);
@@ -74,9 +98,17 @@ export default function LogScreen() {
     if (apiMode) {
       setLoadingDiaries(true);
       listDiaries()
-        .then((items) => setDiaries(items))
+        .then((items) => setDiaries((prev) => mergeDiariesById(prev, items)))
         .catch(() => setDiaries([]))
         .finally(() => setLoadingDiaries(false));
+
+      oshiRepo.getOshis().then((list) => {
+        const primary = list.find((o) => o.is_primary) ?? list[0];
+        if (primary) {
+          const idNum = Number(primary.id);
+          if (Number.isFinite(idNum)) setPrimaryOshiId(idNum);
+        }
+      }).catch(() => {});
       return;
     }
     const stored = loadJson<LogPost[]>(STORAGE_KEY);
@@ -98,32 +130,73 @@ export default function LogScreen() {
     setTags(template.tags.map((tag) => `#${tag}`).join(" "));
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!title.trim() && !body.trim() && logImages.length === 0) return;
     const parsedTags = tags
       .split(/[\s,]+/)
       .map((tag) => tag.replace(/^#/, ""))
       .filter(Boolean);
 
-    const newPost: LogPost = {
-      id: `log-${Date.now()}`,
-      title: title || "メモ",
-      body,
-      tags: parsedTags,
-      time: "たった今",
-      date: logDate || new Date().toISOString().slice(0, 10),
-      images: logImages.length > 0 ? logImages : undefined,
-      isPrivate,
-    };
+    if (apiMode) {
+      setSaving(true);
+      try {
+        // E2E (and fast users) can click before `oshiRepo.getOshis()` resolves.
+        // Resolve primary oshi id lazily to avoid flaky early-returns.
+        let oshiId = primaryOshiId;
+        if (!oshiId) {
+          const list = await oshiRepo.getOshis().catch(() => []);
+          const primary = list.find((o) => o.is_primary) ?? list[0];
+          if (primary) {
+            const idNum = Number(primary.id);
+            if (Number.isFinite(idNum)) {
+              oshiId = idNum;
+              setPrimaryOshiId(idNum);
+            }
+          }
+        }
+        if (!oshiId) {
+          showToast("推しが登録されていません");
+          return;
+        }
 
-    const nextUser = [newPost, ...userPosts];
-    setUserPosts(nextUser);
-    setPosts([...nextUser, ...logPosts]);
-    saveJson(STORAGE_KEY, nextUser);
+        const created = await createDiary({
+          oshiId,
+          title: title || "メモ",
+          content: body,
+          diaryDate: logDate || new Date().toISOString().slice(0, 10),
+          tags: parsedTags.length > 0 ? parsedTags : undefined,
+          images: imageFiles.length > 0 ? imageFiles : undefined,
+        });
+        setDiaries((prev) => [created, ...prev]);
+        showToast("保存しました");
+      } catch {
+        showToast("保存に失敗しました");
+      } finally {
+        setSaving(false);
+      }
+    } else {
+      const newPost: LogPost = {
+        id: `log-${Date.now()}`,
+        title: title || "メモ",
+        body,
+        tags: parsedTags,
+        time: "たった今",
+        date: logDate || new Date().toISOString().slice(0, 10),
+        images: logImages.length > 0 ? logImages : undefined,
+        isPrivate,
+      };
+
+      const nextUser = [newPost, ...userPosts];
+      setUserPosts(nextUser);
+      setPosts([...nextUser, ...logPosts]);
+      saveJson(STORAGE_KEY, nextUser);
+    }
+
     setTitle("");
     setBody("");
     setTags("");
     setLogImages([]);
+    setImageFiles([]);
     setIsPrivate(false);
   };
 
@@ -132,18 +205,26 @@ export default function LogScreen() {
     if (!files) return;
     const remaining = LOG_IMAGE_LIMIT - logImages.length;
     if (remaining <= 0) return;
-    const urls = await readImages(files, remaining);
+    const { urls, files: rawFiles } = await readImages(files, remaining);
     setLogImages((prev) => [...prev, ...urls]);
+    setImageFiles((prev) => [...prev, ...rawFiles]);
     event.target.value = "";
   };
 
   const removeLogImage = (index: number) => {
     setLogImages((prev) => prev.filter((_, idx) => idx !== index));
+    setImageFiles((prev) => prev.filter((_, idx) => idx !== index));
   };
 
   const reorderLogImages = (fromIndex: number, toIndex: number) => {
     if (fromIndex === toIndex) return;
     setLogImages((prev) => {
+      const next = [...prev];
+      const [item] = next.splice(fromIndex, 1);
+      next.splice(toIndex, 0, item);
+      return next;
+    });
+    setImageFiles((prev) => {
       const next = [...prev];
       const [item] = next.splice(fromIndex, 1);
       next.splice(toIndex, 0, item);
@@ -219,7 +300,7 @@ export default function LogScreen() {
           <p className="text-xs text-muted-foreground">今日の記録をSNS風に残そう。</p>
         </div>
 
-        <Card className="rounded-2xl border p-4 shadow-sm">
+        <Card className="rounded-2xl border p-4 shadow-sm" data-testid="log-create-form">
           <div className="space-y-3">
             <div className="text-sm font-semibold text-muted-foreground">テンプレ投稿</div>
             <div className="flex flex-wrap gap-2">
@@ -242,14 +323,20 @@ export default function LogScreen() {
                 value={logDate}
                 onChange={(event) => setLogDate(event.target.value)}
               />
-              <Input placeholder="タイトル" value={title} onChange={(event) => setTitle(event.target.value)} />
+              <Input
+                placeholder="タイトル"
+                value={title}
+                onChange={(event) => setTitle(event.target.value)}
+                data-testid="log-create-title"
+              />
               <Textarea
                 placeholder="今日の出来事は？"
                 rows={4}
                 value={body}
                 onChange={(event) => setBody(event.target.value)}
+                data-testid="log-create-body"
               />
-              <div className="space-y-2">
+              <div className="space-y-2" data-testid="log-create-images">
                 <div className="text-xs text-muted-foreground">
                   添付写真（最大{LOG_IMAGE_LIMIT}枚）
                 </div>
@@ -318,6 +405,7 @@ export default function LogScreen() {
                 placeholder="#現場 #開封 #配信"
                 value={tags}
                 onChange={(event) => setTags(event.target.value)}
+                data-testid="log-create-tags"
               />
               <label className="flex items-center gap-2 text-xs text-muted-foreground">
                 <input
@@ -328,8 +416,13 @@ export default function LogScreen() {
                 />
                 非公開で保存する
               </label>
-              <Button className="w-full" onClick={handleSave}>
-                保存する
+              <Button
+                className="w-full"
+                onClick={handleSave}
+                disabled={saving || (apiMode && !primaryOshiId)}
+                data-testid="log-create-submit"
+              >
+                {saving ? "保存中…" : (apiMode && !primaryOshiId) ? "読み込み中…" : "保存する"}
               </Button>
             </div>
           </div>
@@ -340,8 +433,8 @@ export default function LogScreen() {
             <div className="py-4 text-center text-sm opacity-70">読み込み中…</div>
           ) : apiMode ? (
             diaries.map((diary) => (
-                <MotionCard key={diary.id} cardClassName="p-4">
-                  <div className="space-y-2">
+                <MotionCard key={diary.id} cardClassName="p-4" data-testid="log-diary-card">
+                  <div className="space-y-2" data-testid="log-diary-card" data-diary-id={diary.id}>
                     <div className="flex items-center justify-between gap-2 text-xs text-muted-foreground">
                       <span>{diary.diaryDate ?? diary.createdAt ?? ""}</span>
                       <button
@@ -356,8 +449,27 @@ export default function LogScreen() {
                         <Trash2 className="h-4 w-4" />
                       </button>
                     </div>
+                    {diary.attachments && diary.attachments.length > 0 ? (
+                      <div className="grid grid-cols-2 gap-2" data-testid="log-diary-images">
+                        {diary.attachments.map((att) => (
+                          <img
+                            key={att.id}
+                            src={att.url}
+                            alt="添付写真"
+                            className="h-28 w-full rounded-xl object-cover"
+                          />
+                        ))}
+                      </div>
+                    ) : null}
                     <div className="text-sm font-semibold">{diary.title}</div>
                     <p className="text-sm text-foreground/90">{diary.content}</p>
+                    {diary.tags && diary.tags.length > 0 ? (
+                      <div className="flex flex-wrap gap-2 text-xs text-muted-foreground" data-testid="log-diary-tags">
+                        {diary.tags.map((tag) => (
+                          <span key={tag} className="rounded-full bg-muted px-2 py-0.5">#{tag}</span>
+                        ))}
+                      </div>
+                    ) : null}
                   </div>
                 </MotionCard>
               ))

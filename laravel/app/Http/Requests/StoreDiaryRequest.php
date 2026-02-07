@@ -24,6 +24,12 @@ class StoreDiaryRequest extends ApiFormRequest
             $data['is_locked'] = $this->input('isLocked', $this->input('is_locked'));
         }
 
+        // Normalize tags: accept comma-separated string or array
+        $tags = $this->input('tags');
+        if (is_string($tags)) {
+            $data['tags'] = array_values(array_filter(preg_split('/\s*,\s*/', $tags)));
+        }
+
         if (!empty($data)) {
             $this->merge($data);
         }
@@ -37,6 +43,10 @@ class StoreDiaryRequest extends ApiFormRequest
             'content' => ['required', 'string', 'max:5000'],
             'diary_date' => ['required', 'date'],
             'is_locked' => ['nullable', 'boolean'],
+            'tags' => ['nullable', 'array'],
+            'tags.*' => ['string', 'max:50'],
+            'images' => ['nullable', 'array', 'max:4'],
+            'images.*' => ['file', 'mimes:jpg,jpeg,png,webp', 'max:5120'],
         ];
     }
 }
