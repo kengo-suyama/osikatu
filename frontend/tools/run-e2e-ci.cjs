@@ -18,6 +18,22 @@ const laravelDir = path.resolve(repoDir, "laravel");
 const LOCK_MARKER_GUARD = "locked by guard-git-head";
 const LOCK_MARKER_RUNNER = "locked by run-e2e-ci";
 
+// Ports used by `npm run e2e:ci:raw` (Next dev + Laravel artisan serve).
+// On Windows, `concurrently -k` sometimes fails to terminate the actual server process tree, leaving ports busy.
+// We proactively clean up listeners on these ports to keep `--repeat` stable and avoid manual taskkill steps.
+const E2E_PORTS = [3103, 8001];
+
+const sleepMs = (ms) => {
+  if (!Number.isFinite(ms) || ms <= 0) return;
+  // Synchronous sleep without spinning (Node >= 12).
+  try {
+    const i32 = new Int32Array(new SharedArrayBuffer(4));
+    Atomics.wait(i32, 0, 0, ms);
+  } catch {
+    // ignore
+  }
+};
+
 function git(args) {
   return execFileSync("git", ["-C", repoDir, ...args], {
     encoding: "utf8",
@@ -149,6 +165,81 @@ const killPid = (pid) => {
   }
 };
 
+const getListeningPidsForPort = (port) => {
+  if (process.platform !== "win32") return [];
+  try {
+    const out = execFileSync("netstat", ["-ano"], {
+      encoding: "utf8",
+      stdio: ["ignore", "pipe", "ignore"],
+    });
+    const pids = new Set();
+    for (const line of out.split(/\r?\n/)) {
+      const parts = line.trim().split(/\s+/);
+      if (parts.length < 5) continue;
+      // TCP <local> <foreign> LISTENING <pid>
+      if (parts[0].toUpperCase() !== "TCP") continue;
+      if (parts[3].toUpperCase() !== "LISTENING") continue;
+      const local = parts[1];
+      const localPort = Number(local.slice(local.lastIndexOf(":") + 1));
+      if (!Number.isFinite(localPort) || localPort !== port) continue;
+      const pid = Number(parts[4]);
+      if (Number.isFinite(pid) && pid > 0) pids.add(pid);
+    }
+    return Array.from(pids);
+  } catch {
+    return [];
+  }
+};
+
+const getImageName = (pid) => {
+  if (process.platform !== "win32") return null;
+  try {
+    const out = execFileSync("tasklist", ["/FI", `PID eq ${pid}`], {
+      encoding: "utf8",
+      stdio: ["ignore", "pipe", "ignore"],
+    });
+    // Find a line that contains the pid and begins with the image name.
+    for (const rawLine of out.split(/\r?\n/)) {
+      const line = rawLine.trim();
+      if (!line) continue;
+      if (!line.includes(String(pid))) continue;
+      const cols = line.split(/\s+/);
+      // The "Image Name" column is first.
+      if (cols.length >= 2 && cols[1] === String(pid)) return cols[0];
+    }
+    return null;
+  } catch {
+    return null;
+  }
+};
+
+const cleanupE2ePorts = ({ reason }) => {
+  if (process.platform !== "win32") return;
+
+  const killable = new Set(["php.exe", "node.exe", "cmd.exe"]);
+
+  for (const port of E2E_PORTS) {
+    const pids = getListeningPidsForPort(port);
+    if (pids.length === 0) continue;
+
+    for (const pid of pids) {
+      const image = (getImageName(pid) || "").toLowerCase();
+      if (!killable.has(image)) {
+        console.warn(`[run-e2e-ci] WARN: port ${port} is in use by pid=${pid} (${image || "unknown"}); not killing.`);
+        continue;
+      }
+      console.warn(`[run-e2e-ci] WARN: killing leftover listener on port ${port}: pid=${pid} (${image}) [${reason}]`);
+      killPid(pid);
+    }
+
+    // Give Windows a moment to release the port.
+    for (let i = 0; i < 12; i += 1) {
+      sleepMs(250);
+      if (getListeningPidsForPort(port).length === 0) break;
+    }
+  }
+};
+
 const cleanupHeadHold = () => {
   try {
     if (!fs.existsSync(pidFilePath)) return;
@@ -275,6 +366,8 @@ const setupLaravelSqliteDb = (dbPath) => {
 cleanupLocks({ allowUnknown: false });
 cleanupHeadHold();
 cleanupWeirdNulFile();
+// Best effort cleanup for previous crashed runs (keeps local `e2e:ci` repeatable).
+cleanupE2ePorts({ reason: "startup" });
 createLocks();
 const headHoldProc = startHeadHold();
 
@@ -295,6 +388,7 @@ const finalize = (exitCode) => {
     killPid(headHoldProc.pid);
   }
   cleanupHeadHold();
+  cleanupE2ePorts({ reason: "finalize" });
 
   // Remove only locks we created (and any stale ones from guard).
   for (const lockPath of createdLockPaths) {
@@ -352,6 +446,7 @@ const runOnce = (runIndex) =>
     child.on("exit", (code, signal) => {
       currentChild = null;
       cleanupWeirdNulFile();
+      cleanupE2ePorts({ reason: `run ${runIndex} exit` });
 
       const branch = git(["rev-parse", "--abbrev-ref", "HEAD"]);
       const head = git(["rev-parse", "HEAD"]);
