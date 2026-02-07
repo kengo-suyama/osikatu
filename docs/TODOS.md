@@ -26,7 +26,28 @@ This file is a lightweight backlog and status note.
   - `feature/hub-and-quickmode`
   - `feature/suyama`
 
-## Next (Engineering)
+## E2E Tests (maintenance targets)
+
+| File | Covers |
+|------|--------|
+| `home-budget.spec.ts` | Budget card visibility, testid elements |
+| `home-expenses-summary.spec.ts` | Expenses summary card, API seeding, navigation |
+| `home-navigation.spec.ts` | Budget→/money, Expenses→/money, Log→/logs links |
+| `home-schedule.spec.ts` | Upcoming schedule card |
+| `invite-gate.spec.ts` | Invite gate / navigation |
+
+## Backlog (next phase)
+
+| Priority | ID | Theme | Scope |
+|----------|----|-------|-------|
+| **A** | home-log-enhance | Home log card: show recent activities (date, category, title) | Small |
+| **B** | notifications | Schedule reminders, budget alerts | Medium |
+| **C** | log-features | Log: photo upload, tags, search filters | Medium |
+| **D** | oshi-profile | Oshi profile: SNS links, memo, anniversaries | Small-Medium |
+
+Recommended next: **A** or **D** (small PRs to raise Home UI completeness).
+
+## Tech Debt (Engineering)
 
 - Decide policy for remaining feature branches:
   - Merge, rebase+merge, or close (document the decision).
