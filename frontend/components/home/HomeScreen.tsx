@@ -2,7 +2,7 @@
 
 import type { CSSProperties } from "react";
 import { useEffect, useMemo, useState } from "react";
-import { Bell, Bookmark, BookmarkCheck, CalendarDays, MessageSquare, Settings, Trash2, UserPlus, Wallet, Activity } from "lucide-react";
+import { Bell, Bookmark, BookmarkCheck, CalendarDays, ExternalLink, MessageSquare, Settings, Trash2, User, UserPlus, Wallet, Activity } from "lucide-react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 
@@ -654,6 +654,87 @@ export default function HomeScreen() {
             );
           }}
         />
+      ) : null}
+
+      {selectedOshi ? (
+        <Card className="rounded-2xl border p-4 shadow-sm" data-testid="home-oshi-card">
+          <CardHeader className="p-0 pb-3">
+            <div className="flex items-center justify-between">
+              <CardTitle className="flex items-center gap-1.5 text-sm font-semibold text-muted-foreground">
+                <User className="h-4 w-4" />
+                推しプロフィール
+              </CardTitle>
+              <button
+                type="button"
+                className="text-xs text-primary underline opacity-80 hover:opacity-100"
+                data-testid="home-oshi-edit"
+                onClick={() => {
+                  const fab = document.querySelector('[data-testid="fab-oshi-profile"]');
+                  if (fab instanceof HTMLElement) fab.click();
+                }}
+              >
+                編集
+              </button>
+            </div>
+          </CardHeader>
+          <CardContent className="space-y-2 p-0">
+            {(() => {
+              const p = selectedOshi.profile;
+              const hasQuote = !!p.quote;
+              const hasLinks = p.links && p.links.length > 0;
+              const hasMemo = !!p.memo;
+              const hasAnniversaries = p.anniversaries && p.anniversaries.length > 0;
+              const hasAny = hasQuote || hasLinks || hasMemo || hasAnniversaries;
+              if (!hasAny) {
+                return (
+                  <div className="text-xs text-muted-foreground" data-testid="home-oshi-empty">
+                    プロフィールを設定しよう
+                  </div>
+                );
+              }
+              return (
+                <>
+                  <div className="text-sm font-medium" data-testid="home-oshi-name">{selectedOshi.name}</div>
+                  {hasQuote ? (
+                    <div className="rounded-lg bg-muted/30 px-3 py-2 text-xs italic text-muted-foreground" data-testid="home-oshi-quote">
+                      &ldquo;{p.quote}&rdquo;
+                    </div>
+                  ) : null}
+                  {hasLinks ? (
+                    <div className="flex flex-wrap gap-1.5" data-testid="home-oshi-links">
+                      {p.links.map((link, i) => (
+                        <a
+                          key={i}
+                          href={link.url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center gap-1 rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-medium text-primary hover:bg-primary/20"
+                        >
+                          <ExternalLink className="h-3 w-3" />
+                          {link.label}
+                        </a>
+                      ))}
+                    </div>
+                  ) : null}
+                  {hasAnniversaries ? (
+                    <div data-testid="home-oshi-anniversary">
+                      {p.anniversaries.slice(0, 2).map((ann, i) => (
+                        <div key={i} className="text-xs text-muted-foreground">
+                          {ann.label}: {ann.date}
+                        </div>
+                      ))}
+                    </div>
+                  ) : null}
+                  {hasMemo ? (
+                    <div className="text-xs text-muted-foreground line-clamp-2" data-testid="home-oshi-memo">
+                      {p.memo}
+                    </div>
+                  ) : null}
+                </>
+              );
+            })()}
+          </CardContent>
+        </Card>
       ) : null}
 
       <Card className="rounded-2xl border p-4 shadow-sm" data-testid="home-log-recent">

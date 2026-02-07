@@ -40,6 +40,7 @@ This file is a lightweight backlog and status note.
 | `home-log-card.spec.ts` | Log card structure, category badge, empty state |
 | `home-log-filter.spec.ts` | Log card filter chips, icon thumbnails, click behavior |
 | `home-notifications.spec.ts` | Notifications card structure, empty state, navigation |
+| `home-oshi-profile.spec.ts` | Oshi profile card, empty state, edit button |
 
 ## Backlog (next phase)
 
@@ -48,7 +49,7 @@ This file is a lightweight backlog and status note.
 | ~~A~~ | home-log-enhance | ~~Home log card: icon thumbnails + category filter chips~~ | **Done** (PR #20) |
 | ~~B~~ | notifications | ~~Schedule reminders, budget alerts~~ Home notifications card | **Done** (PR #22) |
 | **C** | log-features | Log: photo upload, tags, search filters | Medium |
-| **D** | oshi-profile | Oshi profile: SNS links, memo, anniversaries | Small-Medium |
+| ~~D~~ | oshi-profile | ~~Oshi profile: SNS links, memo, anniversaries~~ | **Done** (PR #23) |
 
 Recommended next: **A** or **D** (small PRs to raise Home UI completeness).
 
