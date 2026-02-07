@@ -2,7 +2,7 @@
 
 import type { CSSProperties } from "react";
 import { useEffect, useMemo, useState } from "react";
-import { Bookmark, BookmarkCheck, CalendarDays, Trash2 } from "lucide-react";
+import { Bookmark, BookmarkCheck, CalendarDays, MessageSquare, Settings, Trash2, UserPlus, Wallet, Activity } from "lucide-react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 
@@ -53,6 +53,35 @@ import { getSafeDisplayName, isProfileNameMissing } from "@/lib/ui/profileDispla
 import { formatLogTime, logSentence } from "@/lib/ui/logText";
 import { logLabel } from "@/lib/ui/logLabels";
 import { isApiMode } from "@/lib/config";
+
+/** Log action → category mapping for filter chips */
+const LOG_ACTION_CATEGORIES: Record<string, string> = {
+  "chat_message.create": "チャット",
+  "chat_message.delete": "チャット",
+  "join_request.create": "参加",
+  "join_request.approve": "参加",
+  "join_request.reject": "参加",
+  "oshi_media.change_frame": "設定",
+  "circle.ui.theme.update": "設定",
+  "circle.ui.special_bg.update": "設定",
+  "settlement.create": "精算",
+  "settlement.update": "精算",
+};
+
+function logActionCategory(action: string): string {
+  return LOG_ACTION_CATEGORIES[action] ?? "その他";
+}
+
+const LOG_CATEGORY_ICON: Record<string, typeof Activity> = {
+  "チャット": MessageSquare,
+  "参加": UserPlus,
+  "設定": Settings,
+  "精算": Wallet,
+  "その他": Activity,
+};
+
+const LOG_FILTER_OPTIONS = ["全部", "チャット", "参加", "設定", "精算"] as const;
+type LogFilterOption = (typeof LOG_FILTER_OPTIONS)[number];
 
 const OSHI_CATEGORIES = [
   "アイドル", "VTuber", "俳優", "声優", "アーティスト",
@@ -121,6 +150,7 @@ export default function HomeScreen() {
   const [expensesTotal, setExpensesTotal] = useState(0);
   const [expensesLoading, setExpensesLoading] = useState(false);
   const [deletingLogId, setDeletingLogId] = useState<string | null>(null);
+  const [logFilter, setLogFilter] = useState<LogFilterOption>("全部");
   const defaultBudgetState = useMemo<BudgetResponse>(() => {
     const currentMonth = localYearMonth();
     return {
@@ -611,41 +641,82 @@ export default function HomeScreen() {
               もっと見る
             </Link>
           </div>
+          {/* Category filter chips */}
+          <div className="mt-2 flex flex-wrap gap-1.5" data-testid="home-log-filters">
+            {LOG_FILTER_OPTIONS.map((opt) => (
+              <button
+                key={opt}
+                type="button"
+                className={cn(
+                  "rounded-full px-2.5 py-0.5 text-[11px] font-medium transition-colors",
+                  logFilter === opt
+                    ? "bg-primary text-primary-foreground"
+                    : "bg-muted text-muted-foreground hover:bg-muted/80"
+                )}
+                onClick={() => setLogFilter(opt)}
+                data-testid={"home-log-filter-" + opt}
+              >
+                {opt}
+              </button>
+            ))}
+          </div>
         </CardHeader>
         <CardContent className="space-y-2 p-0">
           {myLogsLoading ? (
             <div className="text-xs text-muted-foreground">読み込み中...</div>
           ) : myLogs.length ? (
-            myLogs.map((log, i) => (
-              <div
-                key={log.id}
-                className="rounded-xl border border-border/60 bg-muted/30 p-3"
-                data-testid={"home-log-item-" + i}
-              >
-                <div className="flex items-start justify-between gap-2">
-                  <div className="min-w-0 flex-1">
-                    <span
-                      className="mr-1.5 inline-block rounded bg-primary/10 px-1.5 py-0.5 text-[10px] font-medium text-primary"
-                      data-testid="home-log-item-category"
-                    >
-                      {logLabel(log.action)}
-                    </span>
-                    <span className="text-sm" data-testid="home-log-item-title">{logSentence(log)}</span>
-                  </div>
-                  <button
-                    type="button"
-                    className="shrink-0 text-muted-foreground hover:text-destructive"
-                    onClick={() => void handleDeleteLog(log.id)}
-                    disabled={deletingLogId === log.id}
+            (() => {
+              const filtered = logFilter === "全部"
+                ? myLogs
+                : myLogs.filter((log) => logActionCategory(log.action) === logFilter);
+              if (filtered.length === 0) {
+                return <div className="text-xs text-muted-foreground" data-testid="home-log-filter-empty">該当する活動がありません</div>;
+              }
+              return filtered.map((log, i) => {
+                const cat = logActionCategory(log.action);
+                const IconComp = LOG_CATEGORY_ICON[cat] ?? Activity;
+                return (
+                  <div
+                    key={log.id}
+                    className="rounded-xl border border-border/60 bg-muted/30 p-3"
+                    data-testid={"home-log-item-" + i}
                   >
-                    <Trash2 className="h-4 w-4" />
-                  </button>
-                </div>
-                <div className="mt-1 text-xs text-muted-foreground" data-testid="home-log-item-date">
-                  {formatLogTime(log.createdAt)}
-                </div>
-              </div>
-            ))
+                    <div className="flex items-start gap-2">
+                      <div
+                        className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-primary/10"
+                        data-testid="home-log-item-icon"
+                      >
+                        <IconComp className="h-3.5 w-3.5 text-primary" />
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="min-w-0 flex-1">
+                            <span
+                              className="mr-1.5 inline-block rounded bg-primary/10 px-1.5 py-0.5 text-[10px] font-medium text-primary"
+                              data-testid="home-log-item-category"
+                            >
+                              {logLabel(log.action)}
+                            </span>
+                            <span className="text-sm" data-testid="home-log-item-title">{logSentence(log)}</span>
+                          </div>
+                          <button
+                            type="button"
+                            className="shrink-0 text-muted-foreground hover:text-destructive"
+                            onClick={() => void handleDeleteLog(log.id)}
+                            disabled={deletingLogId === log.id}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </button>
+                        </div>
+                        <div className="mt-1 text-xs text-muted-foreground" data-testid="home-log-item-date">
+                          {formatLogTime(log.createdAt)}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                );
+              });
+            })()
           ) : (
             <div className="text-xs text-muted-foreground">まだ活動がありません</div>
           )}

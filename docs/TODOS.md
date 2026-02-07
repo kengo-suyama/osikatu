@@ -14,6 +14,7 @@ This file is a lightweight backlog and status note.
 - PR-4A `feature/home-budget-tz-fix` (#12): budget TZ fix, shared date helpers, data-testid, E2E
 - PR-4B `feature/home-expenses-summary` (#13): expenses-by-oshi summary card, expenseRepo, backend ambiguous column fix, E2E
 - PR-4C `feature/home-navigation-polish` (#14): budget→/money, expenses→/money, log→/logs navigation links, E2E
+- PR #19: fix duplicate expenses-summary testid (strict mode violation)
 - Encoding guardrails:
   - Stripped UTF-8 BOM from PHP/migration files (prevents stray output like `﻿Laravel ...`).
   - Added `.editorconfig` (`charset=utf-8`) and `tools/check-utf8-no-bom.ps1`.
@@ -40,7 +41,7 @@ This file is a lightweight backlog and status note.
 
 | Priority | ID | Theme | Scope |
 |----------|----|-------|-------|
-| **A** | home-log-enhance | Home log card: show recent activities (date, category, title) | Small |
+| **A** | home-log-enhance | Home log card: icon thumbnails + category filter chips | Small |
 | **B** | notifications | Schedule reminders, budget alerts | Medium |
 | **C** | log-features | Log: photo upload, tags, search filters | Medium |
 | **D** | oshi-profile | Oshi profile: SNS links, memo, anniversaries | Small-Medium |
