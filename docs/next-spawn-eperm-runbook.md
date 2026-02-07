@@ -247,3 +247,47 @@ Phase 4 レポートを貼ったらここで STOP。
 - Phase 3（UI 証拠取り）→ CFA/Defender 起因の可能性を潰す/裏付ける
 - Phase 4（最小再現）→ spawn EPERM / wait-on timeout の再現ログを確定
 - ここで止めて、次アクションに許可を取りに行く（破壊的/除外追加）
+
+---
+
+## 新ツール（自動診断・自動復旧）
+
+### e2e:preflight — ポート事前チェック
+E2E で使用するポート (3103, 8001) が空いているか IPv4 + IPv6 で確認します。
+Windows では既知プロセス (node.exe, php.exe, cmd.exe) を自動で kill して再チェックします。
+
+```powershell
+cd C:\laragon\www\osikatu\frontend
+npm run e2e:preflight
+```
+
+### e2e:doctor — 環境診断
+ランタイム (Node/npm/PHP)、ポート、git lock、SQLite DB、依存関係、Playwright ブラウザ、conflict marker を一括チェックします。
+
+```powershell
+cd C:\laragon\www\osikatu\frontend
+npm run e2e:doctor
+```
+
+出力例:
+```
+🩺 E2E Doctor — Diagnosing test environment...
+
+1) Runtime
+  ✅ Node.js v20.x.x
+  ✅ npm 10.x.x
+2) PHP
+  ✅ PHP 8.x.x
+3) Ports
+  ✅ Port 3103 is free (IPv4 + IPv6)
+  ✅ Port 8001 is free (IPv4 + IPv6)
+...
+🩺 Results: 12 passed, 0 warnings, 0 failed
+   Environment looks good! 🎉
+```
+
+### run-e2e-ci.cjs 自動復旧機能
+- **再入ガード**: 同時に2つの run-e2e-ci が起動するのを防止
+- **SQLite 破損復旧**: `malformed` / `corrupt` エラー検出時に DB を再作成
+- **preflight 統合**: 起動前に自動で ensure-ports-free を呼び出し
+- **uncaughtException / unhandledRejection**: 予期しないクラッシュでもロックを確実に解放

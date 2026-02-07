@@ -7,10 +7,55 @@
 // - actively blocks IDE auto-checkouts using git lock files (index.lock / HEAD.lock)
 // - holds `.git/HEAD` open to block IDE auto-checkouts mid-run (Windows only)
 // - optional: `--repeat N` to run e2e:ci multiple times without dropping the locks
+// - auto-calls ensure-ports-free as preflight before each run
+// - detects and recovers from SQLite corruption (malformed DB)
+// - re-entry guard prevents concurrent runs
 
 const { execFileSync, spawn } = require("node:child_process");
 const fs = require("node:fs");
 const path = require("node:path");
+
+// ── Re-entry guard ─────────────────────────────────────────────────────────
+const REENTRY_LOCK = path.resolve(__dirname, "..", ".run-e2e-ci.lock");
+if (fs.existsSync(REENTRY_LOCK)) {
+  let stale = false;
+  try {
+    const raw = fs.readFileSync(REENTRY_LOCK, "utf8").trim();
+    const pid = Number(raw);
+    if (Number.isFinite(pid) && pid > 0) {
+      try { process.kill(pid, 0); } catch { stale = true; }
+    } else {
+      stale = true;
+    }
+  } catch {
+    stale = true;
+  }
+  if (!stale) {
+    console.error("[run-e2e-ci] ERROR: another instance is already running. Remove .run-e2e-ci.lock if stale.");
+    process.exit(3);
+  }
+  // Stale lock – clean it up and continue.
+  try { fs.unlinkSync(REENTRY_LOCK); } catch { /* ignore */ }
+}
+try {
+  fs.writeFileSync(REENTRY_LOCK, String(process.pid), { flag: "wx" });
+} catch {
+  // Race: another instance just started. Bail out.
+  console.error("[run-e2e-ci] ERROR: could not acquire re-entry lock.");
+  process.exit(3);
+}
+
+// ── Crash handlers ─────────────────────────────────────────────────────────
+process.on("uncaughtException", (err) => {
+  console.error(`[run-e2e-ci] FATAL uncaughtException: ${err instanceof Error ? err.stack : String(err)}`);
+  try { fs.unlinkSync(REENTRY_LOCK); } catch { /* ignore */ }
+  process.exit(99);
+});
+process.on("unhandledRejection", (reason) => {
+  console.error(`[run-e2e-ci] FATAL unhandledRejection: ${reason instanceof Error ? reason.stack : String(reason)}`);
+  try { fs.unlinkSync(REENTRY_LOCK); } catch { /* ignore */ }
+  process.exit(99);
+});
 
 const frontendDir = path.resolve(__dirname, "..");
 const repoDir = path.resolve(frontendDir, "..");
@@ -73,8 +118,9 @@ const resolveGitPath = (gitPath) => {
 let symbolicHeadRef = null;
 try {
   symbolicHeadRef = git(["symbolic-ref", "-q", "HEAD"]);
-} catch {
-  // Detached HEAD; nothing to lock.
+} catch (err) {
+  const msg = err instanceof Error ? err.message : String(err);
+  console.warn(`[run-e2e-ci] WARN: could not read symbolic HEAD (detached HEAD or corrupt): ${msg}`);
 }
 
 const refLockPath =
@@ -341,7 +387,7 @@ const setupLaravelSqliteDb = (dbPath) => {
     MAIL_MAILER: "array",
   };
 
-  try {
+  const attemptMigrate = () => {
     execFileSync("php", ["artisan", "migrate:fresh", "--force"], {
       cwd: laravelDir,
       env,
@@ -356,10 +402,28 @@ const setupLaravelSqliteDb = (dbPath) => {
         stdio: ["ignore", "pipe", "pipe"],
       }
     );
+  };
+
+  try {
+    attemptMigrate();
     console.log(`[run-e2e-ci] sqlite DB prepared: ${dbPath}`);
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
-    console.warn(`[run-e2e-ci] WARN: failed to migrate/seed sqlite DB: ${message}`);
+    // Auto-recovery: if the DB is malformed/corrupt, delete and retry once.
+    if (/malformed|corrupt|not a database|disk image/i.test(message)) {
+      console.warn(`[run-e2e-ci] WARN: sqlite DB appears corrupt, recreating: ${message}`);
+      try { fs.unlinkSync(dbPath); } catch { /* ignore */ }
+      try { fs.writeFileSync(dbPath, ""); } catch { /* ignore */ }
+      try {
+        attemptMigrate();
+        console.log(`[run-e2e-ci] sqlite DB recovered and prepared: ${dbPath}`);
+      } catch (retryErr) {
+        const retryMsg = retryErr instanceof Error ? retryErr.message : String(retryErr);
+        console.warn(`[run-e2e-ci] WARN: failed to recover sqlite DB: ${retryMsg}`);
+      }
+    } else {
+      console.warn(`[run-e2e-ci] WARN: failed to migrate/seed sqlite DB: ${message}`);
+    }
   }
 };
 
@@ -368,11 +432,31 @@ cleanupHeadHold();
 cleanupWeirdNulFile();
 // Best effort cleanup for previous crashed runs (keeps local `e2e:ci` repeatable).
 cleanupE2ePorts({ reason: "startup" });
+
+// Preflight: verify E2E ports are available before proceeding.
+try {
+  execFileSync("node", [path.join(__dirname, "ensure-ports-free.cjs"), ...E2E_PORTS.map(String)], {
+    cwd: frontendDir,
+    stdio: "inherit",
+  });
+} catch {
+  console.error("[run-e2e-ci] ERROR: preflight port check failed. Ports may still be in use.");
+  try { fs.unlinkSync(REENTRY_LOCK); } catch { /* ignore */ }
+  process.exit(1);
+}
+
 createLocks();
 const headHoldProc = startHeadHold();
 
-const initialBranch = git(["rev-parse", "--abbrev-ref", "HEAD"]);
-const initialHead = git(["rev-parse", "HEAD"]);
+let initialBranch = "unknown";
+let initialHead = "unknown";
+try {
+  initialBranch = git(["rev-parse", "--abbrev-ref", "HEAD"]);
+  initialHead = git(["rev-parse", "HEAD"]);
+} catch (err) {
+  const msg = err instanceof Error ? err.message : String(err);
+  console.warn(`[run-e2e-ci] WARN: could not read git HEAD at startup: ${msg}`);
+}
 
 let currentChild = null;
 const forwardSignal = (signal) => {
@@ -400,6 +484,8 @@ const finalize = (exitCode) => {
     }
   }
   cleanupLocks({ allowUnknown: false });
+  // Release re-entry guard.
+  try { fs.unlinkSync(REENTRY_LOCK); } catch { /* ignore */ }
   process.exit(exitCode);
 };
 
@@ -448,8 +534,15 @@ const runOnce = (runIndex) =>
       cleanupWeirdNulFile();
       cleanupE2ePorts({ reason: `run ${runIndex} exit` });
 
-      const branch = git(["rev-parse", "--abbrev-ref", "HEAD"]);
-      const head = git(["rev-parse", "HEAD"]);
+      let branch = "unknown";
+      let head = "unknown";
+      try {
+        branch = git(["rev-parse", "--abbrev-ref", "HEAD"]);
+        head = git(["rev-parse", "HEAD"]);
+      } catch (gitErr) {
+        const msg = gitErr instanceof Error ? gitErr.message : String(gitErr);
+        console.warn(`[run-e2e-ci] WARN: could not read git HEAD after run: ${msg}`);
+      }
       if (branch !== initialBranch || head !== initialHead) {
         console.error("[run-e2e-ci] ERROR: git HEAD changed while running e2e:ci.");
         console.error(`[run-e2e-ci] initial branch=${initialBranch} head=${initialHead}`);
