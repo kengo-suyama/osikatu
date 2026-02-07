@@ -381,10 +381,10 @@ export default function LogScreen() {
               <Button
                 className="w-full"
                 onClick={handleSave}
-                disabled={saving}
+                disabled={saving || (apiMode && !primaryOshiId)}
                 data-testid="log-create-submit"
               >
-                {saving ? "保存中…" : "保存する"}
+                {saving ? "保存中…" : (apiMode && !primaryOshiId) ? "読み込み中…" : "保存する"}
               </Button>
             </div>
           </div>
