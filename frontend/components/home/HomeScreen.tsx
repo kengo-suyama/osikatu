@@ -51,6 +51,7 @@ import type { Oshi, SupplyItem } from "@/lib/uiTypes";
 import { cn } from "@/lib/utils";
 import { getSafeDisplayName, isProfileNameMissing } from "@/lib/ui/profileDisplay";
 import { formatLogTime, logSentence } from "@/lib/ui/logText";
+import { logLabel } from "@/lib/ui/logLabels";
 import { isApiMode } from "@/lib/config";
 
 const OSHI_CATEGORIES = [
@@ -600,11 +601,11 @@ export default function HomeScreen() {
         />
       ) : null}
 
-      <Card className="rounded-2xl border p-4 shadow-sm">
+      <Card className="rounded-2xl border p-4 shadow-sm" data-testid="home-log-recent">
         <CardHeader className="p-0 pb-3">
           <div className="flex items-center justify-between">
             <CardTitle className="text-sm font-semibold text-muted-foreground">
-              操作ログ
+              最近の活動
             </CardTitle>
             <Link href="/logs" className="text-xs underline opacity-80 hover:opacity-100" data-testid="home-log-more">
               もっと見る
@@ -615,29 +616,38 @@ export default function HomeScreen() {
           {myLogsLoading ? (
             <div className="text-xs text-muted-foreground">読み込み中...</div>
           ) : myLogs.length ? (
-            myLogs.map((log) => (
+            myLogs.map((log, i) => (
               <div
                 key={log.id}
                 className="rounded-xl border border-border/60 bg-muted/30 p-3"
+                data-testid={"home-log-item-" + i}
               >
                 <div className="flex items-start justify-between gap-2">
-                  <div className="text-sm">{logSentence(log)}</div>
+                  <div className="min-w-0 flex-1">
+                    <span
+                      className="mr-1.5 inline-block rounded bg-primary/10 px-1.5 py-0.5 text-[10px] font-medium text-primary"
+                      data-testid="home-log-item-category"
+                    >
+                      {logLabel(log.action)}
+                    </span>
+                    <span className="text-sm" data-testid="home-log-item-title">{logSentence(log)}</span>
+                  </div>
                   <button
                     type="button"
-                    className="text-muted-foreground hover:text-destructive"
+                    className="shrink-0 text-muted-foreground hover:text-destructive"
                     onClick={() => void handleDeleteLog(log.id)}
                     disabled={deletingLogId === log.id}
                   >
                     <Trash2 className="h-4 w-4" />
                   </button>
                 </div>
-                <div className="mt-1 text-xs text-muted-foreground">
+                <div className="mt-1 text-xs text-muted-foreground" data-testid="home-log-item-date">
                   {formatLogTime(log.createdAt)}
                 </div>
               </div>
             ))
           ) : (
-            <div className="text-xs text-muted-foreground">ログがまだありません</div>
+            <div className="text-xs text-muted-foreground">まだ活動がありません</div>
           )}
         </CardContent>
       </Card>
