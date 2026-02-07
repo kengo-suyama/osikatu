@@ -40,7 +40,7 @@ import { meRepo } from "@/lib/repo/meRepo";
 import { deleteMeLog, listMyLogs } from "@/lib/repo/operationLogRepo";
 import { oshiRepo } from "@/lib/repo/oshiRepo";
 import { fetchMySchedules } from "@/lib/repo/scheduleRepo";
-import { fetchExpensesSummary } from "@/lib/repo/expenseRepo";
+
 import { localYearMonth, localDate } from "@/lib/date";
 import { useBudgetState } from "@/lib/budgetState";
 import { BudgetResponse } from "@/lib/repo/budgetRepo";
