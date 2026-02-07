@@ -20,44 +20,38 @@ function git(args) {
 }
 
 // Default ON: we actively prevent external `git checkout/switch` during e2e runs.
-// - index.lock blocks index updates
-// - HEAD.lock blocks HEAD updates (for git implementations that honor lock files)
-// Set `GUARD_GIT_HEAD_LOCK_INDEX=0` / `GUARD_GIT_HEAD_LOCK_HEAD=0` to disable.
+// Set `GUARD_GIT_HEAD_LOCK_INDEX=0` to disable.
 const lockIndex = process.env.GUARD_GIT_HEAD_LOCK_INDEX !== "0";
-const lockHead = process.env.GUARD_GIT_HEAD_LOCK_HEAD !== "0";
-const createdLockPaths = [];
+let createdIndexLock = false;
+let indexLockPath = "";
 
 const cleanup = () => {
-  for (const lockPath of createdLockPaths) {
-    try {
-      fs.unlinkSync(lockPath);
-      console.log(`[guard-git-head] lock removed: ${lockPath}`);
-    } catch {
-      // ignore
-    }
+  if (!createdIndexLock || !indexLockPath) return;
+  try {
+    fs.unlinkSync(indexLockPath);
+    console.log(`[guard-git-head] index lock removed: ${indexLockPath}`);
+  } catch {
+    // ignore
   }
 };
 
-const tryCreateLock = (gitPath) => {
+if (lockIndex) {
   try {
     // In worktrees, `.git` can be a file. Ask git for the correct lock path.
-    const raw = git(["rev-parse", "--git-path", gitPath]);
-    const lockPath = path.resolve(repoDir, raw);
+    const raw = git(["rev-parse", "--git-path", "index.lock"]);
+    indexLockPath = path.resolve(repoDir, raw);
     fs.writeFileSync(
-      lockPath,
+      indexLockPath,
       `locked by guard-git-head pid=${process.pid} at ${new Date().toISOString()}\n`,
       { flag: "wx" }
     );
-    createdLockPaths.push(lockPath);
-    console.log(`[guard-git-head] lock created: ${lockPath}`);
+    createdIndexLock = true;
+    console.log(`[guard-git-head] index lock created: ${indexLockPath}`);
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
-    console.warn(`[guard-git-head] WARN: could not create ${gitPath}: ${message}`);
+    console.warn(`[guard-git-head] WARN: could not create index lock: ${message}`);
   }
-};
-
-if (lockIndex) tryCreateLock("index.lock");
-if (lockHead) tryCreateLock("HEAD.lock");
+}
 
 const initialHead = git(["rev-parse", "HEAD"]);
 const initialBranch = git(["rev-parse", "--abbrev-ref", "HEAD"]);

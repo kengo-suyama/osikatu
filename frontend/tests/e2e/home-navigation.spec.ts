@@ -56,11 +56,8 @@ test.describe("home navigation links", () => {
       const budgetLink = page.locator('[data-testid="budget-to-money"]');
       await expect(budgetLink).toBeVisible({ timeout: 45_000 });
       await expect(budgetLink).toContainText("詳細へ");
-      await budgetLink.scrollIntoViewIfNeeded();
-      await Promise.all([
-        page.waitForURL(/\/money/, { timeout: 60_000 }),
-        budgetLink.click(),
-      ]);
+      await budgetLink.click();
+      await page.waitForURL(/\/money/, { timeout: 10_000 });
       logPass("Budget card 詳細へ navigates to /money");
     } catch (error) {
       logFail("Budget navigation", error);
@@ -82,11 +79,8 @@ test.describe("home navigation links", () => {
 
       const moreLink = page.locator('[data-testid="expenses-summary-more"]');
       await expect(moreLink).toBeVisible({ timeout: 45_000 });
-      await moreLink.scrollIntoViewIfNeeded();
-      await Promise.all([
-        page.waitForURL(/\/money/, { timeout: 60_000 }),
-        moreLink.click(),
-      ]);
+      await moreLink.click();
+      await page.waitForURL(/\/money/, { timeout: 10_000 });
       logPass("Expenses card もっと見る navigates to /money");
     } catch (error) {
       logFail("Expenses navigation", error);
