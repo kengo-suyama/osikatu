@@ -83,12 +83,14 @@ const initStorage = (page: Parameters<typeof test>[1]["page"], deviceId: string)
     localStorage.setItem("osikatu:api-base-url", "http://127.0.0.1:8001");
   }, deviceId);
 
+const uniqueDeviceId = (prefix: string) => `${prefix}-${Date.now()}-${process.pid}-${Math.floor(Math.random() * 1000)}`;
+
 test.describe("chat stamp and media", () => {
   test("chat page has stamp button and input", async ({ page, request }) => {
     attachDiagnostics(page, "chat-stamp");
     await assertFrontendUp(request);
 
-    const deviceId = "device-e2e-chat-001";
+    const deviceId = uniqueDeviceId("device-e2e-chat");
     await ensureOnboardingDone(request, deviceId);
     await ensurePlusPlan(request, deviceId);
     const circleId = await createCircle(request, deviceId);
@@ -96,6 +98,9 @@ test.describe("chat stamp and media", () => {
     await initStorage(page, deviceId);
 
     await page.goto(`/circles/${circleId}/chat`, { waitUntil: "domcontentloaded" });
+
+    // Ensure the client has hydrated and initial chat fetch has completed.
+    await expect(page.locator("text=読み込み中...")).toBeHidden({ timeout: 45_000 });
 
     // Check chat input exists
     const chatInput = page.locator('[data-testid="chat-input"]');
@@ -122,7 +127,7 @@ test.describe("chat stamp and media", () => {
     attachDiagnostics(page, "chat-stamp-picker");
     await assertFrontendUp(request);
 
-    const deviceId = "device-e2e-chat-002";
+    const deviceId = uniqueDeviceId("device-e2e-chat");
     await ensureOnboardingDone(request, deviceId);
     await ensurePlusPlan(request, deviceId);
     const circleId = await createCircle(request, deviceId);
@@ -153,7 +158,7 @@ test.describe("chat stamp and media", () => {
     attachDiagnostics(page, "chat-send-text");
     await assertFrontendUp(request);
 
-    const deviceId = "device-e2e-chat-003";
+    const deviceId = uniqueDeviceId("device-e2e-chat");
     await ensureOnboardingDone(request, deviceId);
     await ensurePlusPlan(request, deviceId);
     const circleId = await createCircle(request, deviceId);

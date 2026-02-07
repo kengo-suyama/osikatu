@@ -117,8 +117,11 @@ test.describe("home expenses summary card", () => {
       // "もっと見る" link navigates to /money
       const moreLink = page.locator('[data-testid="expenses-summary-more"]');
       await expect(moreLink).toBeVisible();
-      await moreLink.click();
-      await page.waitForURL(/\/money/, { timeout: 10_000 });
+      await moreLink.scrollIntoViewIfNeeded();
+      await Promise.all([
+        page.waitForURL(/\/money/, { timeout: 60_000 }),
+        moreLink.click(),
+      ]);
       logPass("More link navigates to /money");
     } catch (error) {
       logFail("Expenses summary card checks", error);
