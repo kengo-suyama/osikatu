@@ -4,6 +4,8 @@
 **Applies to:** `frontend/**`
 ---
 
+> **Related documentation:** See [E2E/CI Gate 運用メモ](./e2e.md) for detailed Playwright artifact specifications and logging procedures.
+
 ## Environment Configuration
 
 ### Development Ports

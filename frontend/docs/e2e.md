@@ -1,5 +1,7 @@
 # E2E / CI Gate 運用メモ
 
+> **See also:** [Frontend Development Guidelines](./frontend-guidelines.md) for comprehensive frontend development rules and E2E testing best practices.
+
 ## ci:gate
 
 以下を順番に実行します。

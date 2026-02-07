@@ -1,5 +1,9 @@
 # Osikatu – Copilot Instructions
 
+## Documentation Index
+- **Frontend Development:** See [frontend/docs/frontend-guidelines.md](../frontend/docs/frontend-guidelines.md) for Next.js development, E2E testing, and React best practices
+- **E2E Testing Operations:** See [frontend/docs/e2e.md](../frontend/docs/e2e.md) for Playwright test execution and artifact management
+
 ## TL;DR
 - Frontend: Next.js (port 3000) / Backend: Laravel 12 (port 8000)
 - Next rewrites: `/api/*` and `/storage/*` -> `http://127.0.0.1:8000`
