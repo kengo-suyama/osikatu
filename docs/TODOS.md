@@ -14,6 +14,7 @@ This file is a lightweight backlog and status note.
 - PR-4A `feature/home-budget-tz-fix` (#12): budget TZ fix, shared date helpers, data-testid, E2E
 - PR-4B `feature/home-expenses-summary` (#13): expenses-by-oshi summary card, expenseRepo, backend ambiguous column fix, E2E
 - PR-4C `feature/home-navigation-polish` (#14): budget→/money, expenses→/money, log→/logs navigation links, E2E
+- PR #22: Backlog B - Home notifications card (UI + existing API + E2E)
 - PR #19: fix duplicate expenses-summary testid (strict mode violation)
 - Encoding guardrails:
   - Stripped UTF-8 BOM from PHP/migration files (prevents stray output like `﻿Laravel ...`).
@@ -38,13 +39,14 @@ This file is a lightweight backlog and status note.
 | `invite-gate.spec.ts` | Invite gate / navigation |
 | `home-log-card.spec.ts` | Log card structure, category badge, empty state |
 | `home-log-filter.spec.ts` | Log card filter chips, icon thumbnails, click behavior |
+| `home-notifications.spec.ts` | Notifications card structure, empty state, navigation |
 
 ## Backlog (next phase)
 
 | Priority | ID | Theme | Scope |
 |----------|----|-------|-------|
 | ~~A~~ | home-log-enhance | ~~Home log card: icon thumbnails + category filter chips~~ | **Done** (PR #20) |
-| **B** | notifications | Schedule reminders, budget alerts | Medium |
+| ~~B~~ | notifications | ~~Schedule reminders, budget alerts~~ Home notifications card | **Done** (PR #22) |
 | **C** | log-features | Log: photo upload, tags, search filters | Medium |
 | **D** | oshi-profile | Oshi profile: SNS links, memo, anniversaries | Small-Medium |
 
