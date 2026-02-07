@@ -33,3 +33,6 @@ frontend/playwright-report/
 
 # local pid (do not commit)
 tools/_phpserve.pid
+
+# E2E runner re-entry lock
+frontend/.run-e2e-ci.lock
