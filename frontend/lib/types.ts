@@ -486,6 +486,12 @@ export type OperationLogListDto = {
 };
 
 /** ---- Diary ---- */
+export type DiaryAttachmentDto = {
+  id: number;
+  url: string;
+  fileType: string;
+};
+
 export type DiaryDto = {
   id: number;
   userId: number;
@@ -494,6 +500,8 @@ export type DiaryDto = {
   content: string;
   diaryDate: ISODate | null;
   isLocked: boolean;
+  tags: string[];
+  attachments: DiaryAttachmentDto[];
   createdAt: ISODateTime | null;
   updatedAt: ISODateTime | null;
 };

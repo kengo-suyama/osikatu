@@ -13,6 +13,32 @@ export async function listDiaries(): Promise<DiaryDto[]> {
   });
 }
 
+export async function createDiary(data: {
+  oshiId: number;
+  title: string;
+  content: string;
+  diaryDate: string;
+  tags?: string[];
+  images?: File[];
+}): Promise<DiaryDto> {
+  const fd = new FormData();
+  fd.append("oshiId", String(data.oshiId));
+  fd.append("title", data.title);
+  fd.append("content", data.content);
+  fd.append("diaryDate", data.diaryDate);
+  if (data.tags) {
+    for (const t of data.tags) {
+      fd.append("tags[]", t);
+    }
+  }
+  if (data.images) {
+    for (const f of data.images) {
+      fd.append("images[]", f);
+    }
+  }
+  return apiSend<DiaryDto>("/api/me/diaries", "POST", fd);
+}
+
 export async function deleteDiary(
   diaryId: number
 ): Promise<"ok" | "not_found"> {
