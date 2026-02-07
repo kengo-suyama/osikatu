@@ -70,6 +70,25 @@ export default function LogScreen() {
   const [hydrated, setHydrated] = useState(false);
   const dragTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  const mergeDiariesById = (prev: DiaryDto[], incoming: DiaryDto[]) => {
+    // Prevent overwriting freshly-created items when an older list response resolves later.
+    const out = [...prev];
+    const indexById = new Map<number, number>();
+    out.forEach((item, idx) => indexById.set(item.id, idx));
+
+    for (const item of incoming) {
+      const existingIdx = indexById.get(item.id);
+      if (existingIdx === undefined) {
+        indexById.set(item.id, out.length);
+        out.push(item);
+      } else {
+        out[existingIdx] = item;
+      }
+    }
+
+    return out;
+  };
+
   useEffect(() => {
     setHydrated(true);
   }, []);
@@ -78,13 +97,16 @@ export default function LogScreen() {
     if (apiMode) {
       setLoadingDiaries(true);
       listDiaries()
-        .then((items) => setDiaries(items))
+        .then((items) => setDiaries((prev) => mergeDiariesById(prev, items)))
         .catch(() => setDiaries([]))
         .finally(() => setLoadingDiaries(false));
 
       oshiRepo.getOshis().then((list) => {
         const primary = list.find((o) => o.is_primary) ?? list[0];
-        if (primary) setPrimaryOshiId(Number(primary.id));
+        if (primary) {
+          const idNum = Number(primary.id);
+          if (Number.isFinite(idNum)) setPrimaryOshiId(idNum);
+        }
       }).catch(() => {});
       return;
     }
@@ -115,14 +137,28 @@ export default function LogScreen() {
       .filter(Boolean);
 
     if (apiMode) {
-      if (!primaryOshiId) {
-        showToast("推しが登録されていません");
-        return;
-      }
       setSaving(true);
       try {
+        // Lazy-resolve primary oshi id as fallback when useEffect hasn't resolved yet.
+        let oshiId = primaryOshiId;
+        if (!oshiId) {
+          const list = await oshiRepo.getOshis().catch(() => []);
+          const primary = list.find((o) => o.is_primary) ?? list[0];
+          if (primary) {
+            const idNum = Number(primary.id);
+            if (Number.isFinite(idNum)) {
+              oshiId = idNum;
+              setPrimaryOshiId(idNum);
+            }
+          }
+        }
+        if (!oshiId) {
+          showToast("推しが登録されていません");
+          return;
+        }
+
         const created = await createDiary({
-          oshiId: primaryOshiId,
+          oshiId,
           title: title || "メモ",
           content: body,
           diaryDate: logDate || new Date().toISOString().slice(0, 10),
