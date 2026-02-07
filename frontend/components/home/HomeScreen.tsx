@@ -2,7 +2,7 @@
 
 import type { CSSProperties } from "react";
 import { useEffect, useMemo, useState } from "react";
-import { Bookmark, BookmarkCheck, CalendarDays, MessageSquare, Settings, Trash2, UserPlus, Wallet, Activity } from "lucide-react";
+import { Bell, Bookmark, BookmarkCheck, CalendarDays, MessageSquare, Settings, Trash2, UserPlus, Wallet, Activity } from "lucide-react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 
@@ -38,6 +38,7 @@ import { circleRepo } from "@/lib/repo/circleRepo";
 import { eventsRepo } from "@/lib/repo/eventsRepo";
 import { meRepo } from "@/lib/repo/meRepo";
 import { deleteMeLog, listMyLogs } from "@/lib/repo/operationLogRepo";
+import { fetchNotifications, markNotificationRead } from "@/lib/repo/notificationRepo";
 import { oshiRepo } from "@/lib/repo/oshiRepo";
 import { fetchMySchedules } from "@/lib/repo/scheduleRepo";
 import { fetchExpensesSummary } from "@/lib/repo/expenseRepo";
@@ -46,7 +47,7 @@ import { localYearMonth, localDate } from "@/lib/date";
 import { useBudgetState } from "@/lib/budgetState";
 import { BudgetResponse } from "@/lib/repo/budgetRepo";
 import { loadJson, loadString, removeString, saveJson, saveString } from "@/lib/storage";
-import type { CircleDto, ExpensesByOshiDto, MeDto, OperationLogDto, OwnerDashboardDto, ScheduleDto } from "@/lib/types";
+import type { CircleDto, ExpensesByOshiDto, MeDto, NotificationDto, OperationLogDto, OwnerDashboardDto, ScheduleDto } from "@/lib/types";
 import type { Oshi, SupplyItem } from "@/lib/uiTypes";
 import { cn } from "@/lib/utils";
 import { getSafeDisplayName, isProfileNameMissing } from "@/lib/ui/profileDisplay";
@@ -151,6 +152,8 @@ export default function HomeScreen() {
   const [expensesLoading, setExpensesLoading] = useState(false);
   const [deletingLogId, setDeletingLogId] = useState<string | null>(null);
   const [logFilter, setLogFilter] = useState<LogFilterOption>("全部");
+  const [notifications, setNotifications] = useState<NotificationDto[]>([]);
+  const [notificationsLoading, setNotificationsLoading] = useState(false);
   const defaultBudgetState = useMemo<BudgetResponse>(() => {
     const currentMonth = localYearMonth();
     return {
@@ -342,6 +345,28 @@ export default function HomeScreen() {
       .finally(() => {
         if (!mounted) return;
         setMyLogsLoading(false);
+      });
+
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    let mounted = true;
+    setNotificationsLoading(true);
+    fetchNotifications({ limit: 5 })
+      .then((data) => {
+        if (!mounted) return;
+        setNotifications(data?.items ?? []);
+      })
+      .catch(() => {
+        if (!mounted) return;
+        setNotifications([]);
+      })
+      .finally(() => {
+        if (!mounted) return;
+        setNotificationsLoading(false);
       });
 
     return () => {
@@ -758,6 +783,79 @@ export default function HomeScreen() {
             ))
           ) : (
             <div className="text-xs text-muted-foreground">予定がありません</div>
+          )}
+        </CardContent>
+      </Card>
+
+      <Card className="rounded-2xl border p-4 shadow-sm" data-testid="home-notifications-card">
+        <CardHeader className="p-0 pb-3">
+          <div className="flex items-center justify-between">
+            <CardTitle className="flex items-center gap-1.5 text-sm font-semibold text-muted-foreground">
+              <Bell className="h-4 w-4" />
+              お知らせ
+              {notifications.filter((n) => !n.readAt).length > 0 && (
+                <span
+                  className="ml-1 inline-flex h-5 min-w-[20px] items-center justify-center rounded-full bg-destructive px-1 text-[10px] font-bold text-destructive-foreground"
+                  data-testid="home-notification-badge"
+                >
+                  {notifications.filter((n) => !n.readAt).length}
+                </span>
+              )}
+            </CardTitle>
+            <Link href="/notifications" className="text-xs underline opacity-80 hover:opacity-100" data-testid="home-notifications-more">
+              すべて見る
+            </Link>
+          </div>
+        </CardHeader>
+        <CardContent className="space-y-2 p-0" data-testid="home-notifications-panel">
+          {notificationsLoading ? (
+            <div className="text-xs text-muted-foreground">読み込み中...</div>
+          ) : notifications.length > 0 ? (
+            notifications.map((n, i) => (
+              <button
+                key={n.id}
+                type="button"
+                className={cn(
+                  "w-full rounded-xl border border-border/60 p-3 text-left transition-colors",
+                  n.readAt ? "bg-muted/30" : "bg-primary/5 border-primary/20"
+                )}
+                data-testid={"home-notification-item-" + i}
+                onClick={async () => {
+                  if (!n.readAt) {
+                    const updated = await markNotificationRead(n.id);
+                    if (updated) {
+                      setNotifications((prev) =>
+                        prev.map((item) => (item.id === n.id ? updated : item))
+                      );
+                    }
+                  }
+                  if (n.linkUrl) router.push(n.linkUrl);
+                }}
+              >
+                <div className="flex items-start gap-2">
+                  <div className={cn(
+                    "mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full",
+                    n.readAt ? "bg-muted" : "bg-primary/10"
+                  )}>
+                    <Bell className={cn("h-3.5 w-3.5", n.readAt ? "text-muted-foreground" : "text-primary")} />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <div className="text-sm font-medium" data-testid="home-notification-title">{n.title}</div>
+                    <div className="mt-0.5 text-xs text-muted-foreground line-clamp-2" data-testid="home-notification-body">{n.body}</div>
+                    {n.createdAt && (
+                      <div className="mt-1 text-[10px] text-muted-foreground/70" data-testid="home-notification-date">
+                        {new Date(n.createdAt).toLocaleDateString("ja-JP", { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })}
+                      </div>
+                    )}
+                  </div>
+                  {!n.readAt && (
+                    <div className="mt-1 h-2 w-2 shrink-0 rounded-full bg-primary" />
+                  )}
+                </div>
+              </button>
+            ))
+          ) : (
+            <div className="text-xs text-muted-foreground" data-testid="home-notifications-empty">お知らせはありません</div>
           )}
         </CardContent>
       </Card>
