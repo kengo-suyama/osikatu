@@ -499,6 +499,20 @@ export type DiaryDto = {
 };
 
 /** ---- Fortune ---- */
+/** ---- Expenses ---- */
+export type ExpensesByOshiDto = {
+  oshiId: number;
+  oshiName: string;
+  totalAmount: number;
+};
+
+export type ExpensesSummaryDto = {
+  month: string;
+  period: { start: string; end: string };
+  totalAmount: number;
+  byOshi: ExpensesByOshiDto[];
+};
+
 export type FortuneDto = {
   date: string;
   luckScore: number;

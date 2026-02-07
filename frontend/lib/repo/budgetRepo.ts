@@ -2,8 +2,9 @@ import { isApiMode } from "@/lib/config";
 import { apiGet, apiSend } from "@/lib/repo/http";
 import { getDeviceId } from "@/lib/device";
 import type { BudgetDto } from "@/lib/types";
+import { localYearMonth } from "@/lib/date";
 
-const DEFAULT_MONTH = () => new Date().toISOString().slice(0, 7);
+const DEFAULT_MONTH = () => localYearMonth();
 
 export type BudgetResponse = {
   budget: number;

@@ -84,8 +84,8 @@ class ExpenseController extends Controller
         $end = $start->copy()->endOfMonth();
 
         $query = Expense::query()
-            ->where('user_id', CurrentUser::id())
-            ->whereBetween('expense_date', [$start->toDateString(), $end->toDateString()]);
+            ->where('expenses.user_id', CurrentUser::id())
+            ->whereBetween('expenses.expense_date', [$start->toDateString(), $end->toDateString()]);
 
         if (!empty($oshiId)) {
             $query->where('oshi_id', $oshiId);

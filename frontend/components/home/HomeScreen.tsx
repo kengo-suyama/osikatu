@@ -40,14 +40,18 @@ import { meRepo } from "@/lib/repo/meRepo";
 import { deleteMeLog, listMyLogs } from "@/lib/repo/operationLogRepo";
 import { oshiRepo } from "@/lib/repo/oshiRepo";
 import { fetchMySchedules } from "@/lib/repo/scheduleRepo";
+import { fetchExpensesSummary } from "@/lib/repo/expenseRepo";
+
+import { localYearMonth, localDate } from "@/lib/date";
 import { useBudgetState } from "@/lib/budgetState";
 import { BudgetResponse } from "@/lib/repo/budgetRepo";
 import { loadJson, loadString, removeString, saveJson, saveString } from "@/lib/storage";
-import type { CircleDto, MeDto, OperationLogDto, OwnerDashboardDto, ScheduleDto } from "@/lib/types";
+import type { CircleDto, ExpensesByOshiDto, MeDto, OperationLogDto, OwnerDashboardDto, ScheduleDto } from "@/lib/types";
 import type { Oshi, SupplyItem } from "@/lib/uiTypes";
 import { cn } from "@/lib/utils";
 import { getSafeDisplayName, isProfileNameMissing } from "@/lib/ui/profileDisplay";
 import { formatLogTime, logSentence } from "@/lib/ui/logText";
+import { logLabel } from "@/lib/ui/logLabels";
 import { isApiMode } from "@/lib/config";
 
 const OSHI_CATEGORIES = [
@@ -113,9 +117,12 @@ export default function HomeScreen() {
   const [myLogsLoading, setMyLogsLoading] = useState(false);
   const [upcomingSchedules, setUpcomingSchedules] = useState<ScheduleDto[]>([]);
   const [schedulesLoading, setSchedulesLoading] = useState(false);
+  const [expensesByOshi, setExpensesByOshi] = useState<ExpensesByOshiDto[]>([]);
+  const [expensesTotal, setExpensesTotal] = useState(0);
+  const [expensesLoading, setExpensesLoading] = useState(false);
   const [deletingLogId, setDeletingLogId] = useState<string | null>(null);
   const defaultBudgetState = useMemo<BudgetResponse>(() => {
-    const currentMonth = new Date().toISOString().slice(0, 7);
+    const currentMonth = localYearMonth();
     return {
       budget: moneySnapshot.budget,
       spent: moneySnapshot.spent,
@@ -315,8 +322,7 @@ export default function HomeScreen() {
   useEffect(() => {
     let mounted = true;
     setSchedulesLoading(true);
-    const now = new Date();
-    const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
+    const today = localDate();
     fetchMySchedules({ from: today })
       .then((items) => {
         if (!mounted) return;
@@ -333,6 +339,27 @@ export default function HomeScreen() {
     return () => {
       mounted = false;
     };
+  }, []);
+
+  useEffect(() => {
+    let mounted = true;
+    setExpensesLoading(true);
+    fetchExpensesSummary()
+      .then((data) => {
+        if (!mounted) return;
+        setExpensesByOshi(data.byOshi.slice(0, 5));
+        setExpensesTotal(data.totalAmount);
+      })
+      .catch(() => {
+        if (!mounted) return;
+        setExpensesByOshi([]);
+        setExpensesTotal(0);
+      })
+      .finally(() => {
+        if (!mounted) return;
+        setExpensesLoading(false);
+      });
+    return () => { mounted = false; };
   }, []);
 
   useEffect(() => {
@@ -574,13 +601,13 @@ export default function HomeScreen() {
         />
       ) : null}
 
-      <Card className="rounded-2xl border p-4 shadow-sm">
+      <Card className="rounded-2xl border p-4 shadow-sm" data-testid="home-log-recent">
         <CardHeader className="p-0 pb-3">
           <div className="flex items-center justify-between">
             <CardTitle className="text-sm font-semibold text-muted-foreground">
-              操作ログ
+              最近の活動
             </CardTitle>
-            <Link href="/logs" className="text-xs underline opacity-80 hover:opacity-100">
+            <Link href="/logs" className="text-xs underline opacity-80 hover:opacity-100" data-testid="home-log-more">
               もっと見る
             </Link>
           </div>
@@ -589,29 +616,38 @@ export default function HomeScreen() {
           {myLogsLoading ? (
             <div className="text-xs text-muted-foreground">読み込み中...</div>
           ) : myLogs.length ? (
-            myLogs.map((log) => (
+            myLogs.map((log, i) => (
               <div
                 key={log.id}
                 className="rounded-xl border border-border/60 bg-muted/30 p-3"
+                data-testid={"home-log-item-" + i}
               >
                 <div className="flex items-start justify-between gap-2">
-                  <div className="text-sm">{logSentence(log)}</div>
+                  <div className="min-w-0 flex-1">
+                    <span
+                      className="mr-1.5 inline-block rounded bg-primary/10 px-1.5 py-0.5 text-[10px] font-medium text-primary"
+                      data-testid="home-log-item-category"
+                    >
+                      {logLabel(log.action)}
+                    </span>
+                    <span className="text-sm" data-testid="home-log-item-title">{logSentence(log)}</span>
+                  </div>
                   <button
                     type="button"
-                    className="text-muted-foreground hover:text-destructive"
+                    className="shrink-0 text-muted-foreground hover:text-destructive"
                     onClick={() => void handleDeleteLog(log.id)}
                     disabled={deletingLogId === log.id}
                   >
                     <Trash2 className="h-4 w-4" />
                   </button>
                 </div>
-                <div className="mt-1 text-xs text-muted-foreground">
+                <div className="mt-1 text-xs text-muted-foreground" data-testid="home-log-item-date">
                   {formatLogTime(log.createdAt)}
                 </div>
               </div>
             ))
           ) : (
-            <div className="text-xs text-muted-foreground">ログがまだありません</div>
+            <div className="text-xs text-muted-foreground">まだ活動がありません</div>
           )}
         </CardContent>
       </Card>
@@ -869,10 +905,10 @@ export default function HomeScreen() {
 
       <NextDeadlines items={displayedDeadlines} />
 
-      <Card className="rounded-2xl border p-4 shadow-sm">
+      <Card className="rounded-2xl border p-4 shadow-sm" data-testid="home-budget-card">
         <CardHeader className="space-y-1 p-0 pb-3">
           <CardTitle className="text-sm font-semibold text-muted-foreground">今月あといくら？</CardTitle>
-          <div className="text-3xl font-semibold">
+          <div className="text-3xl font-semibold" data-testid="home-budget-remaining">
             ¥{remainingBudget.toLocaleString("ja-JP")}
           </div>
           <div className="text-xs text-muted-foreground">
@@ -894,16 +930,104 @@ export default function HomeScreen() {
               }
               placeholder="予算"
               min={0}
+              data-testid="home-budget-input"
             />
           </div>
           <div className="flex flex-wrap items-center gap-2">
-            <Button size="sm" onClick={handleBudgetSave} disabled={budgetLoading}>
+            <Button size="sm" onClick={handleBudgetSave} disabled={budgetLoading} data-testid="home-budget-save">
               {budgetLoading ? "保存中..." : "保存"}
             </Button>
             {budgetMessage ? (
               <div className="text-xs text-muted-foreground">{budgetMessage}</div>
             ) : null}
           </div>
+          <Link
+            href="/money"
+            className="text-xs font-medium text-primary hover:underline"
+            data-testid="budget-to-money"
+          >
+            詳細へ →
+          </Link>
+        </div>
+      </Card>
+
+      <Card className="rounded-2xl border p-4 shadow-sm" data-testid="expenses-summary-card">
+        <CardHeader className="space-y-1 p-0 pb-3">
+          <CardTitle className="text-sm font-semibold text-muted-foreground">今月の推し別支出</CardTitle>
+          {expensesTotal > 0 ? (
+            <div className="text-2xl font-semibold">
+              合計 ¥{expensesTotal.toLocaleString("ja-JP")}
+            </div>
+          ) : null}
+        </CardHeader>
+        <CardContent className="space-y-2 p-0">
+          {expensesLoading ? (
+            <div className="text-xs text-muted-foreground">読み込み中…</div>
+          ) : expensesByOshi.length === 0 ? (
+            <div className="text-xs text-muted-foreground">支出がありません</div>
+          ) : (
+            expensesByOshi.map((item) => (
+              <div
+                key={item.oshiId}
+                className="flex items-center justify-between rounded-lg border px-3 py-2"
+                data-testid="expenses-summary-item"
+              >
+                <span className="text-sm font-medium">{item.oshiName}</span>
+                <span className="text-sm text-muted-foreground">
+                  ¥{item.totalAmount.toLocaleString("ja-JP")}
+                </span>
+              </div>
+            ))
+          )}
+        </CardContent>
+        <div className="mt-3">
+          <Link
+            href="/money"
+            className="text-xs font-medium text-primary hover:underline"
+            data-testid="expenses-summary-more"
+          >
+            もっと見る →
+          </Link>
+        </div>
+      </Card>
+
+      <Card className="rounded-2xl border p-4 shadow-sm" data-testid="expenses-summary-card">
+        <CardHeader className="space-y-1 p-0 pb-3">
+          <CardTitle className="text-sm font-semibold text-muted-foreground">今月の推し別支出</CardTitle>
+          {expensesTotal > 0 ? (
+            <div className="text-2xl font-semibold">
+              合計 ¥{expensesTotal.toLocaleString("ja-JP")}
+            </div>
+          ) : null}
+        </CardHeader>
+        <CardContent className="space-y-2 p-0">
+          {expensesLoading ? (
+            <div className="text-xs text-muted-foreground">読み込み中…</div>
+          ) : expensesByOshi.length === 0 ? (
+            <div className="text-xs text-muted-foreground">支出がありません</div>
+          ) : (
+            expensesByOshi.map((item) => (
+              <div
+                key={item.oshiId}
+                className="flex items-center justify-between rounded-lg border px-3 py-2"
+                data-testid="expenses-summary-item"
+              >
+                <span className="text-sm font-medium">{item.oshiName}</span>
+                <span className="text-sm text-muted-foreground">
+                  ¥{item.totalAmount.toLocaleString("ja-JP")}
+                </span>
+              </div>
+            ))
+          )}
+        </CardContent>
+        <div className="mt-3">
+          <Link
+            href="/money"
+            className="text-xs font-medium text-primary hover:underline"
+            data-testid="expenses-summary-more"
+          >
+            もっと見る →
+          </Link>
         </div>
       </Card>
 
