@@ -15,6 +15,7 @@ This file is a lightweight backlog and status note.
 - PR-4B `feature/home-expenses-summary` (#13): expenses-by-oshi summary card, expenseRepo, backend ambiguous column fix, E2E
 - PR-4C `feature/home-navigation-polish` (#14): budget→/money, expenses→/money, log→/logs navigation links, E2E
 - PR #22: Backlog B - Home notifications card (UI + existing API + E2E)
+- PR #24: Backlog D - Home oshi profile card (quote, links, anniversaries, memo, E2E)
 - PR #19: fix duplicate expenses-summary testid (strict mode violation)
 - Encoding guardrails:
   - Stripped UTF-8 BOM from PHP/migration files (prevents stray output like `﻿Laravel ...`).
@@ -28,7 +29,7 @@ This file is a lightweight backlog and status note.
   - `feature/hub-and-quickmode`
   - `feature/suyama`
 
-## E2E Tests (maintenance targets)
+## E2E Tests (inventory)
 
 | File | Covers |
 |------|--------|
@@ -36,11 +37,20 @@ This file is a lightweight backlog and status note.
 | `home-expenses-summary.spec.ts` | Expenses summary card, API seeding, navigation |
 | `home-navigation.spec.ts` | Budget→/money, Expenses→/money, Log→/logs links |
 | `home-schedule.spec.ts` | Upcoming schedule card |
-| `invite-gate.spec.ts` | Invite gate / navigation |
+| `invites-gate.spec.ts` | Invite gate / navigation |
 | `home-log-card.spec.ts` | Log card structure, category badge, empty state |
 | `home-log-filter.spec.ts` | Log card filter chips, icon thumbnails, click behavior |
 | `home-notifications.spec.ts` | Notifications card structure, empty state, navigation |
 | `home-oshi-profile.spec.ts` | Oshi profile card, empty state, edit button |
+| `album-flip.spec.ts` | Album page upload area, viewer navigation |
+| `announcement.spec.ts` | Circle announcement set/delete |
+| `billing-cancel.spec.ts` | Plan cancel flow, ads banner for free user |
+| `chat-stamp-media.spec.ts` | Chat input, stamp picker, send text message |
+| `home.spec.ts` | Home smoke checks |
+| `home-oshi-action-title-award.spec.ts` | Oshi action completion awards title |
+| `log-delete.spec.ts` | Log delete flow and 404 handling |
+| `navigation.spec.ts` | Main pages load, bottom nav links |
+| `onboarding-oshi-profile.spec.ts` | Onboarding gate, oshi creation, FAB visibility |
 
 ## Backlog (next phase)
 
@@ -49,9 +59,9 @@ This file is a lightweight backlog and status note.
 | ~~A~~ | home-log-enhance | ~~Home log card: icon thumbnails + category filter chips~~ | **Done** (PR #20) |
 | ~~B~~ | notifications | ~~Schedule reminders, budget alerts~~ Home notifications card | **Done** (PR #22) |
 | **C** | log-features | Log: photo upload, tags, search filters | Medium |
-| ~~D~~ | oshi-profile | ~~Oshi profile: SNS links, memo, anniversaries~~ | **Done** (PR #23) |
+| ~~D~~ | oshi-profile | ~~Oshi profile: SNS links, memo, anniversaries~~ | **Done** (PR #24) |
 
-Recommended next: **A** or **D** (small PRs to raise Home UI completeness).
+Recommended next: **C** (log features) or new Backlog items.
 
 ## E2E Running Guide
 
