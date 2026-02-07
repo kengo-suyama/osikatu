@@ -247,3 +247,31 @@ Phase 4 レポートを貼ったらここで STOP。
 - Phase 3（UI 証拠取り）→ CFA/Defender 起因の可能性を潰す/裏付ける
 - Phase 4（最小再現）→ spawn EPERM / wait-on timeout の再現ログを確定
 - ここで止めて、次アクションに許可を取りに行く（破壊的/除外追加）
+
+---
+
+## 自動化ツール
+
+### e2e:preflight — ポート空き確認
+```powershell
+cd C:\laragon\www\osikatu\frontend
+npm run e2e:preflight
+```
+- `ensure-ports-free.cjs` が 3103 / 8001 をチェック
+- Windows では IPv4 (`127.0.0.1`) と IPv6 (`::`) の両方を確認
+- `E2E_KILL_KNOWN_LISTENERS` が有効（デフォルト ON）なら、既知リスナー（Laravel artisan serve、Next dev）を自動 kill
+- 無効化: `set E2E_KILL_KNOWN_LISTENERS=0`
+
+### ensure-ports-free.cjs — Windows 自動 kill の対象
+| Port | プロセス | 条件 |
+|------|----------|------|
+| 8001 | `php.exe` | `artisan serve --host=127.0.0.1 --port=8001` / `resources\server.php` / `php -S ...:8001` |
+| 3103 | `node.exe` | `next dev -p 3103` / このリポの `node_modules\next\dist\server\lib\start-server.js` |
+
+上記以外のプロセスは kill しない（PID とプロセス名を表示して終了）。
+
+### run-e2e-ci.cjs — 障害耐性
+- `finalize()` に再入ガード（重複 cleanup 防止）
+- `uncaughtException` / `unhandledRejection` ハンドラで安全終了
+- git HEAD チェックを try/catch でラップ（`.git/HEAD` 読み取り失敗時も安全）
+- `E2E_SPEC` 環境変数で特定テストファイルのみ実行可能
