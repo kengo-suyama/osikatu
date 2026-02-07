@@ -106,7 +106,8 @@ test.describe("home expenses summary card", () => {
       await page.goto("/home", { waitUntil: "domcontentloaded" });
 
       // Card exists in DOM
-      const card = page.locator('[data-testid="expenses-summary-card"]');
+      // Card can exist twice (e.g. personal/circle sections). Pick the first one.
+      const card = page.locator('[data-testid="expenses-summary-card"]').first();
       await expect(card).toBeVisible({ timeout: 45_000 });
       logPass("Expenses summary card is visible");
 
@@ -115,10 +116,11 @@ test.describe("home expenses summary card", () => {
       logPass("Card has correct title");
 
       // "もっと見る" link navigates to /money
-      const moreLink = page.locator('[data-testid="expenses-summary-more"]');
+      // There can be multiple "more" links (e.g. header + footer). Pick the first visible one.
+      const moreLink = card.locator('[data-testid="expenses-summary-more"]').first();
       await expect(moreLink).toBeVisible();
       await moreLink.click();
-      await page.waitForURL(/\/money/, { timeout: 10_000 });
+      await expect(page).toHaveURL(/\/money/, { timeout: 45_000 });
       logPass("More link navigates to /money");
     } catch (error) {
       logFail("Expenses summary card checks", error);

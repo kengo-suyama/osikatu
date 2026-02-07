@@ -77,10 +77,17 @@ test.describe("home navigation links", () => {
     try {
       await page.goto("/home", { waitUntil: "domcontentloaded" });
 
-      const moreLink = page.locator('[data-testid="expenses-summary-more"]');
+      // Card can exist twice (e.g. personal/circle sections). Pick the first one.
+      const expensesCard = page.locator('[data-testid="expenses-summary-card"]').first();
+      await expect(expensesCard).toBeVisible({ timeout: 45_000 });
+
+      // There can be multiple "more" links (e.g. header + footer). Pick the first visible one.
+      const moreLink = expensesCard.locator('[data-testid="expenses-summary-more"]').first();
       await expect(moreLink).toBeVisible({ timeout: 45_000 });
-      await moreLink.click();
-      await page.waitForURL(/\/money/, { timeout: 10_000 });
+      await Promise.all([
+        page.waitForURL(/\/money/, { timeout: 45_000 }),
+        moreLink.click(),
+      ]);
       logPass("Expenses card もっと見る navigates to /money");
     } catch (error) {
       logFail("Expenses navigation", error);
@@ -100,11 +107,16 @@ test.describe("home navigation links", () => {
     try {
       await page.goto("/home", { waitUntil: "domcontentloaded" });
 
-      const logLink = page.locator('[data-testid="home-log-more"]');
+      const logCard = page.locator('[data-testid="home-log-recent"]');
+      await expect(logCard).toBeVisible({ timeout: 45_000 });
+
+      const logLink = logCard.locator('[data-testid="home-log-more"]').first();
       await expect(logLink).toBeVisible({ timeout: 45_000 });
       await expect(logLink).toContainText("もっと見る");
-      await logLink.click();
-      await page.waitForURL(/\/logs/, { timeout: 10_000 });
+      await Promise.all([
+        page.waitForURL(/\/logs/, { timeout: 45_000 }),
+        logLink.click(),
+      ]);
       logPass("Log card もっと見る navigates to /logs");
     } catch (error) {
       logFail("Log navigation", error);

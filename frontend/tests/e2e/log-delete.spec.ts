@@ -35,6 +35,23 @@ const attachDiagnostics = (page: Parameters<typeof test>[1]["page"], label: stri
   });
 };
 
+// Delete confirmation can be implemented as a native browser dialog or an in-app dialog.
+// This helper tries to click a confirm button if an in-app dialog is present.
+const maybeConfirmDeleteInAppDialog = async (page: Parameters<typeof test>[1]["page"]) => {
+  const candidates = [page.getByRole("alertdialog"), page.getByRole("dialog")];
+  for (const dialog of candidates) {
+    const visible = await dialog.isVisible({ timeout: 2000 }).catch(() => false);
+    if (!visible) continue;
+
+    const confirm = dialog.getByRole("button", { name: /^(削除|削除する|OK|はい|Delete)$/ }).first();
+    const confirmVisible = await confirm.isVisible({ timeout: 2000 }).catch(() => false);
+    if (confirmVisible) {
+      await confirm.click();
+      return;
+    }
+  }
+};
+
 const getLocalDateString = () => {
   const now = new Date();
   const local = new Date(now.getTime() - now.getTimezoneOffset() * 60_000);
@@ -230,10 +247,14 @@ test("log delete flow and 404 handling", async ({ page, context, request }) => {
     const deleteButton = page.locator(
       `[data-testid="diary-delete"][data-diary-id="${diary.id}"]`
     );
-    const deleteResponse = page.waitForResponse((response) => {
-      return response.url().includes(`/api/me/diaries/${diary.id}`);
-    });
+    const deleteResponse = page.waitForResponse(
+      (response) =>
+        response.request().method() === "DELETE" &&
+        response.url().includes(`/api/me/diaries/${diary.id}`),
+      { timeout: 30_000 }
+    );
     await deleteButton.click();
+    await maybeConfirmDeleteInAppDialog(page);
     const response = await deleteResponse;
     if (!response.ok()) {
       throw new Error(`Delete diary failed: ${response.status()}`);
@@ -259,10 +280,13 @@ test("log delete flow and 404 handling", async ({ page, context, request }) => {
 
       pageB.once("dialog", (dialog) => dialog.accept());
       const deleteResponseB = pageB.waitForResponse(
-        (response) => response.url().includes(`/api/me/diaries/${diary.id}`),
+        (response) =>
+          response.request().method() === "DELETE" &&
+          response.url().includes(`/api/me/diaries/${diary.id}`),
         { timeout: 30_000 }
       );
       await deleteButtonB.click();
+      await maybeConfirmDeleteInAppDialog(pageB);
       const responseB = await deleteResponseB;
       if (responseB.status() !== 404) {
         throw new Error(`Expected 404, got ${responseB.status()}`);
