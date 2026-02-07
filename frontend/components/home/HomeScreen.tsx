@@ -40,11 +40,12 @@ import { meRepo } from "@/lib/repo/meRepo";
 import { deleteMeLog, listMyLogs } from "@/lib/repo/operationLogRepo";
 import { oshiRepo } from "@/lib/repo/oshiRepo";
 import { fetchMySchedules } from "@/lib/repo/scheduleRepo";
+
 import { localYearMonth, localDate } from "@/lib/date";
 import { useBudgetState } from "@/lib/budgetState";
 import { BudgetResponse } from "@/lib/repo/budgetRepo";
 import { loadJson, loadString, removeString, saveJson, saveString } from "@/lib/storage";
-import type { CircleDto, MeDto, OperationLogDto, OwnerDashboardDto, ScheduleDto } from "@/lib/types";
+import type { CircleDto, ExpensesByOshiDto, MeDto, OperationLogDto, OwnerDashboardDto, ScheduleDto } from "@/lib/types";
 import type { Oshi, SupplyItem } from "@/lib/uiTypes";
 import { cn } from "@/lib/utils";
 import { getSafeDisplayName, isProfileNameMissing } from "@/lib/ui/profileDisplay";
@@ -114,6 +115,9 @@ export default function HomeScreen() {
   const [myLogsLoading, setMyLogsLoading] = useState(false);
   const [upcomingSchedules, setUpcomingSchedules] = useState<ScheduleDto[]>([]);
   const [schedulesLoading, setSchedulesLoading] = useState(false);
+  const [expensesByOshi, setExpensesByOshi] = useState<ExpensesByOshiDto[]>([]);
+  const [expensesTotal, setExpensesTotal] = useState(0);
+  const [expensesLoading, setExpensesLoading] = useState(false);
   const [deletingLogId, setDeletingLogId] = useState<string | null>(null);
   const defaultBudgetState = useMemo<BudgetResponse>(() => {
     const currentMonth = localYearMonth();
@@ -333,6 +337,27 @@ export default function HomeScreen() {
     return () => {
       mounted = false;
     };
+  }, []);
+
+  useEffect(() => {
+    let mounted = true;
+    setExpensesLoading(true);
+    fetchExpensesSummary()
+      .then((data) => {
+        if (!mounted) return;
+        setExpensesByOshi(data.byOshi.slice(0, 5));
+        setExpensesTotal(data.totalAmount);
+      })
+      .catch(() => {
+        if (!mounted) return;
+        setExpensesByOshi([]);
+        setExpensesTotal(0);
+      })
+      .finally(() => {
+        if (!mounted) return;
+        setExpensesLoading(false);
+      });
+    return () => { mounted = false; };
   }, []);
 
   useEffect(() => {
@@ -905,6 +930,46 @@ export default function HomeScreen() {
               <div className="text-xs text-muted-foreground">{budgetMessage}</div>
             ) : null}
           </div>
+        </div>
+      </Card>
+
+      <Card className="rounded-2xl border p-4 shadow-sm" data-testid="expenses-summary-card">
+        <CardHeader className="space-y-1 p-0 pb-3">
+          <CardTitle className="text-sm font-semibold text-muted-foreground">今月の推し別支出</CardTitle>
+          {expensesTotal > 0 ? (
+            <div className="text-2xl font-semibold">
+              合計 ¥{expensesTotal.toLocaleString("ja-JP")}
+            </div>
+          ) : null}
+        </CardHeader>
+        <CardContent className="space-y-2 p-0">
+          {expensesLoading ? (
+            <div className="text-xs text-muted-foreground">読み込み中…</div>
+          ) : expensesByOshi.length === 0 ? (
+            <div className="text-xs text-muted-foreground">支出がありません</div>
+          ) : (
+            expensesByOshi.map((item) => (
+              <div
+                key={item.oshiId}
+                className="flex items-center justify-between rounded-lg border px-3 py-2"
+                data-testid="expenses-summary-item"
+              >
+                <span className="text-sm font-medium">{item.oshiName}</span>
+                <span className="text-sm text-muted-foreground">
+                  ¥{item.totalAmount.toLocaleString("ja-JP")}
+                </span>
+              </div>
+            ))
+          )}
+        </CardContent>
+        <div className="mt-3">
+          <Link
+            href="/money"
+            className="text-xs font-medium text-primary hover:underline"
+            data-testid="expenses-summary-more"
+          >
+            もっと見る →
+          </Link>
         </div>
       </Card>
 
