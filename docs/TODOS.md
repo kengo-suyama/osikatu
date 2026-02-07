@@ -10,11 +10,15 @@ This file is a lightweight backlog and status note.
 - PR-D `feature/chat-stamp-media` (#6): chat testids, E2E
 - PR-E `feature/announcement` (#7): circle home announcement, E2E
 - PR-F `feature/final-polish` (#8): home budget fix, invite gate/navigation E2E
+- PR-3 `feature/home-schedule-summary` (#11): Home upcoming schedule summary card
+- PR-4A `feature/home-budget-tz-fix` (#12): budget TZ fix, shared date helpers, data-testid, E2E
+- PR-4B `feature/home-expenses-summary` (#13): expenses-by-oshi summary card, expenseRepo, backend ambiguous column fix, E2E
+- PR-4C `feature/home-navigation-polish` (#14): budget→/money, expenses→/money, log→/logs navigation links, E2E
 - Encoding guardrails:
   - Stripped UTF-8 BOM from PHP/migration files (prevents stray output like `﻿Laravel ...`).
   - Added `.editorconfig` (`charset=utf-8`) and `tools/check-utf8-no-bom.ps1`.
 
-## Repo State (2026-02-06)
+## Repo State (2026-02-07)
 
 - `main` is aligned with `origin/main` (no local commits).
 - Remaining branches intentionally not merged in this batch:
