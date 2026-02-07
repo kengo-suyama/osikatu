@@ -383,7 +383,11 @@ const forwardSignal = (signal) => {
   }
 };
 
+let finalized = false;
 const finalize = (exitCode) => {
+  if (finalized) return;
+  finalized = true;
+
   if (headHoldProc?.pid && isPowershellPid(headHoldProc.pid)) {
     killPid(headHoldProc.pid);
   }
@@ -410,6 +414,14 @@ process.on("SIGINT", () => {
 process.on("SIGTERM", () => {
   forwardSignal("SIGTERM");
   finalize(143);
+});
+process.on("uncaughtException", (err) => {
+  console.error(`[run-e2e-ci] ERROR: uncaughtException: ${err instanceof Error ? err.stack : String(err)}`);
+  finalize(1);
+});
+process.on("unhandledRejection", (err) => {
+  console.error(`[run-e2e-ci] ERROR: unhandledRejection: ${err instanceof Error ? err.stack : String(err)}`);
+  finalize(1);
 });
 
 const runOnce = (runIndex) =>
@@ -448,13 +460,19 @@ const runOnce = (runIndex) =>
       cleanupWeirdNulFile();
       cleanupE2ePorts({ reason: `run ${runIndex} exit` });
 
-      const branch = git(["rev-parse", "--abbrev-ref", "HEAD"]);
-      const head = git(["rev-parse", "HEAD"]);
-      if (branch !== initialBranch || head !== initialHead) {
-        console.error("[run-e2e-ci] ERROR: git HEAD changed while running e2e:ci.");
-        console.error(`[run-e2e-ci] initial branch=${initialBranch} head=${initialHead}`);
-        console.error(`[run-e2e-ci] current branch=${branch} head=${head}`);
-        return resolve({ code: 2, signal: null });
+      try {
+        const branch = git(["rev-parse", "--abbrev-ref", "HEAD"]);
+        const head = git(["rev-parse", "HEAD"]);
+        if (branch !== initialBranch || head !== initialHead) {
+          console.error("[run-e2e-ci] ERROR: git HEAD changed while running e2e:ci.");
+          console.error(`[run-e2e-ci] initial branch=${initialBranch} head=${initialHead}`);
+          console.error(`[run-e2e-ci] current branch=${branch} head=${head}`);
+          return resolve({ code: 2, signal: null });
+        }
+      } catch (err) {
+        const message = err instanceof Error ? err.stack || err.message : String(err);
+        console.error(`[run-e2e-ci] ERROR: failed to read git HEAD after run exit: ${message}`);
+        return resolve({ code: 1, signal: null });
       }
 
       if (signal) return resolve({ code: 1, signal });
@@ -474,4 +492,3 @@ const runOnce = (runIndex) =>
   console.error(`[run-e2e-ci] ERROR: ${err instanceof Error ? err.stack : String(err)}`);
   finalize(1);
 });
-
