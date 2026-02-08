@@ -204,6 +204,42 @@ test.describe("circle hub navigation", () => {
     await page.waitForURL(`**/circles/${CIRCLE_ID}/members`, { timeout: 15_000 });
     logPass("Navigated to members page via hub");
   });
+
+  test("clicking pins navigates to pins page", async ({ page }) => {
+    await setupMocks(page);
+
+    await page.goto(`/circles/${CIRCLE_ID}`, { waitUntil: "domcontentloaded" });
+
+    const hub = page.locator('[data-testid="circle-home"]');
+    await expect(hub).toBeVisible({ timeout: 30_000 });
+
+    const pinsBtn = page.locator('[data-testid="circle-hub-pins"]');
+    await pinsBtn.click();
+
+    await page.waitForURL(`**/circles/${CIRCLE_ID}/pins`, { timeout: 15_000 });
+    await expect(page.locator("text=遠征情報（ピン）")).toBeVisible({ timeout: 15_000 });
+    logPass("Navigated to pins page via hub");
+  });
+
+  test("clicking logs navigates to logs page (free plan shows forbidden)", async ({ page }) => {
+    await setupMocks(page);
+
+    await page.goto(`/circles/${CIRCLE_ID}`, { waitUntil: "domcontentloaded" });
+
+    const hub = page.locator('[data-testid="circle-home"]');
+    await expect(hub).toBeVisible({ timeout: 30_000 });
+
+    const logsBtn = page.locator('[data-testid="circle-hub-logs"]');
+    await logsBtn.click();
+
+    await page.waitForURL(`**/circles/${CIRCLE_ID}/logs`, { timeout: 15_000 });
+    await expect(page.locator("text=サークル操作ログ")).toBeVisible({ timeout: 15_000 });
+    await expect(
+      page.locator("text=Plusのオーナー/管理者のみご利用いただけます。")
+    ).toBeVisible({ timeout: 15_000 });
+    logPass("Navigated to logs page via hub (free plan forbidden)");
+  });
+
   test("clicking settings navigates to settings page (manager)", async ({ page }) => {
     await setupMocks(page);
 
