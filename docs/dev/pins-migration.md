@@ -47,6 +47,9 @@ Phase3 の UI はクリックで on/off をトグルし、本文を書き換え�
 
 当面は後方互換のため残す。
 
+Sunset 方針:
+- `docs/dev/pins-v1-sunset.md`
+
 将来のcleanup候補:
 - v1 pins API は deprecated（互換維持のため当面残す）
   - レスポンスヘッダ:
