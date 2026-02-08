@@ -158,6 +158,7 @@ Route::post('/circles/{circle}/invites', [InviteController::class, 'store']);
 Route::get('/circles/{circle}/invites', [InviteController::class, 'index']);
 Route::post('/circles/{circle}/invites/{invite}/revoke', [InviteController::class, 'revoke']);
 Route::post('/invites/join', [InviteController::class, 'join'])->middleware('throttle:10,1');
+Route::post('/circles/{circle}/invites/regenerate', [InviteController::class, 'regenerate']);
 Route::post('/invites/accept', [InviteController::class, 'accept']);
 
 // Circle album / media
