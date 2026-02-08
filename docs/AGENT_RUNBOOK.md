@@ -12,6 +12,12 @@ GitHub Agents PR #43 instructions:
 Codex long task for PR #43:
 - `docs/CODEX_LONG_TASK_PR43_WINDOWS_E2E_STABILITY.md`
 
+## Playbooks (Dev)
+
+- Git guard (block rebase on main + checkout log): `docs/dev/git-guard.md`
+- Unstable checkout / evidence playbook: `docs/dev/unstable-checkout-playbook.md`
+- E2E mocking rules: `docs/dev/e2e-mocking-rules.md`
+
 ## Repo Snapshot (As Of 2026-02-06)
 
 - Default branch: `main`
