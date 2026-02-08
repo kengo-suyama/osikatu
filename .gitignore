@@ -33,3 +33,6 @@ frontend/playwright-report/
 
 # local pid (do not commit)
 tools/_phpserve.pid
+
+# Local investigation evidence (never commit)
+_evidence/

@@ -5,13 +5,11 @@ This repo can optionally install repo-tracked git hooks to reduce damage from ac
 ## What It Does
 
 - Blocks `git rebase` when the current branch is `main`
-  - Override: set `ALLOW_REBASE_MAIN=1` for a one-off rebase
-- Logs checkout events to a local file:
-  - `.git/guard.log` (local-only, never committed)
+- Blocks `git pull --rebase` even when HEAD is temporarily detached (via `GIT_REFLOG_ACTION` detection)
+- Override: set `ALLOW_REBASE_MAIN=1` for a one-off rebase
+- Logs all rebase attempts (BLOCK/ALLOW) to `.git/guard.log` (local-only, never committed)
 
 ## Install (Local Only)
-
-Run:
 
 ```powershell
 cd C:\laragon\www\osikatu
@@ -44,8 +42,18 @@ git rebase origin/main
 Remove-Item Env:ALLOW_REBASE_MAIN
 ```
 
+## Parent Process Monitoring
+
+To capture the process that spawns unexpected `git.exe` calls:
+
+```powershell
+pwsh -File scripts\capture-git-parent.ps1
+```
+
+Leave running in a separate terminal. When `git.exe` is spawned,
+it logs the parent process name and command line to `_evidence/`.
+
 ## Limitations
 
 - Git hooks run for the git CLI. Some GUI tools use different engines and may ignore hooks.
-- This does not prevent `git pull --rebase` on other branches.
-
+- The WMI/CIM monitor requires an elevated or admin PowerShell session on some systems.
