@@ -82,8 +82,11 @@ export default function NotificationsPage() {
       }
     }
 
-    if (item.linkUrl) {
-      router.push(item.linkUrl);
+    const target = item.openPath ?? item.linkUrl;
+    if (target) {
+      router.push(target);
+    } else {
+      showToast("移動先なし", "移動先情報が見つかりませんでした");
     }
   };
 

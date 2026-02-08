@@ -105,6 +105,8 @@ class NotificationController extends Controller
             'createdAt' => $notification->created_at?->setTimezone($tz)->toIso8601String(),
             'sourceType' => $this->toCamelSourceType($notification->source_type),
             'sourceId' => $notification->source_id ? (int) $notification->source_id : null,
+            'sourceMeta' => is_array($notification->source_meta) ? $notification->source_meta : null,
+            'openPath' => $this->buildOpenPath($notification),
         ];
     }
 
@@ -116,6 +118,31 @@ class NotificationController extends Controller
             'schedule_proposal' => 'scheduleProposal',
             default => $value,
         };
+    }
+
+    private function buildOpenPath(Notification $notification): ?string
+    {
+        $meta = is_array($notification->source_meta) ? $notification->source_meta : [];
+
+        return match ($notification->source_type) {
+            'schedule_proposal' => $this->buildScheduleProposalPath($notification, $meta),
+            default => $notification->link_url,
+        };
+    }
+
+    private function buildScheduleProposalPath(Notification $notification, array $meta): ?string
+    {
+        $circleId = $meta['circleId'] ?? null;
+        if (!$circleId) {
+            return null;
+        }
+
+        $proposalId = $notification->source_id;
+        if ($proposalId) {
+            return "/circles/{$circleId}/calendar?focusProposalId={$proposalId}";
+        }
+
+        return "/circles/{$circleId}/calendar";
     }
 
     private function resolveUserId(Request $request): ?int

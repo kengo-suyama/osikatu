@@ -24,11 +24,13 @@ class Notification extends Model
         'link_url',
         'action_url',
         'read_at',
+        'source_meta',
     ];
 
     protected $casts = [
         'notify_at' => 'datetime',
         'read_at' => 'datetime',
+        'source_meta' => 'array',
     ];
 
     public function meProfile(): BelongsTo

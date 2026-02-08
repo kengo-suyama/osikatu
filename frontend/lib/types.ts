@@ -122,6 +122,8 @@ export type NotificationDto = {
   createdAt: ISODateTime | null;
   sourceType: string | null;
   sourceId: number | null;
+  sourceMeta: Record<string, unknown> | null;
+  openPath: string | null;
 };
 
 export type NotificationsResponse = {
