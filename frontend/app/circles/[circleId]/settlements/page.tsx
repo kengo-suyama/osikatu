@@ -25,6 +25,13 @@ import type {
   MemberBriefDto,
   SettlementDto,
 } from "@/lib/types";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
 import { isApiMode } from "@/lib/config";
 
@@ -95,6 +102,15 @@ export default function CircleSettlementsPage({
   const [toastOpen, setToastOpen] = useState(false);
   const [toastTitle, setToastTitle] = useState("");
   const [toastDescription, setToastDescription] = useState("");
+
+  const [showCreateExpenseDialog, setShowCreateExpenseDialog] = useState(false);
+  const [ceTitle, setCeTitle] = useState("");
+  const [ceAmountYen, setCeAmountYen] = useState("");
+  const [ceSplitType, setCeSplitType] = useState<"equal" | "fixed">("equal");
+  const [cePayerMemberId, setCePayerMemberId] = useState<number | null>(null);
+  const [ceOccurredOn, setCeOccurredOn] = useState(today);
+  const [ceParticipants, setCeParticipants] = useState<number[]>([]);
+  const [ceLoading, setCeLoading] = useState(false);
 
   const canUseSettlements =
     plan === "plus" && (circleRole === "owner" || circleRole === "admin");
@@ -294,6 +310,69 @@ export default function CircleSettlementsPage({
     window.open("https://paypay.ne.jp/", "_blank", "noopener,noreferrer");
   };
 
+  const refreshExpenseLedger = async () => {
+    try {
+      const [listRes, balancesRes, suggestionsRes] = await Promise.all([
+        circleSettlementExpenseRepo.list(circleId),
+        circleSettlementExpenseRepo.balances(circleId),
+        circleSettlementExpenseRepo.suggestions(circleId),
+      ]);
+      setExpenseLedgerItems(listRes.items ?? []);
+      setExpenseLedgerBalances(balancesRes);
+      setExpenseLedgerSuggestions(suggestionsRes);
+    } catch {
+      // ignore refresh errors
+    }
+  };
+
+  const openCreateExpenseDialog = () => {
+    setCeTitle("");
+    setCeAmountYen("");
+    setCeSplitType("equal");
+    setCePayerMemberId(members[0]?.id ?? null);
+    setCeOccurredOn(today);
+    setCeParticipants(members.map((m) => m.id));
+    setShowCreateExpenseDialog(true);
+  };
+
+  const handleCreateExpense = async () => {
+    if (!ceTitle.trim() || !ceAmountYen || !cePayerMemberId) return;
+    setCeLoading(true);
+    try {
+      await circleSettlementExpenseRepo.create(circleId, {
+        title: ceTitle.trim(),
+        amountYen: Number(ceAmountYen),
+        splitType: ceSplitType,
+        payerMemberId: cePayerMemberId,
+        occurredOn: ceOccurredOn || undefined,
+        participants: ceSplitType === "equal" ? ceParticipants : undefined,
+      });
+      setShowCreateExpenseDialog(false);
+      showToast("登録しました", "立替を登録しました。");
+      await refreshExpenseLedger();
+    } catch {
+      showToast("登録失敗", "立替の登録に失敗しました。");
+    } finally {
+      setCeLoading(false);
+    }
+  };
+
+  const handleVoidExpense = async (expenseId: number) => {
+    try {
+      await circleSettlementExpenseRepo.voidExpense(circleId, expenseId);
+      showToast("取消しました", "立替を取消しました。");
+      await refreshExpenseLedger();
+    } catch {
+      showToast("取消失敗", "立替の取消に失敗しました。");
+    }
+  };
+
+  const toggleCeParticipant = (id: number) => {
+    setCeParticipants((prev) =>
+      prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]
+    );
+  };
+
   const toggleMember = (id: number) => {
     setSelectedMembers((prev) =>
       prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id]
@@ -364,6 +443,17 @@ export default function CircleSettlementsPage({
               <div className="mt-1 text-xs text-muted-foreground">
                 立替を記録して、残高とおすすめ送金を表示します。
               </div>
+              {canUseSettlements && (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="mt-2"
+                  data-testid="settlement-create-open"
+                  onClick={openCreateExpenseDialog}
+                >
+                  立替を追加
+                </Button>
+              )}
 
               {expenseLedgerLoading ? (
                 <div className="mt-3 text-sm text-muted-foreground">読み込み中…</div>
@@ -384,9 +474,22 @@ export default function CircleSettlementsPage({
                             {formatAmountYen(expense.amountYen)}
                           </div>
                         </div>
-                        <div className="mt-1 text-xs text-muted-foreground">
-                          {expense.occurredOn ?? "日付未設定"} · 支払:{" "}
-                          {resolveLedgerPayerLabel(expense)}
+                        <div className="mt-1 flex items-center justify-between">
+                          <span className="text-xs text-muted-foreground">
+                            {expense.occurredOn ?? "日付未設定"} · 支払:{" "}
+                            {resolveLedgerPayerLabel(expense)}
+                          </span>
+                          {canUseSettlements && (
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              className="h-6 px-2 text-xs text-rose-500 hover:text-rose-600"
+                              data-testid="settlement-expense-void"
+                              onClick={() => handleVoidExpense(expense.id)}
+                            >
+                              取消
+                            </Button>
+                          )}
                         </div>
                       </div>
                     ))
@@ -667,6 +770,129 @@ export default function CircleSettlementsPage({
           </Link>
         </div>
       </div>
+
+      <Dialog open={showCreateExpenseDialog} onOpenChange={setShowCreateExpenseDialog}>
+        <DialogContent data-testid="settlement-create-dialog">
+          <DialogHeader>
+            <DialogTitle>立替を追加</DialogTitle>
+            <DialogDescription>割り勘の立替を記録します。</DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-3">
+            <div className="grid gap-1">
+              <div className="text-xs text-muted-foreground">タイトル</div>
+              <Input
+                placeholder="例: 遠征交通費"
+                value={ceTitle}
+                onChange={(e) => setCeTitle(e.target.value)}
+              />
+            </div>
+            <div className="grid gap-1">
+              <div className="text-xs text-muted-foreground">金額（円）</div>
+              <Input
+                type="number"
+                min={0}
+                inputMode="numeric"
+                placeholder="例: 12000"
+                value={ceAmountYen}
+                onChange={(e) => setCeAmountYen(e.target.value)}
+                data-testid="settlement-create-total"
+              />
+            </div>
+            <div className="grid gap-1">
+              <div className="text-xs text-muted-foreground">割り勘方法</div>
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  className={cn(
+                    "rounded-full border px-3 py-1 text-xs transition",
+                    ceSplitType === "equal"
+                      ? "border-emerald-500/50 bg-emerald-500/15 text-emerald-600"
+                      : "border-border/60 text-muted-foreground"
+                  )}
+                  data-testid="settlement-create-method-equal"
+                  onClick={() => setCeSplitType("equal")}
+                >
+                  均等割
+                </button>
+                <button
+                  type="button"
+                  className={cn(
+                    "rounded-full border px-3 py-1 text-xs transition",
+                    ceSplitType === "fixed"
+                      ? "border-emerald-500/50 bg-emerald-500/15 text-emerald-600"
+                      : "border-border/60 text-muted-foreground"
+                  )}
+                  data-testid="settlement-create-method-fixed"
+                  onClick={() => setCeSplitType("fixed")}
+                >
+                  個別指定
+                </button>
+              </div>
+            </div>
+            <div className="grid gap-1">
+              <div className="text-xs text-muted-foreground">支払者</div>
+              <div className="flex flex-wrap gap-2">
+                {members.map((m) => (
+                  <button
+                    key={m.id}
+                    type="button"
+                    onClick={() => setCePayerMemberId(m.id)}
+                    className={cn(
+                      "rounded-full border px-3 py-1 text-xs transition",
+                      cePayerMemberId === m.id
+                        ? "border-blue-500/50 bg-blue-500/15 text-blue-600"
+                        : "border-border/60 text-muted-foreground"
+                    )}
+                  >
+                    {m.nickname ?? m.initial ?? ("#" + m.id)}
+                  </button>
+                ))}
+              </div>
+            </div>
+            {ceSplitType === "equal" && (
+              <div className="grid gap-1">
+                <div className="text-xs text-muted-foreground">参加メンバー</div>
+                <div className="flex flex-wrap gap-2">
+                  {members.map((m) => {
+                    const selected = ceParticipants.includes(m.id);
+                    return (
+                      <button
+                        key={m.id}
+                        type="button"
+                        onClick={() => toggleCeParticipant(m.id)}
+                        className={cn(
+                          "rounded-full border px-3 py-1 text-xs transition",
+                          selected
+                            ? "border-emerald-500/50 bg-emerald-500/15 text-emerald-600"
+                            : "border-border/60 text-muted-foreground"
+                        )}
+                      >
+                        {m.nickname ?? m.initial ?? ("#" + m.id)}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+            <div className="grid gap-1">
+              <div className="text-xs text-muted-foreground">日付</div>
+              <Input
+                type="date"
+                value={ceOccurredOn}
+                onChange={(e) => setCeOccurredOn(e.target.value)}
+              />
+            </div>
+            <Button
+              size="sm"
+              onClick={handleCreateExpense}
+              disabled={ceLoading}
+              data-testid="settlement-create-submit"
+            >
+              登録
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       <Toast open={toastOpen} onOpenChange={setToastOpen}>
         <div className="space-y-1">
