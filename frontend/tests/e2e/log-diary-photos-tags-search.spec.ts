@@ -157,6 +157,21 @@ test.describe("log features: photos + tags + search filters", () => {
         timeout: 10_000,
       });
       logPass("Tag filter works with hasPhoto filter");
+
+      // Search works with tag + hasPhoto filters
+      const searchInput = page.locator('[data-testid="log-search-input"]');
+      await expect(searchInput).toBeVisible({ timeout: 5_000 });
+      await searchInput.fill("No Photo");
+      await expect(cards).toHaveCount(0, { timeout: 15_000 });
+      await expect(page.locator("text=条件に一致するログがありません")).toBeVisible({
+        timeout: 15_000,
+      });
+
+      await page.locator('[data-testid="log-search-clear"]').click();
+      await expect(cards.filter({ hasText: withPhotoTitle }).first()).toBeVisible({
+        timeout: 15_000,
+      });
+      logPass("Search works with tag + hasPhoto filter");
     } catch (e) {
       logFail("Photo upload + hasPhoto filter", e);
     }
