@@ -86,7 +86,7 @@ export default function QuickModeSwitch() {
   };
 
   const goCircle = (targetCircleId?: string) => {
-    const id = targetCircleId ?? circleId;
+    const id = (targetCircleId ?? circleId) || circles[0]?.id || "";
     setMode("circle");
     writeLS(MODE_KEY, "circle");
     if (!id) {
