@@ -10,6 +10,7 @@ use App\Models\CircleSchedule;
 use App\Models\CircleScheduleProposal;
 use App\Models\MeProfile;
 use App\Models\Notification;
+use App\Models\OperationLog;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
@@ -474,5 +475,84 @@ class CircleScheduleProposalsTest extends TestCase
         $found = collect($items)->first(fn ($n) => $n['sourceType'] === 'scheduleProposal');
         $this->assertNotNull($found);
         $this->assertEquals('proposal.approved', $found['type']);
+    }
+
+    // ═══════════════════════════════════════════════════════════════
+    // Audit log tests
+    // ═══════════════════════════════════════════════════════════════
+
+    public function test_approve_creates_operation_log(): void
+    {
+        [$circle, $members, $profiles] = $this->createCircleWithMembers('plus', 2);
+
+        $create = $this->withHeaders([
+            'X-Device-Id' => $profiles[1]->device_id,
+        ])->postJson("/api/circles/{$circle->id}/schedule-proposals", $this->proposalPayload());
+        $proposalId = $create->json('success.data.proposal.id');
+
+        $this->withHeaders([
+            'X-Device-Id' => $profiles[0]->device_id,
+        ])->postJson("/api/circles/{$circle->id}/schedule-proposals/{$proposalId}/approve")
+            ->assertStatus(200);
+
+        $log = OperationLog::where('circle_id', $circle->id)
+            ->where('action', 'proposal.approve')
+            ->first();
+
+        $this->assertNotNull($log);
+        $this->assertEquals($proposalId, $log->meta['proposalId'] ?? null);
+        $this->assertEquals('approved', $log->meta['result'] ?? null);
+    }
+
+    public function test_reject_creates_operation_log(): void
+    {
+        [$circle, $members, $profiles] = $this->createCircleWithMembers('plus', 2);
+
+        $create = $this->withHeaders([
+            'X-Device-Id' => $profiles[1]->device_id,
+        ])->postJson("/api/circles/{$circle->id}/schedule-proposals", $this->proposalPayload());
+        $proposalId = $create->json('success.data.proposal.id');
+
+        $this->withHeaders([
+            'X-Device-Id' => $profiles[0]->device_id,
+        ])->postJson("/api/circles/{$circle->id}/schedule-proposals/{$proposalId}/reject")
+            ->assertStatus(200);
+
+        $log = OperationLog::where('circle_id', $circle->id)
+            ->where('action', 'proposal.reject')
+            ->first();
+
+        $this->assertNotNull($log);
+        $this->assertEquals($proposalId, $log->meta['proposalId'] ?? null);
+        $this->assertEquals('rejected', $log->meta['result'] ?? null);
+    }
+
+    public function test_double_approve_no_duplicate_log(): void
+    {
+        [$circle, $members, $profiles] = $this->createCircleWithMembers('plus', 2);
+
+        $create = $this->withHeaders([
+            'X-Device-Id' => $profiles[1]->device_id,
+        ])->postJson("/api/circles/{$circle->id}/schedule-proposals", $this->proposalPayload());
+        $proposalId = $create->json('success.data.proposal.id');
+
+        // First approve → 200
+        $this->withHeaders([
+            'X-Device-Id' => $profiles[0]->device_id,
+        ])->postJson("/api/circles/{$circle->id}/schedule-proposals/{$proposalId}/approve")
+            ->assertStatus(200);
+
+        // Second approve → 409
+        $this->withHeaders([
+            'X-Device-Id' => $profiles[0]->device_id,
+        ])->postJson("/api/circles/{$circle->id}/schedule-proposals/{$proposalId}/approve")
+            ->assertStatus(409);
+
+        // Only one log entry
+        $logCount = OperationLog::where('circle_id', $circle->id)
+            ->where('action', 'proposal.approve')
+            ->count();
+
+        $this->assertEquals(1, $logCount);
     }
 }

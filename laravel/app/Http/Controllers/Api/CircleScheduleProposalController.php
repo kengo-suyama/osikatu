@@ -13,6 +13,8 @@ use App\Models\CircleScheduleProposal;
 use App\Models\MeProfile;
 use App\Models\Notification;
 use App\Support\ApiResponse;
+use App\Support\OperationLogService;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
@@ -128,68 +130,77 @@ class CircleScheduleProposalController extends Controller
             return $guard;
         }
 
-        $proposalModel = CircleScheduleProposal::query()
-            ->where('circle_id', $circle)
-            ->where('id', $proposal)
-            ->first();
-
-        if (!$proposalModel) {
-            return ApiResponse::error('NOT_FOUND', 'Proposal not found.', null, 404);
-        }
-
-        if ($proposalModel->status !== 'pending') {
-            return ApiResponse::error('ALREADY_REVIEWED', 'Proposal has already been reviewed.', null, 409);
-        }
-
         $member = $guard['member'];
         $reviewComment = $request->input('comment');
 
-        // Create the actual schedule
-        $schedule = CircleSchedule::create([
-            'circle_id' => $circle,
-            'created_by' => $member->meProfile?->user_id ?? $member->user_id,
-            'title' => $proposalModel->title,
-            'start_at' => $proposalModel->start_at,
-            'end_at' => $proposalModel->end_at,
-            'is_all_day' => $proposalModel->is_all_day,
-            'note' => $proposalModel->note,
-            'location' => $proposalModel->location,
-            'visibility' => 'members',
-        ]);
+        return DB::transaction(function () use ($request, $circle, $proposal, $guard, $member, $reviewComment) {
+            $proposalModel = CircleScheduleProposal::query()
+                ->where('circle_id', $circle)
+                ->where('id', $proposal)
+                ->lockForUpdate()
+                ->first();
 
-        // Add all circle members as participants
-        $memberIds = CircleMember::query()
-            ->where('circle_id', $circle)
-            ->pluck('user_id')
-            ->all();
+            if (!$proposalModel) {
+                return ApiResponse::error('NOT_FOUND', 'Proposal not found.', null, 404);
+            }
 
-        foreach ($memberIds as $userId) {
-            CircleScheduleParticipant::create([
-                'circle_schedule_id' => $schedule->id,
-                'user_id' => $userId,
-                'status' => 'accepted',
+            if ($proposalModel->status !== 'pending') {
+                return ApiResponse::error('ALREADY_REVIEWED', 'Proposal has already been reviewed.', null, 409);
+            }
+
+            // Create the actual schedule
+            $schedule = CircleSchedule::create([
+                'circle_id' => $circle,
+                'created_by' => $member->meProfile?->user_id ?? $member->user_id,
+                'title' => $proposalModel->title,
+                'start_at' => $proposalModel->start_at,
+                'end_at' => $proposalModel->end_at,
+                'is_all_day' => $proposalModel->is_all_day,
+                'note' => $proposalModel->note,
+                'location' => $proposalModel->location,
+                'visibility' => 'members',
             ]);
-        }
 
-        // Update proposal status
-        $proposalModel->update([
-            'status' => 'approved',
-            'reviewed_by_member_id' => $member->id,
-            'reviewed_at' => now(),
-            'review_comment' => $reviewComment,
-            'approved_schedule_id' => $schedule->id,
-        ]);
+            // Add all circle members as participants
+            $memberIds = CircleMember::query()
+                ->where('circle_id', $circle)
+                ->pluck('user_id')
+                ->all();
 
-        // Notify the proposer
-        $this->notifyProposer($proposalModel, $guard['circle'], 'approved', $reviewComment);
+            foreach ($memberIds as $userId) {
+                CircleScheduleParticipant::create([
+                    'circle_schedule_id' => $schedule->id,
+                    'user_id' => $userId,
+                    'status' => 'accepted',
+                ]);
+            }
 
-        return ApiResponse::success([
-            'proposal' => self::mapProposal($proposalModel->fresh()),
-            'schedule' => [
-                'id' => 'cs_' . $schedule->id,
-                'title' => $schedule->title,
-            ],
-        ]);
+            // Update proposal status
+            $proposalModel->update([
+                'status' => 'approved',
+                'reviewed_by_member_id' => $member->id,
+                'reviewed_at' => now(),
+                'review_comment' => $reviewComment,
+                'approved_schedule_id' => $schedule->id,
+            ]);
+
+            // Notify the proposer
+            $this->notifyProposer($proposalModel, $guard['circle'], 'approved', $reviewComment);
+
+            // Audit log
+            OperationLogService::log($request, 'proposal.approve', $circle, [
+                'proposalId' => $proposalModel->id,
+                'result' => 'approved',
+            ]);
+
+            return ApiResponse::success([
+                'proposal' => self::mapProposal($proposalModel->fresh()),
+                'schedule' => [
+                    'id' => 'cs_' . $schedule->id,
+                    'title' => $schedule->title,
+                ],
+            ]);
+        });
     }
 
     // ── Reject proposal (owner/admin + plus) ────────────────────────
@@ -201,35 +212,44 @@ class CircleScheduleProposalController extends Controller
             return $guard;
         }
 
-        $proposalModel = CircleScheduleProposal::query()
-            ->where('circle_id', $circle)
-            ->where('id', $proposal)
-            ->first();
-
-        if (!$proposalModel) {
-            return ApiResponse::error('NOT_FOUND', 'Proposal not found.', null, 404);
-        }
-
-        if ($proposalModel->status !== 'pending') {
-            return ApiResponse::error('ALREADY_REVIEWED', 'Proposal has already been reviewed.', null, 409);
-        }
-
         $member = $guard['member'];
         $reviewComment = $request->input('comment');
 
-        $proposalModel->update([
-            'status' => 'rejected',
-            'reviewed_by_member_id' => $member->id,
-            'reviewed_at' => now(),
-            'review_comment' => $reviewComment,
-        ]);
+        return DB::transaction(function () use ($request, $circle, $proposal, $guard, $member, $reviewComment) {
+            $proposalModel = CircleScheduleProposal::query()
+                ->where('circle_id', $circle)
+                ->where('id', $proposal)
+                ->lockForUpdate()
+                ->first();
 
-        // Notify the proposer
-        $this->notifyProposer($proposalModel, $guard['circle'], 'rejected', $reviewComment);
+            if (!$proposalModel) {
+                return ApiResponse::error('NOT_FOUND', 'Proposal not found.', null, 404);
+            }
 
-        return ApiResponse::success([
-            'proposal' => self::mapProposal($proposalModel->fresh()),
-        ]);
+            if ($proposalModel->status !== 'pending') {
+                return ApiResponse::error('ALREADY_REVIEWED', 'Proposal has already been reviewed.', null, 409);
+            }
+
+            $proposalModel->update([
+                'status' => 'rejected',
+                'reviewed_by_member_id' => $member->id,
+                'reviewed_at' => now(),
+                'review_comment' => $reviewComment,
+            ]);
+
+            // Notify the proposer
+            $this->notifyProposer($proposalModel, $guard['circle'], 'rejected', $reviewComment);
+
+            // Audit log
+            OperationLogService::log($request, 'proposal.reject', $circle, [
+                'proposalId' => $proposalModel->id,
+                'result' => 'rejected',
+            ]);
+
+            return ApiResponse::success([
+                'proposal' => self::mapProposal($proposalModel->fresh()),
+            ]);
+        });
     }
 
     // ── Notification helper ──────────────────────────────────────────

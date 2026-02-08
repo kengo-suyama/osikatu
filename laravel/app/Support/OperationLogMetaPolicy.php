@@ -62,6 +62,8 @@ final class OperationLogMetaPolicy
         'circle.ui.special_bg.update' => ['enabled', 'specialBg'],
         'settlement.create' => ['circleId', 'settlementId', 'amountInt', 'participantCount', 'transferCount', 'splitMode'],
         'settlement.update' => ['circleId', 'settlementId', 'transferCount'],
+        'proposal.approve' => ['proposalId', 'result'],
+        'proposal.reject' => ['proposalId', 'result'],
     ];
 
     public static function sanitize(string $action, array $meta): array
