@@ -3,10 +3,10 @@
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 
-import type { CircleDto, MeDto, PostDto } from "@/lib/types";
+import type { CircleDto, CirclePinDto, MeDto } from "@/lib/types";
 import { circleRepo } from "@/lib/repo/circleRepo";
 import { meRepo } from "@/lib/repo/meRepo";
-import { postRepo } from "@/lib/repo/postRepo";
+import { pinsRepo } from "@/lib/repo/pinsRepo";
 import { ApiRequestError } from "@/lib/repo/http";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -69,28 +69,30 @@ const buildPinBody = (title: string, url: string, body: string) => {
   return lines.join("\n");
 };
 
-const sortPinsDesc = (pins: PostDto[]) =>
+const sortPinsDesc = (pins: CirclePinDto[]) =>
   [...pins].sort((a, b) => {
-    const aTime = new Date(a.createdAt).getTime();
-    const bTime = new Date(b.createdAt).getTime();
+    const aSort = a.sortOrder ?? Number.POSITIVE_INFINITY;
+    const bSort = b.sortOrder ?? Number.POSITIVE_INFINITY;
+    if (aSort !== bSort) return aSort - bSort;
+
+    const aTime = new Date(a.pinnedAt ?? a.createdAt ?? 0).getTime();
+    const bTime = new Date(b.pinnedAt ?? b.createdAt ?? 0).getTime();
     if (!Number.isNaN(aTime) && !Number.isNaN(bTime) && aTime !== bTime) return bTime - aTime;
-    const aId = typeof a.id === "number" ? a.id : Number.parseInt(String(a.id), 10);
-    const bId = typeof b.id === "number" ? b.id : Number.parseInt(String(b.id), 10);
-    if (!Number.isNaN(aId) && !Number.isNaN(bId) && aId !== bId) return bId - aId;
-    return String(b.id).localeCompare(String(a.id));
+
+    return b.id - a.id;
   });
 
 export default function CirclePinsScreen({ circleId }: { circleId: number }) {
   const [circle, setCircle] = useState<CircleDto | null>(null);
   const [me, setMe] = useState<MeDto | null>(null);
-  const [pins, setPins] = useState<PostDto[]>([]);
+  const [pins, setPins] = useState<CirclePinDto[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [mutatingId, setMutatingId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   const [dialogOpen, setDialogOpen] = useState(false);
-  const [editing, setEditing] = useState<PostDto | null>(null);
+  const [editing, setEditing] = useState<CirclePinDto | null>(null);
   const [formTitle, setFormTitle] = useState("");
   const [formUrl, setFormUrl] = useState("");
   const [formBody, setFormBody] = useState("");
@@ -102,26 +104,32 @@ export default function CirclePinsScreen({ circleId }: { circleId: number }) {
   const pinnedCount = pins.length;
   const limitReached = pinnedCount >= maxPins;
 
+  const pinKey = (pin: CirclePinDto) => String(pin.sourcePostId ?? pin.id);
+
   const headerNote = useMemo(() => {
     if (!canManage) return "閲覧のみ（運営メンバーのみ編集できます）";
     if (me?.plan === "plus") return "運営向け（最大10件まで固定できます）";
     return "運営向け（Freeは最大3件まで固定できます）";
   }, [canManage, me?.plan]);
 
+  const reloadPins = async () => {
+    const items = await pinsRepo.list(circleId);
+    setPins(sortPinsDesc(items));
+  };
+
   const load = async () => {
     setLoading(true);
     setError(null);
     try {
-      const [circleData, meData, posts] = await Promise.all([
+      const [circleData, meData, pinItems] = await Promise.all([
         circleRepo.get(circleId),
         meRepo.getMe(),
-        postRepo.list(circleId),
+        pinsRepo.list(circleId),
       ]);
 
       setCircle(circleData);
       setMe(meData);
-      const pinned = posts.filter((p) => p.isPinned);
-      setPins(sortPinsDesc(pinned));
+      setPins(sortPinsDesc(pinItems));
     } catch (err) {
       if (err instanceof ApiRequestError && err.status === 403) {
         setError("このサークルは閲覧できません（権限がありません）");
@@ -150,9 +158,9 @@ export default function CirclePinsScreen({ circleId }: { circleId: number }) {
     setDialogOpen(true);
   };
 
-  const openEdit = (post: PostDto) => {
-    setEditing(post);
-    const parts = parsePinBody(post.body);
+  const openEdit = (pin: CirclePinDto) => {
+    setEditing(pin);
+    const parts = parsePinBody(pin.body);
     setFormTitle(parts.title === "(無題)" ? "" : parts.title);
     setFormUrl(parts.url ?? "");
     setFormBody(parts.body);
@@ -169,11 +177,15 @@ export default function CirclePinsScreen({ circleId }: { circleId: number }) {
     try {
       const body = buildPinBody(formTitle, formUrl, formBody);
       if (editing) {
-        const updated = await postRepo.updatePin(circleId, editing.id, body);
-        setPins((prev) => sortPinsDesc(prev.map((p) => (String(p.id) === String(updated.id) ? updated : p))));
+        const sourcePostId = editing.sourcePostId;
+        if (!sourcePostId) {
+          throw new Error("sourcePostId is missing for this pin");
+        }
+        await pinsRepo.update(circleId, sourcePostId, body);
+        await reloadPins();
       } else {
-        const created = await postRepo.createPin(circleId, body);
-        setPins((prev) => sortPinsDesc([created, ...prev]));
+        await pinsRepo.create(circleId, body);
+        await reloadPins();
       }
       setDialogOpen(false);
       setEditing(null);
@@ -188,15 +200,17 @@ export default function CirclePinsScreen({ circleId }: { circleId: number }) {
     }
   };
 
-  const unpin = async (post: PostDto) => {
+  const unpin = async (pin: CirclePinDto) => {
     if (!canManage) return;
     if (mutatingId) return;
-    const postId = String(post.id);
+    const postId = pin.sourcePostId;
+    if (!postId) return;
+    const key = pinKey(pin);
     setError(null);
     try {
-      setMutatingId(postId);
-      await postRepo.unpin(circleId, post.id);
-      setPins((prev) => prev.filter((p) => String(p.id) !== postId));
+      setMutatingId(key);
+      await pinsRepo.unpin(circleId, postId);
+      await reloadPins();
     } catch (err) {
       if (err instanceof ApiRequestError) {
         setError(err.message);
@@ -208,12 +222,15 @@ export default function CirclePinsScreen({ circleId }: { circleId: number }) {
     }
   };
 
-  const toggleChecklist = async (post: PostDto, itemIndex: number) => {
+  const toggleChecklist = async (pin: CirclePinDto, itemIndex: number) => {
     if (!canManage) return;
     if (mutatingId) return;
 
-    const postId = String(post.id);
-    const raw = normalizeNewlines(post.body ?? "");
+    const postId = pin.sourcePostId;
+    if (!postId) return;
+
+    const key = pinKey(pin);
+    const raw = normalizeNewlines(pin.body ?? "");
     const lines = raw.split("\n");
 
     const checklistLineIndexes: number[] = [];
@@ -237,15 +254,15 @@ export default function CirclePinsScreen({ circleId }: { circleId: number }) {
     const nextBody = nextLines.join("\n");
 
     setError(null);
-    setMutatingId(postId);
-    setPins((prev) => prev.map((p) => (String(p.id) === postId ? { ...p, body: nextBody } : p)));
+    setMutatingId(key);
+    setPins((prev) => prev.map((p) => (pinKey(p) === key ? { ...p, body: nextBody } : p)));
 
     try {
-      const updated = await postRepo.updatePin(circleId, post.id, nextBody);
-      setPins((prev) => sortPinsDesc(prev.map((p) => (String(p.id) === String(updated.id) ? updated : p))));
+      await pinsRepo.update(circleId, postId, nextBody);
+      await reloadPins();
     } catch (err) {
       // rollback
-      setPins((prev) => prev.map((p) => (String(p.id) === postId ? { ...p, body: post.body } : p)));
+      setPins((prev) => prev.map((p) => (pinKey(p) === key ? { ...p, body: pin.body } : p)));
       if (err instanceof ApiRequestError) {
         setError(err.message);
       } else {
@@ -306,14 +323,14 @@ export default function CirclePinsScreen({ circleId }: { circleId: number }) {
 
       <div className="space-y-3">
         {pins.length ? (
-          pins.map((post) => {
-            const parts = parsePinBody(post.body);
-            const postId = String(post.id);
+          pins.map((pin) => {
+            const parts = parsePinBody(pin.body);
+            const key = pinKey(pin);
             return (
               <Card
-                key={postId}
+                key={key}
                 className="rounded-2xl border p-4 shadow-sm"
-                data-testid={`pin-item-${postId}`}
+                data-testid={`pin-item-${key}`}
               >
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0 flex-1">
@@ -335,8 +352,8 @@ export default function CirclePinsScreen({ circleId }: { circleId: number }) {
                         type="button"
                         variant="secondary"
                         size="sm"
-                        onClick={() => openEdit(post)}
-                        data-testid={`pin-edit-${postId}`}
+                        onClick={() => openEdit(pin)}
+                        data-testid={`pin-edit-${key}`}
                       >
                         編集
                       </Button>
@@ -344,9 +361,9 @@ export default function CirclePinsScreen({ circleId }: { circleId: number }) {
                         type="button"
                         variant="ghost"
                         size="sm"
-                        onClick={() => void unpin(post)}
-                        disabled={mutatingId === postId}
-                        data-testid={`pin-unpin-${postId}`}
+                        onClick={() => void unpin(pin)}
+                        disabled={mutatingId === key}
+                        data-testid={`pin-unpin-${key}`}
                       >
                         解除
                       </Button>
@@ -360,12 +377,12 @@ export default function CirclePinsScreen({ circleId }: { circleId: number }) {
                     <div className="space-y-1">
                       {parts.checklist.map((item, idx) => (
                         <button
-                          key={`${postId}-${idx}`}
+                          key={`${key}-${idx}`}
                           type="button"
                           className="flex w-full items-start gap-2 rounded-lg px-1 py-1 text-left text-sm hover:bg-muted/30"
-                          onClick={() => void toggleChecklist(post, idx)}
-                          disabled={!canManage || mutatingId === postId}
-                          data-testid={`pin-check-${postId}-${idx}`}
+                          onClick={() => void toggleChecklist(pin, idx)}
+                          disabled={!canManage || mutatingId === key}
+                          data-testid={`pin-check-${key}-${idx}`}
                           aria-checked={item.checked}
                           role="checkbox"
                         >
