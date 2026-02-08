@@ -36,7 +36,8 @@ class InviteRegenerateTest extends TestCase
         // Create existing invite
         $old = CircleInvite::create([
             'circle_id' => $circle->id,
-            'creator_user_id' => $user->id,
+            'type' => 'code',
+            'created_by' => $user->id,
             'code' => 'OLDCODE1',
         ]);
 
