@@ -24,6 +24,21 @@ git log -3 --oneline
 - 何が起きたか（例: ブランチが勝手に切り替わった、pull --rebase の痕跡が出た）
 - 直前に触っていたツール（例: VSCode / GitHub Desktop / ターミナル常駐 / 別エージェント）
 
+## 1.5) 再発した瞬間の「3コマンド」（まずこれだけでOK）
+
+再発したら、**まずこれをコピペ**して `_evidence/` を残す（ローカルのみ、コミットしない）:
+
+```powershell
+cd C:\laragon\www\osikatu
+pwsh -File scripts/capture-git-parent.ps1 -Start -PollMs 20
+pwsh -File scripts/snapshot-proc.ps1
+pwsh -File scripts/capture-git-parent.ps1 -Stop
+```
+
+見るべきポイント:
+- `_evidence/git_watch_*.jsonl`: `parentName` / `parentCommandLine` / `actionTag`
+- `_evidence/snapshot_*.txt`: 実行中プロセス / `reflog` / `.git/guard.log`
+
 ## 2) まず証拠: reflog で「事実」を押さえる
 
 ```powershell
@@ -121,6 +136,17 @@ pwsh -File scripts/snapshot-proc.ps1
 1. まず `guard.log` で「いつ checkout/rebase が起きたか」を確認
 2. 同時刻の `watch.jsonl` を grep して「誰が git.exe を起動したか」を特定
 3. 必要に応じて `snapshot_*.txt` で当時のプロセスツリーを確認
+
+## 3.8) 親プロセス別の即対処（最小）
+
+- parent = `Code.exe`:
+  - `code --disable-extensions --user-data-dir "%TEMP%\\vscode-osikatu-clean" "C:\\laragon\\www\\osikatu"` で再現するか確認
+  - Git の `autofetch` を切る（ローカル設定運用を継続）
+- parent = `GitHubDesktop.exe`:
+  - 自動同期/バックグラウンド操作をOFF（可能なら「rebaseでpull」系を無効化）
+  - 重要作業中は起動しっぱなしにしない
+- parent = `pwsh.exe` / `powershell.exe`:
+  - タスクスケジューラ/スタートアップ/プロファイルに `git pull --rebase` が無いか確認
 
 ## 4) VSCode クラッシュ（fileWatcher など）を疑う場合
 
