@@ -340,86 +340,81 @@ export default function CircleCalendarPage({
                     直近30日を表示しています
                   </div>
                 </div>
-                {canEdit ? (
-                  <Dialog
-                    open={open}
-                    onOpenChange={(next) => {
-                      if (!next) setEditingId(null);
-                      setOpen(next);
-                    }}
-                  >
-                    <DialogTrigger asChild>
-                      <Button
-                        size="sm"
-                        variant="secondary"
-                        onClick={openCreate}
-                        data-testid="event-create"
-                      >
-                        予定を追加
-                      </Button>
-                    </DialogTrigger>
-                    <DialogContent>
-                      <DialogHeader>
-                        <DialogTitle>{editingId ? "予定を編集" : "予定を追加"}</DialogTitle>
-                      </DialogHeader>
-                      <div className="grid gap-3">
-                        <div className="grid gap-2">
-                          <div className="text-xs text-muted-foreground">タイトル</div>
-                          <Input
-                            placeholder="例: オフ会"
-                            value={title}
-                            onChange={(event) => setTitle(event.target.value)}
-                          />
-                        </div>
-                        <div className="grid gap-2">
-                          <div className="text-xs text-muted-foreground">開始</div>
-                          <Input
-                            type="datetime-local"
-                            value={startAt}
-                            onChange={(event) => setStartAt(event.target.value)}
-                          />
-                        </div>
-                        <div className="grid gap-2">
-                          <div className="text-xs text-muted-foreground">終了</div>
-                          <Input
-                            type="datetime-local"
-                            value={endAt}
-                            onChange={(event) => setEndAt(event.target.value)}
-                          />
-                        </div>
-                        <label className="flex items-center justify-between rounded-lg border border-border/60 px-3 py-2 text-xs">
-                          終日
-                          <Switch checked={isAllDay} onCheckedChange={setIsAllDay} />
-                        </label>
-                        <div className="grid gap-2">
-                          <div className="text-xs text-muted-foreground">場所（任意）</div>
-                          <Input
-                            placeholder="例: 渋谷"
-                            value={location}
-                            onChange={(event) => setLocation(event.target.value)}
-                          />
-                        </div>
-                        <div className="grid gap-2">
-                          <div className="text-xs text-muted-foreground">メモ（任意）</div>
-                          <Textarea
-                            placeholder="メモを入力"
-                            value={note}
-                            onChange={(event) => setNote(event.target.value)}
-                          />
-                        </div>
-                        <div className="flex justify-end">
-                          <Button size="sm" onClick={handleSave} disabled={actionLoading}>
-                            {editingId ? "保存する" : "追加する"}
-                          </Button>
-                        </div>
+                <Dialog
+                  open={open}
+                  onOpenChange={(next) => {
+                    if (!next) setEditingId(null);
+                    setOpen(next);
+                  }}
+                >
+                  <DialogTrigger asChild>
+                    <Button
+                      size="sm"
+                      variant="secondary"
+                      onClick={openCreate}
+                      data-testid="schedule-create"
+                    >
+                      予定を追加
+                    </Button>
+                  </DialogTrigger>
+                  <DialogContent>
+                    <DialogHeader>
+                      <DialogTitle>{editingId ? "予定を編集" : "予定を追加"}</DialogTitle>
+                    </DialogHeader>
+                    <div className="grid gap-3">
+                      <div className="grid gap-2">
+                        <div className="text-xs text-muted-foreground">タイトル</div>
+                        <Input
+                          placeholder="例: オフ会"
+                          value={title}
+                          onChange={(event) => setTitle(event.target.value)}
+                          data-testid="schedule-create-title"
+                        />
                       </div>
-                    </DialogContent>
-                  </Dialog>
-                ) : (
-                  <div className="text-xs text-muted-foreground">
-                    Premiumのオーナー/管理者のみ編集できます
-                  </div>
-                )}
+                      <div className="grid gap-2">
+                        <div className="text-xs text-muted-foreground">開始</div>
+                        <Input
+                          type="datetime-local"
+                          value={startAt}
+                          onChange={(event) => setStartAt(event.target.value)}
+                        />
+                      </div>
+                      <div className="grid gap-2">
+                        <div className="text-xs text-muted-foreground">終了</div>
+                        <Input
+                          type="datetime-local"
+                          value={endAt}
+                          onChange={(event) => setEndAt(event.target.value)}
+                        />
+                      </div>
+                      <label className="flex items-center justify-between rounded-lg border border-border/60 px-3 py-2 text-xs">
+                        終日
+                        <Switch checked={isAllDay} onCheckedChange={setIsAllDay} />
+                      </label>
+                      <div className="grid gap-2">
+                        <div className="text-xs text-muted-foreground">場所（任意）</div>
+                        <Input
+                          placeholder="例: 渋谷"
+                          value={location}
+                          onChange={(event) => setLocation(event.target.value)}
+                        />
+                      </div>
+                      <div className="grid gap-2">
+                        <div className="text-xs text-muted-foreground">メモ（任意）</div>
+                        <Textarea
+                          placeholder="メモを入力"
+                          value={note}
+                          onChange={(event) => setNote(event.target.value)}
+                        />
+                      </div>
+                      <div className="flex justify-end">
+                        <Button size="sm" onClick={handleSave} disabled={actionLoading} data-testid="schedule-create-submit">
+                          {editingId ? "保存する" : "追加する"}
+                        </Button>
+                      </div>
+                    </div>
+                  </DialogContent>
+                </Dialog>
               </div>
 
               <div className="mt-3 space-y-2">
