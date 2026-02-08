@@ -198,9 +198,9 @@ class PostController extends Controller
 
         $pins = CirclePin::query()
             ->where('circle_id', $circle)
-            // Lower sort_order = higher priority; nulls last.
+            // Higher sort_order = newer pin = appears first; nulls last.
             ->orderByRaw('sort_order is null')
-            ->orderBy('sort_order')
+            ->orderByDesc('sort_order')
             ->orderByDesc('pinned_at')
             ->orderByDesc('id')
             ->get();

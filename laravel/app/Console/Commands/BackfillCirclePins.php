@@ -6,6 +6,7 @@ namespace App\Console\Commands;
 
 use App\Models\CirclePin;
 use App\Models\Post;
+use Illuminate\Support\Facades\DB;
 
 class BackfillCirclePins
 {
@@ -55,6 +56,51 @@ class BackfillCirclePins
         return [
             'scanned' => $scanned,
             'upserted' => $upserted,
+        ];
+    }
+
+    /**
+     * Backfill sort_order for circle_pins rows where it is null.
+     * Assigns sequential values per circle, ordered by pinned_at ASC then id ASC.
+     *
+     * @return array{circles:int, filled:int}
+     */
+    public function backfillSortOrder(bool $dryRun = false): array
+    {
+        $circleIds = CirclePin::query()
+            ->whereNull('sort_order')
+            ->distinct()
+            ->pluck('circle_id');
+
+        $circles = 0;
+        $filled = 0;
+
+        foreach ($circleIds as $circleId) {
+            $circles++;
+            $maxSort = CirclePin::query()
+                ->where('circle_id', $circleId)
+                ->whereNotNull('sort_order')
+                ->max('sort_order') ?? 0;
+
+            $nullPins = CirclePin::query()
+                ->where('circle_id', $circleId)
+                ->whereNull('sort_order')
+                ->orderBy('pinned_at')
+                ->orderBy('id')
+                ->get();
+
+            foreach ($nullPins as $pin) {
+                $maxSort++;
+                $filled++;
+                if (!$dryRun) {
+                    $pin->update(['sort_order' => $maxSort]);
+                }
+            }
+        }
+
+        return [
+            'circles' => $circles,
+            'filled' => $filled,
         ];
     }
 
