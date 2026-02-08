@@ -418,7 +418,12 @@ class CircleScheduleProposalsTest extends TestCase
         $this->assertStringContainsString('承認', $notification->title);
         $this->assertStringContainsString('オフ会提案', $notification->body);
         $this->assertStringContainsString('良い提案です', $notification->body);
-        $this->assertEquals("/circles/{$circle->id}/calendar", $notification->link_url);
+        $this->assertStringContainsString("/circles/{$circle->id}/calendar", $notification->link_url);
+        $this->assertStringContainsString("focusProposalId={$proposalId}", $notification->link_url);
+
+        // source_meta
+        $this->assertIsArray($notification->source_meta);
+        $this->assertEquals($circle->id, $notification->source_meta['circleId']);
     }
 
     public function test_reject_creates_notification_for_proposer(): void
@@ -447,6 +452,11 @@ class CircleScheduleProposalsTest extends TestCase
         $this->assertEquals('proposal.rejected', $notification->type);
         $this->assertStringContainsString('却下', $notification->title);
         $this->assertStringContainsString('日程調整お願い', $notification->body);
+
+        // source_meta + link_url
+        $this->assertIsArray($notification->source_meta);
+        $this->assertEquals($circle->id, $notification->source_meta['circleId']);
+        $this->assertStringContainsString("focusProposalId={$proposalId}", $notification->link_url);
     }
 
     public function test_notification_visible_in_me_notifications(): void
@@ -475,6 +485,13 @@ class CircleScheduleProposalsTest extends TestCase
         $found = collect($items)->first(fn ($n) => $n['sourceType'] === 'scheduleProposal');
         $this->assertNotNull($found);
         $this->assertEquals('proposal.approved', $found['type']);
+
+        // openPath + sourceMeta in DTO
+        $this->assertNotNull($found['openPath']);
+        $this->assertStringContainsString("/circles/{$circle->id}/calendar", $found['openPath']);
+        $this->assertStringContainsString("focusProposalId=", $found['openPath']);
+        $this->assertNotNull($found['sourceMeta']);
+        $this->assertEquals($circle->id, $found['sourceMeta']['circleId']);
     }
 
     // ═══════════════════════════════════════════════════════════════

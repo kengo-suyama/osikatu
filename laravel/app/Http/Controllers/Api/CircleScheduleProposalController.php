@@ -280,10 +280,11 @@ class CircleScheduleProposalController extends Controller
             'me_profile_id' => $proposerMember->me_profile_id,
             'source_type' => 'schedule_proposal',
             'source_id' => $proposal->id,
+            'source_meta' => ['circleId' => $circle->id],
             'type' => $type,
             'title' => "{$circle->name} — 予定提案が{$resultLabel}されました",
             'body' => $body,
-            'link_url' => "/circles/{$circle->id}/calendar",
+            'link_url' => "/circles/{$circle->id}/calendar?focusProposalId={$proposal->id}",
         ]);
     }
 

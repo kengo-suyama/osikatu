@@ -118,12 +118,14 @@ const makeNotification = (overrides: Record<string, unknown> = {}) => ({
   type: "proposal.approved",
   title: "E2E Circle — 予定提案が承認されました",
   body: "「テスト提案」が承認されました。",
-  linkUrl: `/circles/${CIRCLE_ID}/calendar`,
+  linkUrl: `/circles/${CIRCLE_ID}/calendar?focusProposalId=42`,
   notifyAt: null,
   readAt: null,
   createdAt: new Date().toISOString(),
   sourceType: "scheduleProposal",
   sourceId: 42,
+  sourceMeta: { circleId: CIRCLE_ID },
+  openPath: `/circles/${CIRCLE_ID}/calendar?focusProposalId=42`,
   ...overrides,
 });
 
@@ -226,6 +228,14 @@ test.describe("proposal notification flow", () => {
     await expect(notificationItem.first()).toBeVisible({ timeout: 30_000 });
     await expect(notificationItem.first()).toContainText("承認");
     await expect(notificationItem.first()).toContainText("通知テスト提案");
+
+    // Click notification-open → navigates to calendar with focusProposalId
+    const openBtn = notificationItem.first().locator('[data-testid="notification-open"]');
+    if (await openBtn.count() > 0) {
+      await openBtn.click();
+      await page.waitForURL(/\/circles\/\d+\/calendar/, { timeout: 10_000 });
+      expect(page.url()).toContain("focusProposalId=");
+    }
   });
 
   test("reject creates notification visible on /notifications", async ({ page, request }) => {
@@ -276,6 +286,9 @@ test.describe("proposal notification flow", () => {
           type: "proposal.rejected",
           title: "E2E Circle — 予定提案が却下されました",
           body: "「却下テスト提案」が却下されました。",
+          linkUrl: `/circles/${CIRCLE_ID}/calendar?focusProposalId=55`,
+          openPath: `/circles/${CIRCLE_ID}/calendar?focusProposalId=55`,
+          sourceId: 55,
         });
         route.fulfill({
           status: 200,
