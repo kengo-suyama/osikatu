@@ -17,7 +17,7 @@ class NotificationReadAllTest extends TestCase
     public function test_read_all_marks_unread_notifications(): void
     {
         $user = User::factory()->create();
-        MeProfile::create([
+        $profile = MeProfile::create([
             'device_id' => 'device-readall-001',
             'nickname' => 'Test',
             'initial' => 'T',
@@ -26,12 +26,14 @@ class NotificationReadAllTest extends TestCase
 
         Notification::create([
             'user_id' => $user->id,
+            'me_profile_id' => $profile->id,
             'type' => 'test',
             'title' => 'Unread 1',
             'body' => 'body',
         ]);
         Notification::create([
             'user_id' => $user->id,
+            'me_profile_id' => $profile->id,
             'type' => 'test',
             'title' => 'Unread 2',
             'body' => 'body',
@@ -45,7 +47,7 @@ class NotificationReadAllTest extends TestCase
         $response->assertJsonPath('success.data.markedCount', 2);
 
         $this->assertDatabaseMissing('notifications', [
-            'user_id' => $user->id,
+            'me_profile_id' => $profile->id,
             'read_at' => null,
         ]);
     }
