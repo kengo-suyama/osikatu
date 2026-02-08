@@ -53,6 +53,7 @@ export default function OshiAvatarCard({
       >
         <div className="media-frame__content h-full w-full overflow-hidden rounded-xl">
           {image ? (
+            // eslint-disable-next-line @next/next/no-img-element
             <img src={image} alt={`${oshi.name}の画像`} className="h-full w-full object-cover" />
           ) : (
             <div className="flex h-full w-full flex-col items-center justify-center gap-3 bg-gradient-to-br from-rose-200 via-white to-amber-100 text-rose-500">

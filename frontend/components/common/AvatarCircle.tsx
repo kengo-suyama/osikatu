@@ -27,6 +27,7 @@ export default function AvatarCircle({
       aria-label={nickname ?? "avatar"}
     >
       {src ? (
+        // eslint-disable-next-line @next/next/no-img-element
         <img src={src} alt={nickname ?? "avatar"} className="h-full w-full object-cover" />
       ) : (
         <span>{initial}</span>
