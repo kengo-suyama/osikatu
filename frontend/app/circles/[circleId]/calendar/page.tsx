@@ -30,7 +30,14 @@ import {
   listCircleSchedules,
   updateCircleSchedule,
 } from "@/lib/repo/circleCalendarRepo";
-import type { CircleScheduleDto, MeDto } from "@/lib/types";
+import type { CircleScheduleDto, MeDto, ScheduleProposalDto } from "@/lib/types";
+import {
+  createProposal,
+  listMyProposals,
+  listProposals,
+  approveProposal,
+  rejectProposal,
+} from "@/lib/repo/circleProposalRepo";
 
 export default function CircleCalendarPage({
   params,
@@ -54,6 +61,8 @@ export default function CircleCalendarPage({
   const [note, setNote] = useState("");
   const [location, setLocation] = useState("");
   const [actionLoading, setActionLoading] = useState(false);
+  const [myProposals, setMyProposals] = useState<ScheduleProposalDto[]>([]);
+  const [pendingProposals, setPendingProposals] = useState<ScheduleProposalDto[]>([]);
 
   const [toastOpen, setToastOpen] = useState(false);
   const [toastTitle, setToastTitle] = useState("");
@@ -156,6 +165,21 @@ export default function CircleCalendarPage({
         setLoading(false);
       });
 
+    // Load proposals (best-effort, no error display)
+    listMyProposals(circleId)
+      .then((data) => {
+        if (!mounted) return;
+        setMyProposals(data.items ?? []);
+      })
+      .catch(() => { /* ignore */ });
+
+    listProposals(circleId, "pending")
+      .then((data) => {
+        if (!mounted) return;
+        setPendingProposals(data.items ?? []);
+      })
+      .catch(() => { /* ignore — member gets 403, which is fine */ });
+
     return () => {
       mounted = false;
     };
@@ -241,8 +265,25 @@ export default function CircleCalendarPage({
       setEditingId(null);
     } catch (errorValue: any) {
       const status = errorValue?.status ?? errorValue?.statusCode;
-      if (status === 403) {
-        showToast("権限がありません", "予定の作成はオーナー/管理者（Plusプラン）が行えます");
+      if (status === 403 && !editingId) {
+        // Fallback: create as proposal instead
+        try {
+          const result = await createProposal(circleId, {
+            title: title.trim(),
+            startAt: new Date(startAt).toISOString(),
+            endAt: endAt ? new Date(endAt).toISOString() : undefined,
+            isAllDay,
+            note: note.trim() ? note.trim() : null,
+            location: location.trim() ? location.trim() : null,
+          });
+          setMyProposals((prev) => [result.proposal, ...prev]);
+          showToast("提案を送信しました", "オーナー/管理者の承認後にカレンダーに反映されます");
+          setOpen(false);
+        } catch {
+          showToast("提案の送信に失敗しました", "時間を置いて再度お試しください");
+        }
+      } else if (status === 403) {
+        showToast("権限がありません", "予定の編集はオーナー/管理者（Plusプラン）が行えます");
       } else if (status === 422) {
         showToast("入力エラー", "入力内容を確認してください");
       } else {
@@ -364,7 +405,7 @@ export default function CircleCalendarPage({
                     <div className="grid gap-3">
                       {!canEdit && (
                         <div className="rounded-lg bg-muted/50 px-3 py-2 text-xs text-muted-foreground" data-testid="schedule-create-hint">
-                          予定の追加はオーナー/管理者（Plusプラン）の権限が必要です。送信すると権限エラーになる場合があります。
+                          予定の「提案」として送信されます。オーナー/管理者の承認後にカレンダーに反映されます。
                         </div>
                       )}
                       <div className="grid gap-2">
@@ -474,6 +515,105 @@ export default function CircleCalendarPage({
                 )}
               </div>
             </Card>
+            {/* My proposals (visible to all members) */}
+            {myProposals.length > 0 && (
+              <Card className="rounded-2xl border p-4 shadow-sm" data-testid="schedule-proposal-mine">
+                <div className="text-sm font-semibold text-muted-foreground">自分の提案</div>
+                <div className="mt-2 space-y-2">
+                  {myProposals.map((p) => (
+                    <div key={p.id} className="rounded-xl border border-border/60 p-3" data-testid={`schedule-proposal-item-${p.id}`}>
+                      <div className="flex items-start justify-between gap-2">
+                        <div>
+                          <div className="text-sm font-medium">{p.title}</div>
+                          <div className="text-xs text-muted-foreground">
+                            {p.startAt?.replace("T", " ").slice(0, 16)}
+                          </div>
+                        </div>
+                        <div className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${
+                          p.status === "pending"
+                            ? "bg-yellow-100 text-yellow-700"
+                            : p.status === "approved"
+                              ? "bg-green-100 text-green-700"
+                              : "bg-red-100 text-red-700"
+                        }`}>
+                          {p.status === "pending" ? "審査中" : p.status === "approved" ? "承認済" : "却下"}
+                        </div>
+                      </div>
+                      {p.reviewComment && (
+                        <div className="mt-1 text-xs text-muted-foreground">コメント: {p.reviewComment}</div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </Card>
+            )}
+
+            {/* Pending proposals (visible to owner/admin with plus) */}
+            {canEdit && pendingProposals.length > 0 && (
+              <Card className="rounded-2xl border p-4 shadow-sm" data-testid="schedule-proposal-list">
+                <div className="text-sm font-semibold text-muted-foreground">メンバーからの提案</div>
+                <div className="mt-2 space-y-2">
+                  {pendingProposals.map((p) => (
+                    <div key={p.id} className="rounded-xl border border-border/60 p-3" data-testid={`schedule-proposal-item-${p.id}`}>
+                      <div className="text-sm font-medium">{p.title}</div>
+                      <div className="text-xs text-muted-foreground">
+                        {p.startAt?.replace("T", " ").slice(0, 16)}
+                      </div>
+                      {p.note && (
+                        <div className="mt-1 text-xs text-muted-foreground">{p.note}</div>
+                      )}
+                      <div className="mt-2 flex gap-2">
+                        <Button
+                          size="sm"
+                          variant="secondary"
+                          disabled={actionLoading}
+                          data-testid={`schedule-proposal-approve-${p.id}`}
+                          onClick={async () => {
+                            setActionLoading(true);
+                            try {
+                              const result = await approveProposal(circleId, p.id);
+                              setPendingProposals((prev) => prev.filter((pp) => pp.id !== p.id));
+                              // Refresh calendar items
+                              const { items: refreshed } = await import("@/lib/repo/circleCalendarRepo").then(
+                                (mod) => mod.listCircleSchedules(circleId, dateRange)
+                              );
+                              setItems(refreshed ?? []);
+                              showToast("承認しました", `「${p.title}」をカレンダーに追加しました`);
+                            } catch {
+                              showToast("承認に失敗しました", "時間を置いて再度お試しください");
+                            } finally {
+                              setActionLoading(false);
+                            }
+                          }}
+                        >
+                          承認
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          disabled={actionLoading}
+                          data-testid={`schedule-proposal-reject-${p.id}`}
+                          onClick={async () => {
+                            setActionLoading(true);
+                            try {
+                              await rejectProposal(circleId, p.id);
+                              setPendingProposals((prev) => prev.filter((pp) => pp.id !== p.id));
+                              showToast("却下しました", `「${p.title}」を却下しました`);
+                            } catch {
+                              showToast("却下に失敗しました", "時間を置いて再度お試しください");
+                            } finally {
+                              setActionLoading(false);
+                            }
+                          }}
+                        >
+                          却下
+                        </Button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </Card>
+            )}
           </>
         )}
 

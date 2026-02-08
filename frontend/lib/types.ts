@@ -87,6 +87,30 @@ export type CircleScheduleListDto = {
   items: CircleScheduleDto[];
 };
 
+export type ScheduleProposalStatus = "pending" | "approved" | "rejected" | "canceled";
+
+export type ScheduleProposalDto = {
+  id: number;
+  circleId: number;
+  createdByMemberId: number;
+  title: string;
+  startAt: ISODateTime;
+  endAt: ISODateTime | null;
+  isAllDay: boolean;
+  note: string | null;
+  location: string | null;
+  status: ScheduleProposalStatus;
+  reviewedByMemberId: number | null;
+  reviewedAt: ISODateTime | null;
+  reviewComment: string | null;
+  approvedScheduleId: string | null;
+  createdAt: ISODateTime;
+};
+
+export type ScheduleProposalListDto = {
+  items: ScheduleProposalDto[];
+};
+
 export type NotificationDto = {
   id: string;
   type: string;
@@ -297,6 +321,21 @@ export type PostDto = {
   ackedByMe?: boolean;
   deletedAt?: string | null;
   createdAt: string;
+};
+
+export type CirclePinDto = {
+  id: number;
+  circleId: number | null;
+  createdByMemberId: number | null;
+  title: string;
+  url: string | null;
+  body: string;
+  checklistJson: unknown | null;
+  sortOrder: number | null;
+  pinnedAt: string | null;
+  updatedAt: string | null;
+  createdAt: string | null;
+  sourcePostId: number | null;
 };
 
 /** ---- Oshi DTO (API) ---- */
