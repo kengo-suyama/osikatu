@@ -339,6 +339,7 @@ npm run hooks:disable
 
 ## トラブルシューティング
 - E2E (Windows/Laragon) の復旧手順: `docs/next-spawn-eperm-runbook.md`
+- E2E の実行手順（推奨）: `docs/TODOS.md` の "E2E Running Guide"（`cd frontend && npm run e2e:ci`）
 - Radix の Module not found エラーが出る場合:
   ```powershell
   cd C:\laragon\www\osikatu\frontend

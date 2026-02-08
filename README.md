@@ -376,6 +376,7 @@ npm run hooks:disable
 
 ## トラブルシューティング
 - E2E (Windows/Laragon) の復旧手順: `docs/next-spawn-eperm-runbook.md`
+- E2E の実行手順（推奨）: `docs/TODOS.md` の "E2E Running Guide"（`cd frontend && npm run e2e:ci`）
 - Radix の Module not found エラーが出る場合:
   ```powershell
   cd C:\laragon\www\osikatu\frontend
@@ -428,7 +429,10 @@ cd C:\laragon\www\osikatu\frontend
 npm install
 npm run dev
 # http://localhost:3000
-Backend (Laravel)
+```
+
+### Backend (Laravel)
+```powershell
 cd C:\laragon\www\osikatu\laravel
 composer install
 cp .env.example .env
@@ -437,11 +441,15 @@ php artisan migrate
 php artisan storage:link
 php artisan serve --port=8000
 # http://localhost:8000
-Environment variables (Frontend)
+```
+
+### Environment variables (Frontend)
 Create frontend/.env.local:
 
+```env
 NEXT_PUBLIC_DATA_SOURCE=local
 NEXT_PUBLIC_API_BASE_URL=http://localhost:8000
+```
 localStorage mode (MVP): NEXT_PUBLIC_DATA_SOURCE=local
 
 API mode (Laravel/MySQL): NEXT_PUBLIC_DATA_SOURCE=api
@@ -641,4 +649,5 @@ cd C:\laragon\www\osikatu
 git add AGENTS.md
 git commit -m "Add AGENTS rules"
 git push
+```
 ````
