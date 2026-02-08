@@ -177,11 +177,7 @@ export default function CirclePinsScreen({ circleId }: { circleId: number }) {
     try {
       const body = buildPinBody(formTitle, formUrl, formBody);
       if (editing) {
-        const sourcePostId = editing.sourcePostId;
-        if (!sourcePostId) {
-          throw new Error("sourcePostId is missing for this pin");
-        }
-        await pinsRepo.update(circleId, sourcePostId, body);
+        await pinsRepo.update(circleId, editing.id, body);
         await reloadPins();
       } else {
         await pinsRepo.create(circleId, body);
@@ -203,13 +199,11 @@ export default function CirclePinsScreen({ circleId }: { circleId: number }) {
   const unpin = async (pin: CirclePinDto) => {
     if (!canManage) return;
     if (mutatingId) return;
-    const postId = pin.sourcePostId;
-    if (!postId) return;
     const key = pinKey(pin);
     setError(null);
     try {
       setMutatingId(key);
-      await pinsRepo.unpin(circleId, postId);
+      await pinsRepo.unpin(circleId, pin.id);
       await reloadPins();
     } catch (err) {
       if (err instanceof ApiRequestError) {
@@ -225,9 +219,6 @@ export default function CirclePinsScreen({ circleId }: { circleId: number }) {
   const toggleChecklist = async (pin: CirclePinDto, itemIndex: number) => {
     if (!canManage) return;
     if (mutatingId) return;
-
-    const postId = pin.sourcePostId;
-    if (!postId) return;
 
     const key = pinKey(pin);
     const raw = normalizeNewlines(pin.body ?? "");
@@ -258,7 +249,7 @@ export default function CirclePinsScreen({ circleId }: { circleId: number }) {
     setPins((prev) => prev.map((p) => (pinKey(p) === key ? { ...p, body: nextBody } : p)));
 
     try {
-      await pinsRepo.update(circleId, postId, nextBody);
+      await pinsRepo.update(circleId, pin.id, nextBody);
       await reloadPins();
     } catch (err) {
       // rollback
