@@ -46,6 +46,7 @@ Route::post('/me/oshi-actions/complete', [OshiActionController::class, 'complete
 Route::get('/me/titles', [OshiActionController::class, 'titles']);
 Route::get('/me/notifications', [NotificationController::class, 'index']);
 Route::post('/me/notifications/{notification}/read', [NotificationController::class, 'read']);
+Route::post('/me/notifications/read-all', [NotificationController::class, 'readAll']);
 Route::get('/me/logs', [OperationLogController::class, 'myIndex']);
 Route::delete('/me/logs/{log}', [OperationLogController::class, 'destroy']);
 Route::get('/me/fortune', [FortuneController::class, 'today']);

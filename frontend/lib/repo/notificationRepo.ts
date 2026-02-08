@@ -46,3 +46,17 @@ export async function markNotificationRead(
     return null;
   }
 }
+
+export async function markAllNotificationsRead(): Promise<{ markedCount: number } | null> {
+  if (!isApiMode()) return null;
+  try {
+    return await apiSend<{ markedCount: number }>(
+      "/api/me/notifications/read-all",
+      "POST",
+      undefined,
+      { headers: { "X-Device-Id": getDeviceId() } }
+    );
+  } catch {
+    return null;
+  }
+}
