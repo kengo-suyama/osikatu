@@ -463,7 +463,7 @@ export default function CircleCalendarPage({
                 </Dialog>
               </div>
 
-              <div className="mt-3 space-y-2">
+              <div className="mt-3 space-y-2" data-testid="calendar-items-ready" data-count={items.length}>
                 {items.length ? (
                   items.map((item) => (
                     <div key={item.id} className="rounded-xl border border-border/60 p-3">
