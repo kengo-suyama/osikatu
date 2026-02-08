@@ -3,6 +3,8 @@ Param(
   [switch]$Stop,
   [switch]$Status,
   [switch]$Watch,
+  [ValidateSet("Observe","Deny")]
+  [string]$Mode = "Observe",
   [int]$PollMs = 100,
   [string]$EvidenceDir = "_evidence",
   [string]$LogPath
@@ -72,7 +74,7 @@ function Stop-Watcher {
 if ($Status) {
   $state = Load-State
   if ($state) {
-    Write-Host ("running={0} pid={1} log={2}" -f $state.running, $state.pid, $state.logPath)
+    Write-Host ("running={0} pid={1} mode={2} log={3}" -f $state.running, $state.pid, $state.mode, $state.logPath)
   } else {
     Write-Host "running=false"
   }
@@ -89,19 +91,20 @@ if ($Start) {
   if ($existing -and $existing.pid) {
     $p = Get-Process -Id ([int]$existing.pid) -ErrorAction SilentlyContinue
     if ($p) {
-      Write-Host "Already running PID=$($existing.pid) log=$($existing.logPath)"
+      Write-Host "Already running PID=$($existing.pid) mode=$($existing.mode) log=$($existing.logPath)"
       exit 0
     }
     Clear-State
   }
 
   $ts = (Get-Date).ToString("yyyyMMdd_HHmmss")
-  $logPath = Join-Path $evidenceFull ("git_process_create_watch_{0}.log" -f $ts)
+  $logPath = Join-Path $evidenceFull ("git_watch_{0}.jsonl" -f $ts)
 
   $args = @(
     "-NoProfile",
     "-File", (Join-Path $repoRoot "scripts" "capture-git-parent.ps1"),
     "-Watch",
+    "-Mode", $Mode,
     "-EvidenceDir", $EvidenceDir,
     "-PollMs", $PollMs,
     "-LogPath", $logPath
@@ -113,11 +116,12 @@ if ($Start) {
   Save-State ([ordered]@{
     running = $true
     pid = $proc.Id
+    mode = $Mode
     logPath = $logPath
     startedAt = (Get-Date).ToString("o")
   })
 
-  Write-Host "Started watcher PID=$($proc.Id)"
+  Write-Host "Started watcher PID=$($proc.Id) Mode=$Mode"
   Write-Host "Log: $logPath"
   Write-Host "Stop: pwsh -File scripts/capture-git-parent.ps1 -Stop"
   exit 0
@@ -125,7 +129,7 @@ if ($Start) {
 
 if (-not $Watch) {
   Write-Host "Usage:"
-  Write-Host "  pwsh -File scripts/capture-git-parent.ps1 -Start"
+  Write-Host "  pwsh -File scripts/capture-git-parent.ps1 -Start [-Mode Observe|Deny] [-PollMs 20]"
   Write-Host "  pwsh -File scripts/capture-git-parent.ps1 -Stop"
   Write-Host "  pwsh -File scripts/capture-git-parent.ps1 -Status"
   exit 0
@@ -135,15 +139,49 @@ if (-not $Watch) {
 
 if (-not $LogPath) {
   $ts = (Get-Date).ToString("yyyyMMdd_HHmmss")
-  $LogPath = Join-Path $evidenceFull ("git_process_create_watch_{0}.log" -f $ts)
+  $LogPath = Join-Path $evidenceFull ("git_watch_{0}.jsonl" -f $ts)
 }
 
-Append-Utf8NoBom $LogPath (JsonLine @{ ts = (Get-Date).ToString("o"); event = "watcher_start"; pid = $PID; pollMs = $PollMs })
+Append-Utf8NoBom $LogPath (JsonLine @{ ts = (Get-Date).ToString("o"); event = "watcher_start"; pid = $PID; pollMs = $PollMs; mode = $Mode })
+
+function Classify-Action([string]$cmdline) {
+  if (-not $cmdline) { return "UNKNOWN" }
+  $cl = $cmdline.ToLower()
+  if ($cl -match '\bpull\b.*\s--rebase\b') { return "PULL_REBASE" }
+  if ($cl -match '\brebase\b') { return "REBASE" }
+  if ($cl -match '\bcheckout\b') { return "CHECKOUT" }
+  if ($cl -match '\bswitch\b') { return "SWITCH" }
+  if ($cl -match '\breset\b') { return "RESET" }
+  if ($cl -match '\bfetch\b') { return "FETCH" }
+  if ($cl -match '\bstatus\b') { return "STATUS" }
+  if ($cl -match '\blog\b') { return "LOG" }
+  if ($cl -match '\bdiff\b') { return "DIFF" }
+  return "OTHER"
+}
+
+function Should-Deny([string]$actionTag) {
+  if ($Mode -ne "Deny") { return $false }
+  # Check escape hatch
+  if ($env:ALLOW_GIT_REBASE -eq "1") { return $false }
+  # Only block dangerous operations
+  return ($actionTag -in @("PULL_REBASE", "REBASE"))
+}
+
+function Get-AncestorInfo([int]$processId) {
+  $info = @{ name = $null; cmdline = $null; pid = $null }
+  try {
+    $p = Get-CimInstance Win32_Process -Filter "ProcessId=$processId" -ErrorAction SilentlyContinue
+    if ($p) {
+      $info.name = [string]$p.Name
+      $info.cmdline = [string]$p.CommandLine
+      $info.pid = [int]$p.ProcessId
+    }
+  } catch {}
+  return $info
+}
 
 function Resolve-ProcLine([int]$gitProcessId, [int]$parentProcessId) {
   $gitCmd = $null
-  $parentName = $null
-  $parentCmd = $null
 
   for ($i = 0; $i -lt 5; $i++) {
     $p = Get-CimInstance Win32_Process -Filter "ProcessId=$gitProcessId" -ErrorAction SilentlyContinue
@@ -151,11 +189,40 @@ function Resolve-ProcLine([int]$gitProcessId, [int]$parentProcessId) {
     Start-Sleep -Milliseconds 30
   }
 
-  $pp = Get-CimInstance Win32_Process -Filter "ProcessId=$parentProcessId" -ErrorAction SilentlyContinue
-  if ($pp) {
-    $parentName = [string]$pp.Name
-    $parentCmd = [string]$pp.CommandLine
+  # Parent
+  $parent = Get-AncestorInfo $parentProcessId
+
+  # Grandparent
+  $grandParent = @{ name = $null; cmdline = $null; pid = $null }
+  try {
+    $pp = Get-CimInstance Win32_Process -Filter "ProcessId=$parentProcessId" -ErrorAction SilentlyContinue
+    if ($pp -and $pp.ParentProcessId) {
+      $grandParent = Get-AncestorInfo ([int]$pp.ParentProcessId)
+    }
+  } catch {}
+
+  $actionTag = Classify-Action $gitCmd
+  $blocked = $false
+
+  if (Should-Deny $actionTag) {
+    try {
+      Stop-Process -Id $gitProcessId -Force -ErrorAction SilentlyContinue
+      $blocked = $true
+      Write-Host "[BLOCKED] PID=$gitProcessId action=$actionTag cmd=$gitCmd"
+    } catch {
+      Write-Host "[BLOCK-FAILED] PID=$gitProcessId action=$actionTag error=$($_.Exception.Message)"
+    }
+
+    # Take snapshot on block
+    try {
+      $snapshotScript = Join-Path $PSScriptRoot "snapshot-proc.ps1"
+      if (Test-Path $snapshotScript) {
+        Start-Process -FilePath "pwsh" -ArgumentList @("-NoProfile", "-File", $snapshotScript) -WindowStyle Hidden
+      }
+    } catch {}
   }
+
+  if ($blocked) { $actionTag = "BLOCKED" }
 
   return (JsonLine @{
     ts = (Get-Date).ToString("o")
@@ -164,8 +231,13 @@ function Resolve-ProcLine([int]$gitProcessId, [int]$parentProcessId) {
     pid = $gitProcessId
     ppid = $parentProcessId
     commandLine = $gitCmd
-    parentName = $parentName
-    parentCommandLine = $parentCmd
+    actionTag = $actionTag
+    parentName = $parent.name
+    parentCommandLine = $parent.cmdline
+    grandParentPid = $grandParent.pid
+    grandParentName = $grandParent.name
+    grandParentCommandLine = $grandParent.cmdline
+    mode = $Mode
   })
 }
 
@@ -179,6 +251,19 @@ try {
   } catch {
     $useEvent = $false
     Append-Utf8NoBom $LogPath (JsonLine @{ ts = (Get-Date).ToString("o"); event = "mode"; mode = "poll_fallback"; error = $_.Exception.Message })
+  }
+
+  # Snapshot existing git.exe processes at startup
+  $existingGit = Get-CimInstance Win32_Process -Filter "Name='git.exe'" -ErrorAction SilentlyContinue
+  foreach ($eg in ($existingGit | Where-Object { $_ })) {
+    Append-Utf8NoBom $LogPath (JsonLine @{
+      ts = (Get-Date).ToString("o")
+      event = "existing_process"
+      name = "git.exe"
+      pid = [int]$eg.ProcessId
+      ppid = [int]$eg.ParentProcessId
+      commandLine = [string]$eg.CommandLine
+    })
   }
 
   if ($useEvent) {
@@ -213,5 +298,5 @@ try {
   }
 } finally {
   try { Unregister-Event -SourceIdentifier $sourceId -ErrorAction SilentlyContinue } catch {}
-  Append-Utf8NoBom $LogPath (JsonLine @{ ts = (Get-Date).ToString("o"); event = "watcher_stop"; pid = $PID })
+  Append-Utf8NoBom $LogPath (JsonLine @{ ts = (Get-Date).ToString("o"); event = "watcher_stop"; pid = $PID; mode = $Mode })
 }
