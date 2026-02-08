@@ -64,3 +64,8 @@ playbook: `docs/dev/unstable-checkout-playbook.md`
 決定打:
 - Procmon で `git.exe` の `Process Create` を捕まえて parent process を特定する
 
+## 6) Pins 移行（デプロイ後の必須手順）
+
+`circle_pins` へ移行した後は、既存の `posts.is_pinned` を backfill しないと過去ピンがUIに出ません。
+
+runbook: `docs/dev/pins-deploy-runbook.md`
