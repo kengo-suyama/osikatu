@@ -13,6 +13,7 @@
     "e2e:report": "playwright test --reporter=line",
     "e2e:smoke": "playwright test tests/e2e/circle-hub-navigation.spec.ts tests/e2e/quick-mode-switch.spec.ts tests/e2e/log-diary-create.spec.ts tests/e2e/oshi-profile-edit.spec.ts --reporter=list --workers=1",
     "e2e:stress": "node scripts/run-e2e-stress.mjs",
+    "guard:pins": "node scripts/guard-no-pins-v1.mjs",
     "e2e:trace": "playwright test --retries=1 --trace=on-first-retry --reporter=line",
     "titles:gen": "node tools\\generate-titles.cjs",
     "titles:check": "node tools\\check-titles.cjs",
