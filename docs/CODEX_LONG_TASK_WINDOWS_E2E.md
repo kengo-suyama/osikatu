@@ -41,7 +41,7 @@ Diff + hygiene:
 ```powershell
 git fetch origin main
 git diff origin/main...HEAD --stat
-git grep -n "<<<<<<<\|=======\|>>>>>>>" -- .
+git grep -n "<<<<<<<\|=======\|>>>>>>>" -- . ":!docs/CODEX_LONG_TASK_WINDOWS_E2E.md"
 git diff --check origin/main...HEAD
 ```
 
@@ -99,4 +99,3 @@ git switch main
 git revert <merge_commit_sha> -m 1
 git push origin main
 ```
-

@@ -6,6 +6,9 @@ Project rules live in `AGENTS.md` (DTO fixed, repo-layer only for data access, U
 Codex long-running instructions:
 - `docs/CODEX_LONG_TASK_WINDOWS_E2E.md`
 
+GitHub Agents PR #43 instructions:
+- `docs/GITHUB_AGENTS_PR43_WINDOWS_E2E.md`
+
 ## Repo Snapshot (As Of 2026-02-06)
 
 - Default branch: `main`
