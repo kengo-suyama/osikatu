@@ -24,6 +24,7 @@ use App\Http\Controllers\Api\OshiActionController;
 use App\Http\Controllers\Api\UserScheduleController;
 use App\Http\Controllers\Api\PostController;
 use App\Http\Controllers\Api\CircleSettlementExpenseController;
+use App\Http\Controllers\Api\CircleScheduleProposalController;
 use App\Http\Controllers\Api\SettlementController;
 use Illuminate\Support\Facades\Route;
 
@@ -107,6 +108,13 @@ Route::post('/circles/{circle}/calendar', [CircleScheduleController::class, 'sto
 Route::get('/circles/{circle}/calendar/{schedule}', [CircleScheduleController::class, 'show']);
 Route::put('/circles/{circle}/calendar/{schedule}', [CircleScheduleController::class, 'update']);
 Route::delete('/circles/{circle}/calendar/{schedule}', [CircleScheduleController::class, 'destroy']);
+
+// Schedule proposals
+Route::post('/circles/{circle}/schedule-proposals', [CircleScheduleProposalController::class, 'store']);
+Route::get('/circles/{circle}/schedule-proposals', [CircleScheduleProposalController::class, 'index']);
+Route::get('/circles/{circle}/schedule-proposals/mine', [CircleScheduleProposalController::class, 'mine']);
+Route::post('/circles/{circle}/schedule-proposals/{proposal}/approve', [CircleScheduleProposalController::class, 'approve']);
+Route::post('/circles/{circle}/schedule-proposals/{proposal}/reject', [CircleScheduleProposalController::class, 'reject']);
 
 // Settlements
 Route::get('/circles/{circle}/settlements', [SettlementController::class, 'index']);
