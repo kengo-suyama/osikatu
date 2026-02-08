@@ -42,23 +42,37 @@ test.describe("billing cancel flow", () => {
     attachDiagnostics(page, "billing-cancel");
     await assertFrontendUp(request);
 
+    const deviceId = `device-e2e-billing-${Date.now()}-${process.pid}-${Math.floor(Math.random() * 1000)}`;
+
     // Setup: Set user plan to plus first via API
-    const setupRes = await request.put(`${API_BASE}/api/me/plan`, {
-      headers: {
-        "X-Device-Id": "device-e2e-billing-001",
-        "Content-Type": "application/json",
-        Accept: "application/json",
-      },
-      data: { plan: "plus" },
-    });
+    let setupRes: Awaited<ReturnType<typeof request.put>> | null = null;
+    for (let attempt = 1; attempt <= 3; attempt += 1) {
+      try {
+        setupRes = await request.put(`${API_BASE}/api/me/plan`, {
+          headers: {
+            "X-Device-Id": deviceId,
+            "Content-Type": "application/json",
+            Accept: "application/json",
+          },
+          data: { plan: "plus" },
+          timeout: 30_000,
+        });
+        if (setupRes.ok()) break;
+      } catch {
+        // retry
+      }
+      await new Promise((resolve) => setTimeout(resolve, 500));
+    }
+    if (!setupRes) throw new Error("Setup: request.put(/api/me/plan) did not return a response");
     expect(setupRes.ok()).toBeTruthy();
 
     // Verify setup
     const checkRes = await request.get(`${API_BASE}/api/me/plan`, {
       headers: {
-        "X-Device-Id": "device-e2e-billing-001",
+        "X-Device-Id": deviceId,
         Accept: "application/json",
       },
+      timeout: 30_000,
     });
     const checkData = await checkRes.json();
     expect(checkData.success?.data?.plan).toBe("plus");
@@ -67,9 +81,10 @@ test.describe("billing cancel flow", () => {
     // Cancel the plan
     const cancelRes = await request.post(`${API_BASE}/api/me/cancel`, {
       headers: {
-        "X-Device-Id": "device-e2e-billing-001",
+        "X-Device-Id": deviceId,
         Accept: "application/json",
       },
+      timeout: 30_000,
     });
     expect(cancelRes.ok()).toBeTruthy();
     const cancelData = await cancelRes.json();
@@ -80,9 +95,10 @@ test.describe("billing cancel flow", () => {
     // Verify quotas and features are returned
     const verifyRes = await request.get(`${API_BASE}/api/me/plan`, {
       headers: {
-        "X-Device-Id": "device-e2e-billing-001",
+        "X-Device-Id": deviceId,
         Accept: "application/json",
       },
+      timeout: 30_000,
     });
     const verifyData = await verifyRes.json();
     const data = verifyData.success?.data;

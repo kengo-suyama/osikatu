@@ -2,7 +2,7 @@
 
 import type { CSSProperties } from "react";
 import { useEffect, useMemo, useState } from "react";
-import { Bookmark, BookmarkCheck, Trash2 } from "lucide-react";
+import { Bell, Bookmark, BookmarkCheck, CalendarDays, ExternalLink, MessageSquare, Settings, Trash2, User, UserPlus, Wallet, Activity } from "lucide-react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 
@@ -38,16 +38,51 @@ import { circleRepo } from "@/lib/repo/circleRepo";
 import { eventsRepo } from "@/lib/repo/eventsRepo";
 import { meRepo } from "@/lib/repo/meRepo";
 import { deleteMeLog, listMyLogs } from "@/lib/repo/operationLogRepo";
+import { fetchNotifications, markNotificationRead } from "@/lib/repo/notificationRepo";
 import { oshiRepo } from "@/lib/repo/oshiRepo";
+import { fetchMySchedules } from "@/lib/repo/scheduleRepo";
+import { fetchExpensesSummary } from "@/lib/repo/expenseRepo";
+
+import { localYearMonth, localDate } from "@/lib/date";
 import { useBudgetState } from "@/lib/budgetState";
 import { BudgetResponse } from "@/lib/repo/budgetRepo";
 import { loadJson, loadString, removeString, saveJson, saveString } from "@/lib/storage";
-import type { CircleDto, MeDto, OperationLogDto, OwnerDashboardDto } from "@/lib/types";
+import type { CircleDto, ExpensesByOshiDto, MeDto, NotificationDto, OperationLogDto, OwnerDashboardDto, ScheduleDto } from "@/lib/types";
 import type { Oshi, SupplyItem } from "@/lib/uiTypes";
 import { cn } from "@/lib/utils";
 import { getSafeDisplayName, isProfileNameMissing } from "@/lib/ui/profileDisplay";
 import { formatLogTime, logSentence } from "@/lib/ui/logText";
+import { logLabel } from "@/lib/ui/logLabels";
 import { isApiMode } from "@/lib/config";
+
+/** Log action → category mapping for filter chips */
+const LOG_ACTION_CATEGORIES: Record<string, string> = {
+  "chat_message.create": "チャット",
+  "chat_message.delete": "チャット",
+  "join_request.create": "参加",
+  "join_request.approve": "参加",
+  "join_request.reject": "参加",
+  "oshi_media.change_frame": "設定",
+  "circle.ui.theme.update": "設定",
+  "circle.ui.special_bg.update": "設定",
+  "settlement.create": "精算",
+  "settlement.update": "精算",
+};
+
+function logActionCategory(action: string): string {
+  return LOG_ACTION_CATEGORIES[action] ?? "その他";
+}
+
+const LOG_CATEGORY_ICON: Record<string, typeof Activity> = {
+  "チャット": MessageSquare,
+  "参加": UserPlus,
+  "設定": Settings,
+  "精算": Wallet,
+  "その他": Activity,
+};
+
+const LOG_FILTER_OPTIONS = ["全部", "チャット", "参加", "設定", "精算"] as const;
+type LogFilterOption = (typeof LOG_FILTER_OPTIONS)[number];
 
 const OSHI_CATEGORIES = [
   "アイドル", "VTuber", "俳優", "声優", "アーティスト",
@@ -110,9 +145,17 @@ export default function HomeScreen() {
   const [me, setMe] = useState<MeDto | null>(null);
   const [myLogs, setMyLogs] = useState<OperationLogDto[]>([]);
   const [myLogsLoading, setMyLogsLoading] = useState(false);
+  const [upcomingSchedules, setUpcomingSchedules] = useState<ScheduleDto[]>([]);
+  const [schedulesLoading, setSchedulesLoading] = useState(false);
+  const [expensesByOshi, setExpensesByOshi] = useState<ExpensesByOshiDto[]>([]);
+  const [expensesTotal, setExpensesTotal] = useState(0);
+  const [expensesLoading, setExpensesLoading] = useState(false);
   const [deletingLogId, setDeletingLogId] = useState<string | null>(null);
+  const [logFilter, setLogFilter] = useState<LogFilterOption>("全部");
+  const [notifications, setNotifications] = useState<NotificationDto[]>([]);
+  const [notificationsLoading, setNotificationsLoading] = useState(false);
   const defaultBudgetState = useMemo<BudgetResponse>(() => {
-    const currentMonth = new Date().toISOString().slice(0, 7);
+    const currentMonth = localYearMonth();
     return {
       budget: moneySnapshot.budget,
       spent: moneySnapshot.spent,
@@ -307,6 +350,71 @@ export default function HomeScreen() {
     return () => {
       mounted = false;
     };
+  }, []);
+
+  useEffect(() => {
+    let mounted = true;
+    setNotificationsLoading(true);
+    fetchNotifications({ limit: 5 })
+      .then((data) => {
+        if (!mounted) return;
+        setNotifications(data?.items ?? []);
+      })
+      .catch(() => {
+        if (!mounted) return;
+        setNotifications([]);
+      })
+      .finally(() => {
+        if (!mounted) return;
+        setNotificationsLoading(false);
+      });
+
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    let mounted = true;
+    setSchedulesLoading(true);
+    const today = localDate();
+    fetchMySchedules({ from: today })
+      .then((items) => {
+        if (!mounted) return;
+        setUpcomingSchedules(items.slice(0, 5));
+      })
+      .catch(() => {
+        if (!mounted) return;
+        setUpcomingSchedules([]);
+      })
+      .finally(() => {
+        if (!mounted) return;
+        setSchedulesLoading(false);
+      });
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    let mounted = true;
+    setExpensesLoading(true);
+    fetchExpensesSummary()
+      .then((data) => {
+        if (!mounted) return;
+        setExpensesByOshi(data.byOshi.slice(0, 5));
+        setExpensesTotal(data.totalAmount);
+      })
+      .catch(() => {
+        if (!mounted) return;
+        setExpensesByOshi([]);
+        setExpensesTotal(0);
+      })
+      .finally(() => {
+        if (!mounted) return;
+        setExpensesLoading(false);
+      });
+    return () => { mounted = false; };
   }, []);
 
   useEffect(() => {
@@ -548,44 +656,287 @@ export default function HomeScreen() {
         />
       ) : null}
 
-      <Card className="rounded-2xl border p-4 shadow-sm">
+      {selectedOshi ? (
+        <Card className="rounded-2xl border p-4 shadow-sm" data-testid="home-oshi-card">
+          <CardHeader className="p-0 pb-3">
+            <div className="flex items-center justify-between">
+              <CardTitle className="flex items-center gap-1.5 text-sm font-semibold text-muted-foreground">
+                <User className="h-4 w-4" />
+                推しプロフィール
+              </CardTitle>
+              <button
+                type="button"
+                className="text-xs text-primary underline opacity-80 hover:opacity-100"
+                data-testid="home-oshi-edit"
+                onClick={() => {
+                  const fab = document.querySelector('[data-testid="fab-oshi-profile"]');
+                  if (fab instanceof HTMLElement) fab.click();
+                }}
+              >
+                編集
+              </button>
+            </div>
+          </CardHeader>
+          <CardContent className="space-y-2 p-0">
+            {(() => {
+              const p = selectedOshi.profile;
+              const hasQuote = !!p.quote;
+              const hasLinks = p.links && p.links.length > 0;
+              const hasMemo = !!p.memo;
+              const hasAnniversaries = p.anniversaries && p.anniversaries.length > 0;
+              const hasAny = hasQuote || hasLinks || hasMemo || hasAnniversaries;
+              if (!hasAny) {
+                return (
+                  <div className="text-xs text-muted-foreground" data-testid="home-oshi-empty">
+                    プロフィールを設定しよう
+                  </div>
+                );
+              }
+              return (
+                <>
+                  <div className="text-sm font-medium" data-testid="home-oshi-name">{selectedOshi.name}</div>
+                  {hasQuote ? (
+                    <div className="rounded-lg bg-muted/30 px-3 py-2 text-xs italic text-muted-foreground" data-testid="home-oshi-quote">
+                      &ldquo;{p.quote}&rdquo;
+                    </div>
+                  ) : null}
+                  {hasLinks ? (
+                    <div className="flex flex-wrap gap-1.5" data-testid="home-oshi-links">
+                      {p.links.map((link, i) => (
+                        <a
+                          key={i}
+                          href={link.url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center gap-1 rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-medium text-primary hover:bg-primary/20"
+                        >
+                          <ExternalLink className="h-3 w-3" />
+                          {link.label}
+                        </a>
+                      ))}
+                    </div>
+                  ) : null}
+                  {hasAnniversaries ? (
+                    <div data-testid="home-oshi-anniversary">
+                      {p.anniversaries.slice(0, 2).map((ann, i) => (
+                        <div key={i} className="text-xs text-muted-foreground">
+                          {ann.label}: {ann.date}
+                        </div>
+                      ))}
+                    </div>
+                  ) : null}
+                  {hasMemo ? (
+                    <div className="text-xs text-muted-foreground line-clamp-2" data-testid="home-oshi-memo">
+                      {p.memo}
+                    </div>
+                  ) : null}
+                </>
+              );
+            })()}
+          </CardContent>
+        </Card>
+      ) : null}
+
+      <Card className="rounded-2xl border p-4 shadow-sm" data-testid="home-log-recent">
         <CardHeader className="p-0 pb-3">
           <div className="flex items-center justify-between">
             <CardTitle className="text-sm font-semibold text-muted-foreground">
-              操作ログ
+              最近の活動
             </CardTitle>
-            <Link href="/logs" className="text-xs underline opacity-80 hover:opacity-100">
+            <Link href="/logs" className="text-xs underline opacity-80 hover:opacity-100" data-testid="home-log-more">
               もっと見る
             </Link>
+          </div>
+          {/* Category filter chips */}
+          <div className="mt-2 flex flex-wrap gap-1.5" data-testid="home-log-filters">
+            {LOG_FILTER_OPTIONS.map((opt) => (
+              <button
+                key={opt}
+                type="button"
+                className={cn(
+                  "rounded-full px-2.5 py-0.5 text-[11px] font-medium transition-colors",
+                  logFilter === opt
+                    ? "bg-primary text-primary-foreground"
+                    : "bg-muted text-muted-foreground hover:bg-muted/80"
+                )}
+                onClick={() => setLogFilter(opt)}
+                data-testid={"home-log-filter-" + opt}
+              >
+                {opt}
+              </button>
+            ))}
           </div>
         </CardHeader>
         <CardContent className="space-y-2 p-0">
           {myLogsLoading ? (
             <div className="text-xs text-muted-foreground">読み込み中...</div>
           ) : myLogs.length ? (
-            myLogs.map((log) => (
-              <div
-                key={log.id}
-                className="rounded-xl border border-border/60 bg-muted/30 p-3"
-              >
-                <div className="flex items-start justify-between gap-2">
-                  <div className="text-sm">{logSentence(log)}</div>
-                  <button
-                    type="button"
-                    className="text-muted-foreground hover:text-destructive"
-                    onClick={() => void handleDeleteLog(log.id)}
-                    disabled={deletingLogId === log.id}
+            (() => {
+              const filtered = logFilter === "全部"
+                ? myLogs
+                : myLogs.filter((log) => logActionCategory(log.action) === logFilter);
+              if (filtered.length === 0) {
+                return <div className="text-xs text-muted-foreground" data-testid="home-log-filter-empty">該当する活動がありません</div>;
+              }
+              return filtered.map((log, i) => {
+                const cat = logActionCategory(log.action);
+                const IconComp = LOG_CATEGORY_ICON[cat] ?? Activity;
+                return (
+                  <div
+                    key={log.id}
+                    className="rounded-xl border border-border/60 bg-muted/30 p-3"
+                    data-testid={"home-log-item-" + i}
                   >
-                    <Trash2 className="h-4 w-4" />
-                  </button>
-                </div>
-                <div className="mt-1 text-xs text-muted-foreground">
-                  {formatLogTime(log.createdAt)}
+                    <div className="flex items-start gap-2">
+                      <div
+                        className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-primary/10"
+                        data-testid="home-log-item-icon"
+                      >
+                        <IconComp className="h-3.5 w-3.5 text-primary" />
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="min-w-0 flex-1">
+                            <span
+                              className="mr-1.5 inline-block rounded bg-primary/10 px-1.5 py-0.5 text-[10px] font-medium text-primary"
+                              data-testid="home-log-item-category"
+                            >
+                              {logLabel(log.action)}
+                            </span>
+                            <span className="text-sm" data-testid="home-log-item-title">{logSentence(log)}</span>
+                          </div>
+                          <button
+                            type="button"
+                            className="shrink-0 text-muted-foreground hover:text-destructive"
+                            onClick={() => void handleDeleteLog(log.id)}
+                            disabled={deletingLogId === log.id}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </button>
+                        </div>
+                        <div className="mt-1 text-xs text-muted-foreground" data-testid="home-log-item-date">
+                          {formatLogTime(log.createdAt)}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                );
+              });
+            })()
+          ) : (
+            <div className="text-xs text-muted-foreground">まだ活動がありません</div>
+          )}
+        </CardContent>
+      </Card>
+
+      <Card className="rounded-2xl border p-4 shadow-sm" data-testid="home-schedule-summary">
+        <CardHeader className="p-0 pb-3">
+          <div className="flex items-center justify-between">
+            <CardTitle className="flex items-center gap-1.5 text-sm font-semibold text-muted-foreground">
+              <CalendarDays className="h-4 w-4" />
+              次の予定
+            </CardTitle>
+            <Link href="/schedule" className="text-xs underline opacity-80 hover:opacity-100">
+              すべて見る
+            </Link>
+          </div>
+        </CardHeader>
+        <CardContent className="space-y-2 p-0">
+          {schedulesLoading ? (
+            <div className="text-xs text-muted-foreground">読み込み中...</div>
+          ) : upcomingSchedules.length > 0 ? (
+            upcomingSchedules.map((s) => (
+              <div
+                key={s.id}
+                className="rounded-xl border border-border/60 bg-muted/30 p-3"
+                data-testid="home-schedule-item"
+              >
+                <div className="text-sm font-medium">{s.title}</div>
+                <div className="mt-1 flex flex-wrap gap-2 text-xs text-muted-foreground">
+                  <span>
+                    {s.isAllDay
+                      ? new Date(s.startAt).toLocaleDateString("ja-JP", { month: "short", day: "numeric" })
+                      : new Date(s.startAt).toLocaleDateString("ja-JP", { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })}
+                  </span>
+                  {s.location ? <span>· {s.location}</span> : null}
                 </div>
               </div>
             ))
           ) : (
-            <div className="text-xs text-muted-foreground">ログがまだありません</div>
+            <div className="text-xs text-muted-foreground">予定がありません</div>
+          )}
+        </CardContent>
+      </Card>
+
+      <Card className="rounded-2xl border p-4 shadow-sm" data-testid="home-notifications-card">
+        <CardHeader className="p-0 pb-3">
+          <div className="flex items-center justify-between">
+            <CardTitle className="flex items-center gap-1.5 text-sm font-semibold text-muted-foreground">
+              <Bell className="h-4 w-4" />
+              お知らせ
+              {notifications.filter((n) => !n.readAt).length > 0 && (
+                <span
+                  className="ml-1 inline-flex h-5 min-w-[20px] items-center justify-center rounded-full bg-destructive px-1 text-[10px] font-bold text-destructive-foreground"
+                  data-testid="home-notification-badge"
+                >
+                  {notifications.filter((n) => !n.readAt).length}
+                </span>
+              )}
+            </CardTitle>
+            <Link href="/notifications" className="text-xs underline opacity-80 hover:opacity-100" data-testid="home-notifications-more">
+              すべて見る
+            </Link>
+          </div>
+        </CardHeader>
+        <CardContent className="space-y-2 p-0" data-testid="home-notifications-panel">
+          {notificationsLoading ? (
+            <div className="text-xs text-muted-foreground">読み込み中...</div>
+          ) : notifications.length > 0 ? (
+            notifications.map((n, i) => (
+              <button
+                key={n.id}
+                type="button"
+                className={cn(
+                  "w-full rounded-xl border border-border/60 p-3 text-left transition-colors",
+                  n.readAt ? "bg-muted/30" : "bg-primary/5 border-primary/20"
+                )}
+                data-testid={"home-notification-item-" + i}
+                onClick={async () => {
+                  if (!n.readAt) {
+                    const updated = await markNotificationRead(n.id);
+                    if (updated) {
+                      setNotifications((prev) =>
+                        prev.map((item) => (item.id === n.id ? updated : item))
+                      );
+                    }
+                  }
+                  if (n.linkUrl) router.push(n.linkUrl);
+                }}
+              >
+                <div className="flex items-start gap-2">
+                  <div className={cn(
+                    "mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full",
+                    n.readAt ? "bg-muted" : "bg-primary/10"
+                  )}>
+                    <Bell className={cn("h-3.5 w-3.5", n.readAt ? "text-muted-foreground" : "text-primary")} />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <div className="text-sm font-medium" data-testid="home-notification-title">{n.title}</div>
+                    <div className="mt-0.5 text-xs text-muted-foreground line-clamp-2" data-testid="home-notification-body">{n.body}</div>
+                    {n.createdAt && (
+                      <div className="mt-1 text-[10px] text-muted-foreground/70" data-testid="home-notification-date">
+                        {new Date(n.createdAt).toLocaleDateString("ja-JP", { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })}
+                      </div>
+                    )}
+                  </div>
+                  {!n.readAt && (
+                    <div className="mt-1 h-2 w-2 shrink-0 rounded-full bg-primary" />
+                  )}
+                </div>
+              </button>
+            ))
+          ) : (
+            <div className="text-xs text-muted-foreground" data-testid="home-notifications-empty">お知らせはありません</div>
           )}
         </CardContent>
       </Card>
@@ -804,10 +1155,10 @@ export default function HomeScreen() {
 
       <NextDeadlines items={displayedDeadlines} />
 
-      <Card className="rounded-2xl border p-4 shadow-sm">
+      <Card className="rounded-2xl border p-4 shadow-sm" data-testid="home-budget-card">
         <CardHeader className="space-y-1 p-0 pb-3">
           <CardTitle className="text-sm font-semibold text-muted-foreground">今月あといくら？</CardTitle>
-          <div className="text-3xl font-semibold">
+          <div className="text-3xl font-semibold" data-testid="home-budget-remaining">
             ¥{remainingBudget.toLocaleString("ja-JP")}
           </div>
           <div className="text-xs text-muted-foreground">
@@ -829,18 +1180,67 @@ export default function HomeScreen() {
               }
               placeholder="予算"
               min={0}
+              data-testid="home-budget-input"
             />
           </div>
           <div className="flex flex-wrap items-center gap-2">
-            <Button size="sm" onClick={handleBudgetSave} disabled={budgetLoading}>
+            <Button size="sm" onClick={handleBudgetSave} disabled={budgetLoading} data-testid="home-budget-save">
               {budgetLoading ? "保存中..." : "保存"}
             </Button>
             {budgetMessage ? (
               <div className="text-xs text-muted-foreground">{budgetMessage}</div>
             ) : null}
           </div>
+          <Link
+            href="/money"
+            className="text-xs font-medium text-primary hover:underline"
+            data-testid="budget-to-money"
+          >
+            詳細へ →
+          </Link>
         </div>
       </Card>
+
+      <Card className="rounded-2xl border p-4 shadow-sm" data-testid="expenses-summary-card">
+        <CardHeader className="space-y-1 p-0 pb-3">
+          <CardTitle className="text-sm font-semibold text-muted-foreground">今月の推し別支出</CardTitle>
+          {expensesTotal > 0 ? (
+            <div className="text-2xl font-semibold">
+              合計 ¥{expensesTotal.toLocaleString("ja-JP")}
+            </div>
+          ) : null}
+        </CardHeader>
+        <CardContent className="space-y-2 p-0">
+          {expensesLoading ? (
+            <div className="text-xs text-muted-foreground">読み込み中…</div>
+          ) : expensesByOshi.length === 0 ? (
+            <div className="text-xs text-muted-foreground">支出がありません</div>
+          ) : (
+            expensesByOshi.map((item) => (
+              <div
+                key={item.oshiId}
+                className="flex items-center justify-between rounded-lg border px-3 py-2"
+                data-testid={"expenses-summary-item-" + item.oshiId}
+              >
+                <span className="text-sm font-medium">{item.oshiName}</span>
+                <span className="text-sm text-muted-foreground">
+                  ¥{item.totalAmount.toLocaleString("ja-JP")}
+                </span>
+              </div>
+            ))
+          )}
+        </CardContent>
+        <div className="mt-3">
+          <Link
+            href="/money"
+            className="text-xs font-medium text-primary hover:underline"
+            data-testid="expenses-summary-more"
+          >
+            もっと見る →
+          </Link>
+        </div>
+      </Card>
+
 
       <div className="space-y-2">
         <div className="text-sm font-semibold text-muted-foreground">ミニフィード</div>

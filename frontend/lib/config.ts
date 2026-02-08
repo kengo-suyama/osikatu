@@ -7,10 +7,9 @@ const readDataSource = () => {
 };
 
 const readApiBaseUrl = () => {
-  if (typeof window !== "undefined") {
-    const override = window.localStorage.getItem("osikatu:api-base-url");
-    if (override) return override.trim();
-  }
+  // In the browser, always use same-origin `/api/*` and rely on Next rewrites.
+  // This avoids CORS/preflight issues (e2e/Windows) while keeping the API target configurable server-side.
+  if (typeof window !== "undefined") return "";
   return process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8000";
 };
 

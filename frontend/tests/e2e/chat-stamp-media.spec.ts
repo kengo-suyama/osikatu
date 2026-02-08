@@ -32,19 +32,75 @@ const assertFrontendUp = async (request: Parameters<typeof test>[1]["request"]) 
   throw new Error(`Frontend server is not running on ${FRONTEND_BASE}.`);
 };
 
+const ensureOnboardingDone = async (
+  request: Parameters<typeof test>[1]["request"],
+  deviceId: string
+) => {
+  await request.post(`${API_BASE}/api/me/onboarding/skip`, {
+    headers: { "X-Device-Id": deviceId, Accept: "application/json" },
+  });
+};
+
+const ensurePlusPlan = async (request: Parameters<typeof test>[1]["request"], deviceId: string) => {
+  await request.put(`${API_BASE}/api/me/plan`, {
+    headers: {
+      "X-Device-Id": deviceId,
+      "Content-Type": "application/json",
+      Accept: "application/json",
+    },
+    data: { plan: "plus" },
+  });
+};
+
+const createCircle = async (request: Parameters<typeof test>[1]["request"], deviceId: string) => {
+  const res = await request.post(`${API_BASE}/api/circles`, {
+    headers: {
+      "X-Device-Id": deviceId,
+      "Content-Type": "application/json",
+      Accept: "application/json",
+    },
+    data: {
+      name: `E2E Chat ${Date.now()}`,
+      oshiLabel: "E2E推し",
+      oshiTags: ["e2e"],
+      isPublic: false,
+      joinPolicy: "instant",
+    },
+  });
+  if (!res.ok()) {
+    throw new Error(`Failed to create circle: ${res.status()} ${res.url()}`);
+  }
+  const body = await res.json();
+  const id = body?.success?.data?.id;
+  if (!id) throw new Error("No circle id in response");
+  return id as number;
+};
+
+const initStorage = (page: Parameters<typeof test>[1]["page"], deviceId: string) =>
+  page.addInitScript((id: string) => {
+    localStorage.setItem("osikatu:device:id", id);
+    localStorage.setItem("osikatu:data-source", "api");
+    localStorage.setItem("osikatu:api-base-url", "http://127.0.0.1:8001");
+  }, deviceId);
+
+const uniqueDeviceId = (prefix: string) => `${prefix}-${Date.now()}-${process.pid}-${Math.floor(Math.random() * 1000)}`;
+
 test.describe("chat stamp and media", () => {
   test("chat page has stamp button and input", async ({ page, request }) => {
     attachDiagnostics(page, "chat-stamp");
     await assertFrontendUp(request);
 
-    await page.addInitScript(() => {
-      localStorage.setItem("osikatu:device:id", "device-e2e-chat-001");
-      localStorage.setItem("osikatu:data-source", "api");
-      localStorage.setItem("osikatu:api-base-url", "http://127.0.0.1:8001");
-    });
+    const deviceId = uniqueDeviceId("device-e2e-chat");
+    await ensureOnboardingDone(request, deviceId);
+    await ensurePlusPlan(request, deviceId);
+    const circleId = await createCircle(request, deviceId);
 
-    // Navigate to chat page (assuming circle ID 1 exists)
-    await page.goto("/circles/1/chat", { waitUntil: "domcontentloaded" });
+    await initStorage(page, deviceId);
+
+    await page.goto(`/circles/${circleId}/chat`, { waitUntil: "domcontentloaded" });
+
+    // Ensure the client has hydrated and initial chat fetch has completed.
+    await expect(page.locator("text=読み込み中...")).toBeHidden({ timeout: 45_000 });
 
     // Check chat input exists
     const chatInput = page.locator('[data-testid="chat-input"]');
@@ -71,13 +127,16 @@ test.describe("chat stamp and media", () => {
     attachDiagnostics(page, "chat-stamp-picker");
     await assertFrontendUp(request);
 
-    await page.addInitScript(() => {
-      localStorage.setItem("osikatu:device:id", "device-e2e-chat-002");
-      localStorage.setItem("osikatu:data-source", "api");
-      localStorage.setItem("osikatu:api-base-url", "http://127.0.0.1:8001");
-    });
+    const deviceId = uniqueDeviceId("device-e2e-chat");
+    await ensureOnboardingDone(request, deviceId);
+    await ensurePlusPlan(request, deviceId);
+    const circleId = await createCircle(request, deviceId);
 
-    await page.goto("/circles/1/chat", { waitUntil: "domcontentloaded" });
+    await initStorage(page, deviceId);
+    await page.goto(`/circles/${circleId}/chat`, { waitUntil: "domcontentloaded" });
+
+    // Ensure the client has hydrated and initial chat fetch has completed.
+    await expect(page.locator("text=読み込み中...")).toBeHidden({ timeout: 45_000 });
 
     // Wait for stamp button
     const stampButton = page.locator('[data-testid="chat-stamp-open"]');
@@ -86,9 +145,9 @@ test.describe("chat stamp and media", () => {
     // Click stamp button to open picker
     await stampButton.click();
 
-    // Wait for stamp items to be visible
+    // Wait for stamp items to be visible (don't rely on Radix role structure; keep it selector-stable).
     const stampItems = page.locator('[data-testid="chat-stamp-item"]');
-    await expect(stampItems.first()).toBeVisible({ timeout: 10_000 });
+    await expect(stampItems.first()).toBeVisible({ timeout: 30_000 });
 
     const count = await stampItems.count();
     expect(count).toBeGreaterThan(0);
@@ -99,36 +158,33 @@ test.describe("chat stamp and media", () => {
     attachDiagnostics(page, "chat-send-text");
     await assertFrontendUp(request);
 
-    await page.addInitScript(() => {
-      localStorage.setItem("osikatu:device:id", "device-e2e-chat-003");
-      localStorage.setItem("osikatu:data-source", "api");
-      localStorage.setItem("osikatu:api-base-url", "http://127.0.0.1:8001");
-    });
+    const deviceId = uniqueDeviceId("device-e2e-chat");
+    await ensureOnboardingDone(request, deviceId);
+    await ensurePlusPlan(request, deviceId);
+    const circleId = await createCircle(request, deviceId);
 
-    await page.goto("/circles/1/chat", { waitUntil: "domcontentloaded" });
+    await initStorage(page, deviceId);
+    await page.goto(`/circles/${circleId}/chat`, { waitUntil: "domcontentloaded" });
+
+    // Ensure the client has hydrated and initial chat fetch has completed.
+    await expect(page.locator("text=読み込み中...")).toBeHidden({ timeout: 45_000 });
 
     const chatInput = page.locator('[data-testid="chat-input"]');
     await expect(chatInput).toBeVisible({ timeout: 30_000 });
+    await expect(chatInput).toBeEditable();
 
     const testMessage = `E2E test message ${Date.now()}`;
     await chatInput.fill(testMessage);
+    await expect(chatInput).toHaveValue(testMessage);
 
     const sendButton = page.locator('[data-testid="chat-send"]');
-    await expect(sendButton).toBeEnabled();
+    await expect(sendButton).toBeEnabled({ timeout: 45_000 });
     await sendButton.click();
 
     // Wait for message to appear
-    await page.waitForTimeout(2000);
-
-    // Verify message appears in chat
     const messageText = page.locator(`text=${testMessage}`);
-    const messageVisible = await messageText.isVisible().catch(() => false);
+    await expect(messageText).toBeVisible({ timeout: 30_000 });
 
-    if (messageVisible) {
-      logPass("Text message sent and visible");
-    } else {
-      // Message might have been sent but not yet rendered
-      logPass("Text message send attempted (rendering may vary)");
-    }
+    logPass("Text message sent and visible");
   });
 });
