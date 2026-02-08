@@ -63,6 +63,9 @@ final class OperationLogMetaPolicy
         'circle.ui.special_bg.update' => ['enabled', 'specialBg'],
         'settlement.create' => ['circleId', 'settlementId', 'amountInt', 'participantCount', 'transferCount', 'splitMode'],
         'settlement.update' => ['circleId', 'settlementId', 'transferCount'],
+        'settlement_expense_created' => ['circleId', 'expenseId', 'amountInt', 'participantCount', 'splitMode', 'request_id'],
+        'settlement_expense_voided' => ['circleId', 'expenseId', 'hasReplacement', 'request_id'],
+        'settlement_expense_replaced' => ['circleId', 'expenseId', 'replacementExpenseId', 'request_id'],
         'proposal.approve' => ['proposalId', 'result', 'request_id'],
         'proposal.reject' => ['proposalId', 'result', 'request_id'],
     ];

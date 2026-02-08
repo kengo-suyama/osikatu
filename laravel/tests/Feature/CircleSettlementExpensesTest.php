@@ -9,6 +9,7 @@ use App\Models\CircleMember;
 use App\Models\CircleSettlementExpense;
 use App\Models\CircleSettlementExpenseShare;
 use App\Models\MeProfile;
+use App\Models\OperationLog;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
@@ -320,6 +321,7 @@ class CircleSettlementExpensesTest extends TestCase
         ]);
 
         $response->assertStatus(201);
+        $expenseId = $response->json('success.data.expense.id');
         $shares = $response->json('success.data.expense.shares');
         $this->assertCount(3, $shares);
 
@@ -335,6 +337,16 @@ class CircleSettlementExpensesTest extends TestCase
         // Verify sum = amountYen
         $sum = collect($shares)->sum('shareYen');
         $this->assertEquals(10001, $sum);
+
+        $log = OperationLog::query()
+            ->where('circle_id', $circle->id)
+            ->where('action', 'settlement_expense_created')
+            ->orderByDesc('id')
+            ->first();
+        $this->assertNotNull($log);
+        $this->assertEquals($expenseId, $log->meta['expenseId'] ?? null);
+        $this->assertEquals(10001, $log->meta['amountInt'] ?? null);
+        $this->assertNotEmpty($log->meta['request_id'] ?? null);
     }
 
     public function test_create_fixed_split(): void
@@ -488,6 +500,16 @@ class CircleSettlementExpensesTest extends TestCase
         $this->assertNotNull($voided['voidedAt']);
         $this->assertEquals($members[0]->id, $voided['voidedByMemberId']);
 
+        $log = OperationLog::query()
+            ->where('circle_id', $circle->id)
+            ->where('action', 'settlement_expense_voided')
+            ->orderByDesc('id')
+            ->first();
+        $this->assertNotNull($log);
+        $this->assertEquals($expenseId, $log->meta['expenseId'] ?? null);
+        $this->assertEquals(false, $log->meta['hasReplacement'] ?? null);
+        $this->assertNotEmpty($log->meta['request_id'] ?? null);
+
         // Balances should be empty (no active expenses)
         $balances = $this->withHeaders([
             'X-Device-Id' => $profiles[0]->device_id,
@@ -575,6 +597,25 @@ class CircleSettlementExpensesTest extends TestCase
 
         $this->assertEquals(3500, $balances->json('success.data.totals.totalExpensesYen'));
         $this->assertEquals(1, $balances->json('success.data.totals.expenseCount'));
+
+        $voidLog = OperationLog::query()
+            ->where('circle_id', $circle->id)
+            ->where('action', 'settlement_expense_voided')
+            ->orderByDesc('id')
+            ->first();
+        $this->assertNotNull($voidLog);
+        $this->assertEquals($oldId, $voidLog->meta['expenseId'] ?? null);
+        $this->assertEquals(true, $voidLog->meta['hasReplacement'] ?? null);
+
+        $replaceLog = OperationLog::query()
+            ->where('circle_id', $circle->id)
+            ->where('action', 'settlement_expense_replaced')
+            ->orderByDesc('id')
+            ->first();
+        $this->assertNotNull($replaceLog);
+        $this->assertEquals($oldId, $replaceLog->meta['expenseId'] ?? null);
+        $this->assertEquals($replacement['id'], $replaceLog->meta['replacementExpenseId'] ?? null);
+        $this->assertNotEmpty($replaceLog->meta['request_id'] ?? null);
     }
 
     public function test_member_cannot_void(): void
