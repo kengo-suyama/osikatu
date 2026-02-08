@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
-import { ArrowLeft, Image, Send, Smile } from "lucide-react";
+import { ArrowLeft, Image as ImageIcon, Send, Smile } from "lucide-react";
 import { useReducedMotion } from "framer-motion";
 
 import AvatarCircle from "@/components/common/AvatarCircle";
@@ -507,7 +507,7 @@ export default function CircleChatScreen({ circleId }: { circleId: number }) {
                 onClick={() => fileInputRef.current?.click()}
                 data-testid="chat-attach-image"
               >
-                <Image className="mr-1 h-4 w-4" />
+                <ImageIcon className="mr-1 h-4 w-4" />
                 画像/動画
               </Button>
               <input
