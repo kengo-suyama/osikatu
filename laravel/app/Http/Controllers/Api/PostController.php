@@ -28,6 +28,163 @@ class PostController extends Controller
     private const PIN_LIMIT_FREE = 3;
     private const PIN_LIMIT_MANAGER_PLUS = 10;
 
+    public function storePinV2(Request $request, int $circle)
+    {
+        $member = $this->resolveMember($circle, $request);
+        if (!$member) {
+            return ApiResponse::error('FORBIDDEN', 'Not a circle member.', null, 403);
+        }
+
+        $user = $this->resolveUser();
+        if (!$user) {
+            return ApiResponse::error('USER_NOT_FOUND', 'User not found.', null, 404);
+        }
+
+        $pinError = $this->ensureCanManagePins($member, $user);
+        if ($pinError) {
+            return $pinError;
+        }
+
+        $validator = Validator::make($request->all(), [
+            'body' => ['required', 'string'],
+        ]);
+
+        if ($validator->fails()) {
+            return ApiResponse::error('VALIDATION_ERROR', 'Validation failed', $validator->errors(), 422);
+        }
+
+        $maxPins = $this->pinLimitFor($user, $member);
+        $limitError = $this->ensurePinLimitV2($circle, $maxPins);
+        if ($limitError) {
+            return $limitError;
+        }
+
+        $data = $validator->validated();
+
+        // Compatibility: still create a pinned post (Phase1 behavior) and treat circle_pins as the primary store.
+        $post = Post::create([
+            'circle_id' => $circle,
+            'author_member_id' => $member->id,
+            'user_id' => CurrentUser::id(),
+            'post_type' => 'post',
+            'body' => $data['body'],
+            'tags' => [],
+            'is_pinned' => true,
+            'pin_kind' => null,
+            'pin_due_at' => null,
+            'like_count' => 0,
+        ]);
+
+        Circle::query()
+            ->where('id', $circle)
+            ->update(['last_activity_at' => now()]);
+
+        $this->upsertCirclePinFromPost($post, $member);
+
+        $pin = CirclePin::query()->where('source_post_id', $post->id)->first();
+        if (!$pin) {
+            return ApiResponse::error('PIN_SYNC_FAILED', 'Pin sync failed.', null, 500);
+        }
+
+        return ApiResponse::success(new CirclePinResource($pin), null, 201);
+    }
+
+    public function updatePinV2(Request $request, int $circle, int $pin)
+    {
+        $member = $this->resolveMember($circle, $request);
+        if (!$member) {
+            return ApiResponse::error('FORBIDDEN', 'Not a circle member.', null, 403);
+        }
+
+        $user = $this->resolveUser();
+        if (!$user) {
+            return ApiResponse::error('USER_NOT_FOUND', 'User not found.', null, 404);
+        }
+
+        $pinError = $this->ensureCanManagePins($member, $user);
+        if ($pinError) {
+            return $pinError;
+        }
+
+        $model = CirclePin::query()
+            ->where('id', $pin)
+            ->where('circle_id', $circle)
+            ->first();
+
+        if (!$model) {
+            return ApiResponse::error('NOT_FOUND', 'Pin not found.', null, 404);
+        }
+
+        $validator = Validator::make($request->all(), [
+            'body' => ['required', 'string'],
+        ]);
+
+        if ($validator->fails()) {
+            return ApiResponse::error('VALIDATION_ERROR', 'Validation failed', $validator->errors(), 422);
+        }
+
+        $data = $validator->validated();
+        $parsed = $this->extractTitleAndUrl((string) $data['body']);
+
+        $model->update([
+            'body' => (string) $data['body'],
+            'title' => $parsed['title'],
+            'url' => $parsed['url'],
+        ]);
+
+        if ($model->source_post_id) {
+            Post::query()
+                ->where('id', $model->source_post_id)
+                ->where('circle_id', $circle)
+                ->update([
+                    'body' => (string) $data['body'],
+                    'is_pinned' => true,
+                ]);
+        }
+
+        return ApiResponse::success(new CirclePinResource($model->fresh()));
+    }
+
+    public function unpinPinV2(Request $request, int $circle, int $pin)
+    {
+        $member = $this->resolveMember($circle, $request);
+        if (!$member) {
+            return ApiResponse::error('FORBIDDEN', 'Not a circle member.', null, 403);
+        }
+
+        $user = $this->resolveUser();
+        if (!$user) {
+            return ApiResponse::error('USER_NOT_FOUND', 'User not found.', null, 404);
+        }
+
+        $pinError = $this->ensureCanManagePins($member, $user);
+        if ($pinError) {
+            return $pinError;
+        }
+
+        $model = CirclePin::query()
+            ->where('id', $pin)
+            ->where('circle_id', $circle)
+            ->first();
+
+        if (!$model) {
+            return ApiResponse::error('NOT_FOUND', 'Pin not found.', null, 404);
+        }
+
+        $sourcePostId = $model->source_post_id;
+
+        $model->delete();
+
+        if ($sourcePostId) {
+            Post::query()
+                ->where('id', $sourcePostId)
+                ->where('circle_id', $circle)
+                ->update(['is_pinned' => false]);
+        }
+
+        return ApiResponse::success(['unpinned' => true]);
+    }
+
     public function indexPins(int $circle)
     {
         $member = $this->resolveMember($circle, request());
@@ -537,6 +694,30 @@ class PostController extends Controller
             ->where('circle_id', $circleId)
             ->where('is_pinned', true)
             ->count();
+
+        if ($count >= $maxPins) {
+            return ApiResponse::error('PIN_LIMIT_EXCEEDED', 'ピンの上限に達しています', [
+                'limit' => $maxPins,
+                'current' => $count,
+            ], 422);
+        }
+
+        return null;
+    }
+
+    private function ensurePinLimitV2(int $circleId, int $maxPins): ?\Illuminate\Http\JsonResponse
+    {
+        $postCount = Post::query()
+            ->where('circle_id', $circleId)
+            ->where('is_pinned', true)
+            ->count();
+
+        $pinCount = CirclePin::query()
+            ->where('circle_id', $circleId)
+            ->count();
+
+        // Safety: avoid undercount while backfill is pending (use the larger count).
+        $count = max((int) $postCount, (int) $pinCount);
 
         if ($count >= $maxPins) {
             return ApiResponse::error('PIN_LIMIT_EXCEEDED', 'ピンの上限に達しています', [
