@@ -29,7 +29,7 @@ class BillingCheckoutTest extends TestCase
         ]);
 
         $this->app->instance(BillingCheckoutService::class, new class implements BillingCheckoutService {
-            public function createCheckoutUrl(User $user): string
+            public function createCheckoutUrl(User $user, string $deviceId): string
             {
                 return 'https://stripe.test/checkout/session_123';
             }
@@ -54,4 +54,3 @@ class BillingCheckoutTest extends TestCase
             ->assertJsonPath('error.code', 'AUTH_REQUIRED');
     }
 }
-

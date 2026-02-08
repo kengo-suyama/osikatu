@@ -50,6 +50,8 @@ final class OperationLogMetaPolicy
         'messageId',
         'mode',
         'request_id',
+        'actor_user_id',
+        'actor_circle_member_id',
     ];
 
     private const ACTION_ALLOWED = [
@@ -68,6 +70,11 @@ final class OperationLogMetaPolicy
         'settlement_expense_replaced' => ['circleId', 'expenseId', 'replacementExpenseId', 'request_id'],
         'proposal.approve' => ['proposalId', 'result', 'request_id'],
         'proposal.reject' => ['proposalId', 'result', 'request_id'],
+        'billing.plan_update' => ['plan', 'actor_user_id', 'request_id'],
+        'billing.webhook_received' => ['actor_user_id', 'request_id'],
+        'pin.create' => ['circleId', 'actor_user_id', 'request_id'],
+        'pin.update' => ['circleId', 'actor_user_id', 'request_id'],
+        'pin.unpin' => ['circleId', 'actor_user_id', 'request_id'],
     ];
 
     public static function sanitize(string $action, array $meta): array
@@ -82,6 +89,8 @@ final class OperationLogMetaPolicy
             'amountInt',
             'settlementId',
             'circleId',
+            'actor_user_id',
+            'actor_circle_member_id',
         ];
 
         foreach ($meta as $key => $value) {
