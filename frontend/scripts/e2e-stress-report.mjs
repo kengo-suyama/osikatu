@@ -107,6 +107,31 @@ if (topSpecs.length === 0) {
 }
 lines.push(``);
 
+// Calculate per-spec pass rates
+const allSpecMentions = new Map();
+const specRegexesForAll = [
+  /\btests\/e2e\/[^\s:]+\.spec\.ts\b/g,
+  /\bfrontend\/tests\/e2e\/[^\s:]+\.spec\.ts\b/g,
+];
+for (const re of specRegexesForAll) {
+  for (const m of text.matchAll(re)) {
+    const s = m[0];
+    allSpecMentions.set(s, (allSpecMentions.get(s) || 0) + 1);
+  }
+}
+
+lines.push(`## Per-Spec Pass Rate (Estimated)`);
+if (allSpecMentions.size === 0 || !summary) {
+  lines.push(`(not enough data)`);
+} else {
+  const total = summary.runs;
+  for (const [spec, failCount] of topN(allSpecMentions, 20)) {
+    const passRate = Math.max(0, Math.round(((total - failCount) / total) * 100));
+    lines.push(`- \`${spec}\`: ${passRate}% pass (${failCount} fail / ${total} runs)`);
+  }
+}
+lines.push(``);
+
 lines.push(`## Top Error Snippets (Best-Effort)`);
 const topErrs = topN(errorCounts, 10);
 if (topErrs.length === 0) {

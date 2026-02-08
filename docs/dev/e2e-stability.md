@@ -40,6 +40,7 @@ Runs: 20 (pass 17, fail 3)
 - 1x `Error: expect(received).toBeVisible()`
 ```
 
+- **Per-Spec Pass Rate**: 推定pass率（失敗回数 / 総runs から計算）
 - **Top Failing Specs**: 失敗回数が多い spec ファイル
 - **Top Error Snippets**: 頻出エラーメッセージ（先頭160文字）
 
