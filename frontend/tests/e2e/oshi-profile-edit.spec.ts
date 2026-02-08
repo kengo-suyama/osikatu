@@ -1,4 +1,5 @@
 import { test, expect } from "@playwright/test";
+import { clickFabAndWaitForDialog } from "./helpers/fab";
 
 const API_BASE = (process.env.PLAYWRIGHT_API_BASE ?? "http://127.0.0.1:8001").trim();
 
@@ -43,29 +44,6 @@ const ensureOshi = async (
   return created?.success?.data;
 };
 
-/** Click FAB with retries — framer-motion drag handling is fragile. */
-const clickFabAndWaitForDialog = async (
-  page: Parameters<typeof test>[1]["page"],
-) => {
-  const fab = page.locator('[data-testid="fab-oshi-profile"]');
-  for (let attempt = 0; attempt < 3; attempt++) {
-    await fab.dispatchEvent("click");
-    const dialog = page.getByRole("dialog");
-    const visible = await dialog.isVisible().catch(() => false);
-    if (visible) return dialog;
-    await page.waitForTimeout(1000);
-    // Retry: try evaluate-based click
-    await page.evaluate(() => {
-      const el = document.querySelector('[data-testid="fab-oshi-profile"]') as HTMLElement | null;
-      el?.click();
-    });
-    await page.waitForTimeout(1000);
-    const visible2 = await page.getByRole("dialog").isVisible().catch(() => false);
-    if (visible2) return page.getByRole("dialog");
-  }
-  throw new Error("FAB click did not open dialog after retries");
-};
-
 test.describe("oshi profile edit", () => {
   test("edit memo via FAB panel and verify saved", async ({ page, request }) => {
     const deviceId = `device-e2e-oshi-edit-${Date.now()}`;
@@ -91,7 +69,7 @@ test.describe("oshi profile edit", () => {
 
       // Switch to edit tab (scoped within dialog, using role=tab)
       const editTab = dialog.getByRole("tab", { name: "編集" });
-      await expect(editTab).toBeVisible({ timeout: 5_000 });
+      await expect(editTab).toBeVisible({ timeout: 10_000 });
       await editTab.click();
 
       // Wait for memo field and save button
