@@ -1,3 +1,4 @@
+# Required check — must pass before merge
 name: ci-frontend
 
 on:
