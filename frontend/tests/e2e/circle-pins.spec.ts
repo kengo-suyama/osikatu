@@ -121,6 +121,85 @@ const setupMocks = async (page: Parameters<typeof test>[1]["page"]) => {
 };
 
 test.describe("circle pins", () => {
+  test("v1 write endpoints are never called during pin lifecycle", async ({ page }) => {
+    let v1WriteCalled = false;
+
+    await page.addInitScript(
+      (deviceId: string) => {
+        localStorage.setItem("osikatu:device:id", deviceId);
+        localStorage.setItem("osikatu:data-source", "api");
+      },
+      DEVICE_ID,
+    );
+
+    await page.route("**/api/me", (route) =>
+      route.fulfill({ status: 200, contentType: "application/json", body: successBody(baseMe()) }),
+    );
+    await page.route(new RegExp(`/api/circles/${CIRCLE_ID}$`), (route) =>
+      route.fulfill({ status: 200, contentType: "application/json", body: successBody(baseCircle()) }),
+    );
+    await page.route(new RegExp(`/api/circles/${CIRCLE_ID}/posts(\\?.*)?$`), (route) =>
+      route.fulfill({ status: 200, contentType: "application/json", body: successBody([]) }),
+    );
+
+    // v1 write trap: if any POST/PATCH/unpin hits /pins (not /pins-v2), set flag and return 500
+    await page.route(new RegExp(`/api/circles/${CIRCLE_ID}/pins$`), async (route) => {
+      if (route.request().method() === "GET") {
+        await route.fulfill({ status: 200, contentType: "application/json", body: successBody([]) });
+        return;
+      }
+      v1WriteCalled = true;
+      await route.fulfill({ status: 500, contentType: "application/json", body: JSON.stringify({ error: { code: "V1_TRAP", message: "v1 write called" } }) });
+    });
+    await page.route(new RegExp(`/api/circles/${CIRCLE_ID}/pins/\\d+(/unpin)?$`), async (route) => {
+      v1WriteCalled = true;
+      await route.fulfill({ status: 500, contentType: "application/json", body: JSON.stringify({ error: { code: "V1_TRAP", message: "v1 write called" } }) });
+    });
+
+    // v2 write: normal mock
+    const now = new Date().toISOString();
+    const mockPin = {
+      id: 8001, circleId: CIRCLE_ID, createdByMemberId: 1,
+      title: "v1 trap test", url: null, body: "v1 trap test",
+      checklistJson: null, sortOrder: null,
+      pinnedAt: now, updatedAt: now, createdAt: now, sourcePostId: 800,
+    };
+    await page.route(new RegExp(`/api/circles/${CIRCLE_ID}/pins-v2$`), async (route) => {
+      if (route.request().method() === "POST") {
+        await route.fulfill({ status: 201, contentType: "application/json", body: successBody(mockPin) });
+        return;
+      }
+      await route.fallback();
+    });
+    await page.route(new RegExp(`/api/circles/${CIRCLE_ID}/pins-v2/\\d+$`), async (route) => {
+      if (route.request().method() === "PATCH") {
+        await route.fulfill({ status: 200, contentType: "application/json", body: successBody(mockPin) });
+        return;
+      }
+      await route.fallback();
+    });
+    await page.route(new RegExp(`/api/circles/${CIRCLE_ID}/pins-v2/\\d+/unpin$`), async (route) => {
+      await route.fulfill({ status: 200, contentType: "application/json", body: successBody({ ok: true }) });
+    });
+
+    await page.goto(`/circles/${CIRCLE_ID}/pins`, { waitUntil: "domcontentloaded" });
+    const root = page.locator('[data-testid="circle-pins"]');
+    await expect(root).toBeVisible({ timeout: 30_000 });
+
+    // Trigger a create via the UI
+    await page.locator('[data-testid="pins-add"]').click();
+    const dialog = page.locator('[data-testid="pin-dialog"]');
+    await expect(dialog).toBeVisible({ timeout: 10_000 });
+    await page.locator('[data-testid="pin-title"]').fill("v1 trap test");
+    await page.locator('[data-testid="pin-save"]').click();
+
+    // Wait for the create to process
+    await page.waitForTimeout(2_000);
+
+    // Assert: v1 was never called
+    expect(v1WriteCalled).toBe(false);
+  });
+
   test("manager can create a pin and it appears in the list", async ({ page }) => {
     await setupMocks(page);
 
