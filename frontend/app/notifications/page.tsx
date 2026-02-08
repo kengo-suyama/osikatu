@@ -186,11 +186,17 @@ export default function NotificationsPage() {
                             <div className="mt-1 text-[10px] text-muted-foreground/70" data-testid="notification-type">{formatSourceType(item.sourceType)}</div>
                           )}
                         </div>
-                        {!item.readAt ? (
-                          <span className="rounded-full bg-emerald-500/20 px-2 py-0.5 text-[10px] text-emerald-700">
-                            未読
-                          </span>
-                        ) : null}
+                        <span
+                          className={cn(
+                            "rounded-full px-2 py-0.5 text-[10px]",
+                            item.readAt
+                              ? "bg-muted text-muted-foreground"
+                              : "bg-emerald-500/20 text-emerald-700"
+                          )}
+                          data-testid="notification-read-state"
+                        >
+                          {item.readAt ? "既読" : "未読"}
+                        </span>
                       </div>
                       <div className="mt-2 flex items-center justify-between text-xs text-muted-foreground">
                         <span>{formatTime(item.notifyAt || item.createdAt)}</span>
