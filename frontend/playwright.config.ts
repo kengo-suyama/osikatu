@@ -10,6 +10,7 @@ export default defineConfig({
   use: {
     baseURL: process.env.E2E_BASE_URL ?? "http://127.0.0.1:3000",
     headless: true,
+    actionTimeout: 10_000,
     viewport: { width: 1280, height: 720 },
     trace: "on-first-retry",
     screenshot: "only-on-failure",
