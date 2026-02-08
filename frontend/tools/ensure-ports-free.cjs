@@ -51,7 +51,7 @@ const safeString = (value) => (typeof value === "string" ? value : "");
 
 const normalizeWindowsPathForIncludes = (value) => safeString(value).replace(/\//g, "\\").toLowerCase();
 const frontendRoot = path.resolve(__dirname, "..");
-const frontendRootNorm = normalizeWindowsPathForIncludes(frontendRoot.endsWith(path.sep) ? frontendRoot : `${frontendRoot}${path.sep}`);
+const frontendRootNorm = normalizeWindowsPathForIncludes(frontendRoot + path.sep);
 
 const getListeningPidsWindows = (port) => {
   const res = spawnSync("netstat.exe", ["-ano", "-p", "TCP"], { encoding: "utf8" });
@@ -79,8 +79,8 @@ const getListeningPidsWindows = (port) => {
 };
 
 const getProcessInfoWindows = (pid) => {
-  // Defensive validation: ensure pid is a finite positive number
-  if (!Number.isFinite(pid) || pid < 0) return null;
+  // Defensive validation: ensure pid is a finite positive number (PID 0 is System Idle Process, cannot be killed)
+  if (!Number.isFinite(pid) || pid <= 0) return null;
   const ps = `Get-CimInstance Win32_Process -Filter "ProcessId=${pid}" | Select-Object Name,CommandLine,ProcessId | ConvertTo-Json -Compress`;
   const res = spawnSync("powershell.exe", ["-NoProfile", "-Command", ps], {
     encoding: "utf8",
@@ -119,10 +119,11 @@ const isKnownKillableListener = ({ port, name, commandLine }) => {
       (cmd.includes("--port=8001") || cmd.includes("--port 8001")) &&
       (cmd.includes("--host=127.0.0.1") || cmd.includes("--host 127.0.0.1"));
 
-    // Match Laravel's resources/server.php. This is used by `php artisan serve` which we already
-    // validate for localhost binding above (isArtisanServe). This is a fallback for direct invocations.
-    // IMPORTANT: This doesn't validate host binding - only enable if you're certain all uses bind to localhost.
-    const isLaravelServerPhp = cmd.includes("resources\\server.php") || cmd.includes("resources/server.php");
+    // Match Laravel's resources/server.php only when called via artisan serve (which we validate above).
+    // Direct invocations of `php resources/server.php` are NOT matched because we can't validate
+    // their host binding. This is intentional to avoid terminating network-exposed servers.
+    // If you need to auto-kill direct invocations, add explicit host validation here.
+    const isLaravelServerPhp = false; // Disabled: no host validation available for direct invocations
 
     // Only match PHP built-in server explicitly bound to localhost to avoid terminating
     // network-accessible servers (e.g., `php -S 0.0.0.0:8001` or `php -S 192.168.1.100:8001`)
@@ -133,15 +134,19 @@ const isKnownKillableListener = ({ port, name, commandLine }) => {
 
   if (port === 3103 && n === "node.exe") {
     // Only match Next.js dev server without explicit non-localhost host binding
-    // to avoid terminating intentionally network-exposed servers
-    const hasNonLocalhostHost = 
-      cmd.includes("--host 0.0.0.0") || cmd.includes("--host=0.0.0.0") ||
-      cmd.includes("-h 0.0.0.0") || cmd.includes("-h=0.0.0.0") ||
-      (cmd.includes("--host") && !cmd.includes("--host localhost") && !cmd.includes("--host 127.0.0.1")) ||
-      (cmd.includes("-h ") && !cmd.includes("-h localhost") && !cmd.includes("-h 127.0.0.1"));
+    // to avoid terminating intentionally network-exposed servers.
+    // Check for explicit network-exposed binding like --host 0.0.0.0, --host ::, or --host <IP>
+    const hostMatch = cmd.match(/(?:--host|-h)[= ]([^\s]+)/);
+    const hostValue = hostMatch ? hostMatch[1].toLowerCase() : null;
+    
+    const bindsToNonLocalhost = 
+      hostValue !== null && 
+      hostValue !== "localhost" && 
+      hostValue !== "127.0.0.1" &&
+      hostValue !== "::1";
     
     const isNextDev =
-      !hasNonLocalhostHost &&
+      !bindsToNonLocalhost &&
       cmd.includes("next") &&
       cmd.includes("dev") &&
       (cmd.includes("-p 3103") || cmd.includes("-p=3103") || cmd.includes("--port 3103") || cmd.includes("--port=3103"));
