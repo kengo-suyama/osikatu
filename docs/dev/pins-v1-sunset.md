@@ -58,3 +58,53 @@
 - `posts.is_pinned` の強制的な廃止
 - 既存 UI の read-path 変更（現状維持）
 
+## Phase6 Runbook: deny を本番でON/OFFする手順（コピペ用）
+
+### 事前条件（deny をONにする前）
+
+- 観測期間を取る（目安: 数日〜1週間）
+- 本番ログで `pins_v1_write_called` を集計し、発生がゼロになっていることを確認
+  - ゼロにならない場合: 旧クライアント/バッチが `pins-v1` write を叩いている可能性が高い
+- 影響範囲:
+  - 影響あり: v1 write（`POST/PATCH /api/circles/{circle}/pins`, `POST .../unpin`）
+  - 影響なし: read（`GET /api/circles/{circle}/pins`）、`pins-v2` write
+
+### deny をONにする（段階導入）
+
+1. 環境変数:
+   - `PINS_V1_WRITE_MODE=deny`
+2. config cache 更新（環境により必須）:
+   - `php artisan config:cache`
+3. 動作確認（v2 経路で壊さない確認）:
+   - 新UI（pins-v2 write）から pin を「追加→編集→解除」して成功すること
+4. deny 後の監視:
+   - `pins_v1_write_called` が `result=deny` / `http_status=410` で発生していないか確認
+   - 発生するなら旧クライアントが残存。更新促進や経路特定へ
+
+### deny をOFF（delegateに戻す: 即時ロールバック）
+
+1. 環境変数:
+   - `PINS_V1_WRITE_MODE=delegate`
+2. config cache 更新:
+   - `php artisan config:cache`
+
+## Observability: pins-v1 write のログ schema（固定）
+
+イベント名:
+- `pins_v1_write_called`（structured log / `Log::info`）
+
+固定キー:
+- `circle_id`（number）
+- `action`（string: `create|update|unpin`）
+- `result`（string: `allow|deny|error`）
+- `http_status`（number）
+- `endpoint`（string: `METHOD path`）
+- `actor_role`（string: `owner|admin|member|unknown`）
+
+追加キー（安全なもの。必要なら使う）:
+- `mode`（string: `delegate|deny`）
+- `request_id`（string|null: `X-Request-Id` があれば）
+- `actor_user_id`（number|null）
+
+注意:
+- 機密（トークン/本文/エラーメッセージ等）はログに出さない

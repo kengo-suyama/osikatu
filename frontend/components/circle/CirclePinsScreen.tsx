@@ -168,6 +168,16 @@ export default function CirclePinsScreen({ circleId }: { circleId: number }) {
     setDialogOpen(true);
   };
 
+  const formatWriteError = (err: unknown, fallback: string) => {
+    if (err instanceof ApiRequestError) {
+      if (err.code === "PINS_V1_DEPRECATED" || err.status === 410) {
+        return "アプリが古い可能性があります。更新してから、もう一度お試しください。";
+      }
+      return err.message;
+    }
+    return err instanceof Error ? err.message : fallback;
+  };
+
   const save = async () => {
     if (saving) return;
     if (!canManage) return;
@@ -186,11 +196,7 @@ export default function CirclePinsScreen({ circleId }: { circleId: number }) {
       setDialogOpen(false);
       setEditing(null);
     } catch (err) {
-      if (err instanceof ApiRequestError) {
-        setError(err.message);
-      } else {
-        setError(err instanceof Error ? err.message : "保存に失敗しました");
-      }
+      setError(formatWriteError(err, "保存に失敗しました"));
     } finally {
       setSaving(false);
     }
@@ -206,11 +212,7 @@ export default function CirclePinsScreen({ circleId }: { circleId: number }) {
       await pinsRepo.unpin(circleId, pin.id);
       await reloadPins();
     } catch (err) {
-      if (err instanceof ApiRequestError) {
-        setError(err.message);
-      } else {
-        setError(err instanceof Error ? err.message : "解除に失敗しました");
-      }
+      setError(formatWriteError(err, "解除に失敗しました"));
     } finally {
       setMutatingId(null);
     }
@@ -254,11 +256,7 @@ export default function CirclePinsScreen({ circleId }: { circleId: number }) {
     } catch (err) {
       // rollback
       setPins((prev) => prev.map((p) => (pinKey(p) === key ? { ...p, body: pin.body } : p)));
-      if (err instanceof ApiRequestError) {
-        setError(err.message);
-      } else {
-        setError(err instanceof Error ? err.message : "保存に失敗しました");
-      }
+      setError(formatWriteError(err, "保存に失敗しました"));
     } finally {
       setMutatingId(null);
     }
