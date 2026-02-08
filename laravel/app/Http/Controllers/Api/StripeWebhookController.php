@@ -29,6 +29,18 @@ class StripeWebhookController extends Controller
         $eventType = null;
         $eventData = null;
 
+        // Production MUST have webhook secret configured.
+        if (app()->environment('production') && (!is_string($secret) || $secret === '')) {
+            Log::critical('billing_webhook_secret_missing_in_production');
+
+            return ApiResponse::error(
+                'WEBHOOK_SECRET_MISSING',
+                'Stripe webhook secret is not configured. This is required in production.',
+                null,
+                500
+            );
+        }
+
         // Signature verification (when secret is configured).
         if (is_string($secret) && $secret !== '') {
             try {
@@ -47,6 +59,10 @@ class StripeWebhookController extends Controller
             $eventData = $event->data?->object ?? null;
         } else {
             // Local/dev: accept unsigned payload but keep idempotency & processing consistent.
+            Log::warning('billing_webhook_no_signature_verification', [
+                'env' => app()->environment(),
+                'ip' => $request->ip(),
+            ]);
             $data = $request->json()->all();
             $eventId = $data['id'] ?? null;
             $eventType = $data['type'] ?? null;
