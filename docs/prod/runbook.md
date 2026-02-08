@@ -126,6 +126,7 @@ stopwaitsecs=3600
 
 ```bash
 # API health
+# Endpoint added in PR 02
 curl -f https://osikatu.com/api/healthz
 
 # 期待レスポンス:

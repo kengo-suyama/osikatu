@@ -31,7 +31,10 @@ use App\Http\Controllers\Api\BillingDebugController;
 use App\Http\Controllers\Api\BillingCheckoutController;
 use App\Http\Controllers\Api\BillingPortalController;
 use App\Http\Controllers\Api\StripeWebhookController;
+use App\Http\Controllers\Api\HealthController;
 use Illuminate\Support\Facades\Route;
+
+Route::get('/healthz', HealthController::class);
 
 Route::get('/me', [MeController::class, 'show']);
 Route::post('/auth/session', [AuthController::class, 'session']);
