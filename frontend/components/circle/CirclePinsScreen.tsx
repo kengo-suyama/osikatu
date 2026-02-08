@@ -342,9 +342,11 @@ export default function CirclePinsScreen({ circleId }: { circleId: number }) {
                         href={parts.url}
                         target="_blank"
                         rel="noreferrer"
-                        className="mt-1 block truncate text-xs underline opacity-80 hover:opacity-100"
+                        className="mt-1 flex items-center gap-2 rounded-lg border border-border/60 bg-muted/20 px-3 py-2 text-xs hover:bg-muted/40 transition"
+                        data-testid="pin-url-preview"
                       >
-                        {parts.url}
+                        <span className="truncate font-medium">{(() => { try { return new URL(parts.url).hostname; } catch { return parts.url; } })()}</span>
+                        <span className="shrink-0 text-muted-foreground">↗</span>
                       </a>
                     ) : null}
                   </div>
