@@ -28,6 +28,7 @@ use App\Http\Controllers\Api\CircleSettlementExpenseController;
 use App\Http\Controllers\Api\CircleScheduleProposalController;
 use App\Http\Controllers\Api\SettlementController;
 use App\Http\Controllers\Api\BillingDebugController;
+use App\Http\Controllers\Api\BillingCheckoutController;
 use App\Http\Controllers\Api\StripeWebhookController;
 use Illuminate\Support\Facades\Route;
 
@@ -177,4 +178,5 @@ Route::post('/posts/{post}/ack', [PostController::class, 'ack']);
 
 // Billing
 Route::get('/billing/debug', [BillingDebugController::class, 'show']);
+Route::post('/billing/checkout', [BillingCheckoutController::class, 'create']);
 Route::post('/billing/webhook', [StripeWebhookController::class, 'handle']);
