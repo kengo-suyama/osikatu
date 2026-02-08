@@ -113,6 +113,7 @@ class NotificationController extends Controller
         return match ($value) {
             'user_schedule' => 'userSchedule',
             'circle_schedule' => 'circleSchedule',
+            'schedule_proposal' => 'scheduleProposal',
             default => $value,
         };
     }
