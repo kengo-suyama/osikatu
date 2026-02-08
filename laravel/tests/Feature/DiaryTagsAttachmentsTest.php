@@ -212,6 +212,47 @@ class DiaryTagsAttachmentsTest extends TestCase
         $this->assertEquals('image', $items[0]['attachments'][0]['fileType']);
     }
 
+    public function test_index_filter_by_has_photo(): void
+    {
+        $profile = $this->createProfile('device-hasphoto-001');
+        $oshi = Oshi::create([
+            'user_id' => $profile->user_id,
+            'name' => 'HasPhoto Oshi',
+        ]);
+
+        $withPhoto = Diary::create([
+            'user_id' => $profile->user_id,
+            'oshi_id' => $oshi->id,
+            'title' => 'With photo',
+            'content' => 'Has attachment',
+            'diary_date' => '2026-02-07',
+        ]);
+        Attachment::create([
+            'user_id' => $profile->user_id,
+            'related_type' => Diary::class,
+            'related_id' => $withPhoto->id,
+            'file_path' => 'diaries/with.jpg',
+            'file_type' => 'image',
+        ]);
+
+        Diary::create([
+            'user_id' => $profile->user_id,
+            'oshi_id' => $oshi->id,
+            'title' => 'No photo',
+            'content' => 'No attachment',
+            'diary_date' => '2026-02-06',
+        ]);
+
+        $response = $this->withHeaders(['X-Device-Id' => $profile->device_id])
+            ->getJson('/api/me/diaries?hasPhoto=true');
+
+        $response->assertStatus(200);
+        $items = $response->json('success.data');
+        $this->assertCount(1, $items);
+        $this->assertEquals('With photo', $items[0]['title']);
+        $this->assertNotEmpty($items[0]['attachments'] ?? []);
+    }
+
     public function test_show_returns_tags_and_attachments(): void
     {
         $profile = $this->createProfile('device-show-001');

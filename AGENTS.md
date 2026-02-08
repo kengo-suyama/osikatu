@@ -34,7 +34,10 @@ cd C:\laragon\www\osikatu\frontend
 npm install
 npm run dev
 # http://localhost:3000
-Backend (Laravel)
+```
+
+### Backend (Laravel)
+```powershell
 cd C:\laragon\www\osikatu\laravel
 composer install
 cp .env.example .env
@@ -43,11 +46,15 @@ php artisan migrate
 php artisan storage:link
 php artisan serve --port=8000
 # http://localhost:8000
-Environment variables (Frontend)
+```
+
+### Environment variables (Frontend)
 Create frontend/.env.local:
 
+```env
 NEXT_PUBLIC_DATA_SOURCE=local
 NEXT_PUBLIC_API_BASE_URL=http://localhost:8000
+```
 localStorage mode (MVP): NEXT_PUBLIC_DATA_SOURCE=local
 
 API mode (Laravel/MySQL): NEXT_PUBLIC_DATA_SOURCE=api
@@ -247,3 +254,4 @@ cd C:\laragon\www\osikatu
 git add AGENTS.md
 git commit -m "Add AGENTS rules"
 git push
+```

@@ -7,6 +7,7 @@ import MotionCard from "@/components/feed/MotionCard";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import {
   Toast,
@@ -75,9 +76,9 @@ export default function LogScreen() {
   const [searchInput, setSearchInput] = useState("");
   const [activeQuery, setActiveQuery] = useState("");
   const [activeTag, setActiveTag] = useState<string | null>(null);
+  const [hasPhotoOnly, setHasPhotoOnly] = useState(false);
   const [allTags, setAllTags] = useState<string[]>([]);
   const searchTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-
   const mergeDiariesById = (prev: DiaryDto[], incoming: DiaryDto[]) => {
 
     // Prevent overwriting freshly-created items when an older list response resolves later.
@@ -101,22 +102,24 @@ export default function LogScreen() {
 
     return out;
   };
-
   const collectTags = (items: DiaryDto[]) => {
     const tagSet = new Set<string>();
     for (const d of items) {
       if (d.tags) d.tags.forEach((t) => tagSet.add(t));
-    }
+      }
     return Array.from(tagSet).sort();
   };
 
   const fetchDiaries = useCallback(
-    async (q?: string, tag?: string) => {
+    async (q?: string, tag?: string, hasPhoto?: boolean) => {
       setLoadingDiaries(true);
       try {
-        const filters = q || tag ? { q: q || undefined, tag: tag || undefined } : undefined;
+        const filters =
+          q || tag || hasPhoto !== undefined
+            ? { q: q || undefined, tag: tag || undefined, hasPhoto }
+            : undefined;
         const items = await listDiaries(filters);
-        if (!q && !tag) {
+        if (!q && !tag && hasPhoto === undefined) {
           // Full load: replace & rebuild tag list
           setDiaries(items);
           setAllTags(collectTags(items));
@@ -132,7 +135,6 @@ export default function LogScreen() {
     },
     [],
   );
-
   useEffect(() => {
     setHydrated(true);
   }, []);
@@ -172,16 +174,17 @@ export default function LogScreen() {
   // Re-fetch when active filters change
   useEffect(() => {
     if (!apiMode) return;
-    fetchDiaries(activeQuery || undefined, activeTag || undefined);
-  }, [activeQuery, activeTag, apiMode, fetchDiaries]);
+    fetchDiaries(activeQuery || undefined, activeTag || undefined, hasPhotoOnly ? true : undefined);
+  }, [activeQuery, activeTag, hasPhotoOnly, apiMode, fetchDiaries]);
 
   const clearFilters = () => {
     setSearchInput("");
     setActiveQuery("");
     setActiveTag(null);
+    setHasPhotoOnly(false);
   };
 
-  const hasActiveFilter = activeQuery !== "" || activeTag !== null;
+  const hasActiveFilter = activeQuery !== "" || activeTag !== null || hasPhotoOnly;
 
   const showToast = (titleValue: string, descriptionValue?: string) => {
     setToastTitle(titleValue);
@@ -423,6 +426,7 @@ export default function LogScreen() {
                     accept="image/*"
                     multiple
                     onChange={handleLogImagesChange}
+                    data-testid="diary-photo-upload"
                     className="hidden"
                   />
                 </label>
@@ -477,12 +481,14 @@ export default function LogScreen() {
                   </div>
                 ) : null}
               </div>
-              <Input
-                placeholder="#現場 #開封 #配信"
-                value={tags}
-                onChange={(event) => setTags(event.target.value)}
-                data-testid="log-create-tags"
-              />
+              <div data-testid="diary-tag-input">
+                <Input
+                  placeholder="#現場 #開封 #配信"
+                  value={tags}
+                  onChange={(event) => setTags(event.target.value)}
+                  data-testid="log-create-tags"
+                />
+              </div>
               <label className="flex items-center gap-2 text-xs text-muted-foreground">
                 <input
                   type="checkbox"
@@ -549,6 +555,14 @@ export default function LogScreen() {
                 ))}
               </div>
             ) : null}
+            <div className="flex items-center justify-between rounded-xl border bg-white/5 px-3 py-2">
+              <div className="text-xs text-muted-foreground">写真ありのみ</div>
+              <Switch
+                checked={hasPhotoOnly}
+                onCheckedChange={setHasPhotoOnly}
+                data-testid="log-filter-hasphoto"
+              />
+            </div>
             {hasActiveFilter ? (
               <button
                 type="button"
@@ -561,7 +575,6 @@ export default function LogScreen() {
             ) : null}
           </div>
         ) : null}
-
         <div className="space-y-3">
           {!hydrated ? (
             <div className="py-4 text-center text-sm opacity-70">読み込み中…</div>

@@ -146,7 +146,8 @@ const getKnownKillableReason = ({ port, name, commandLine }) => {
     // Only kill when the path is clearly inside THIS repo.
     const isLaravelServeInRepo =
       cmdPathNorm.includes(laravelRootNorm) &&
-      cmdPathNorm.includes("\\vendor\\laravel\\framework\\src\\illuminate\\foundation\\resources\\server.php");
+      cmdPathNorm.includes("\\vendor\\laravel\\framework\\src\\illuminate\\foundation\\") &&
+      cmdPathNorm.includes("\\resources\\server.php");
     if (isLaravelServeInRepo) return "laravel-artisan-serve-in-repo";
 
     // `php artisan serve` without an absolute path is not safe to assume it's this repo.
