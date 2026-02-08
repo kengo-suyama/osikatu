@@ -24,7 +24,7 @@ export default function TermsPage() {
           </section>
           <section>
             <div className="text-sm font-semibold text-foreground">第4条 免責</div>
-            <p>本サービスは現状有姇で提供されます。運営者はデータの消失等について責任を負いません。</p>
+            <p>本サービスは現状有姿で提供されます。運営者はデータの消失等について責任を負いません。</p>
           </section>
           <section>
             <div className="text-sm font-semibold text-foreground">第5条 改定</div>
