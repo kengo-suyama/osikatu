@@ -70,12 +70,21 @@ export const circleSettlementExpenseRepo = {
 
   async voidExpense(
     circleId: number,
-    expenseId: number
-  ): Promise<{ voided: CircleSettlementExpenseDto }> {
-    return apiSend<{ voided: CircleSettlementExpenseDto }>(
+    expenseId: number,
+    replacePayload?: {
+      title: string;
+      amountYen: number;
+      splitType: "equal" | "fixed";
+      payerMemberId: number;
+      occurredOn?: string;
+      participants?: number[];
+      shares?: { memberId: number; shareYen: number }[];
+    }
+  ): Promise<{ voided: CircleSettlementExpenseDto; replacement?: CircleSettlementExpenseDto }> {
+    return apiSend<{ voided: CircleSettlementExpenseDto; replacement?: CircleSettlementExpenseDto }>(
       `/api/circles/${circleId}/settlements/expenses/${expenseId}/void`,
       "POST",
-      {},
+      replacePayload ? { replacePayload } : {},
       { headers: { "X-Device-Id": getDeviceId() } }
     );
   },

@@ -70,26 +70,6 @@ curl -H "X-Device-Id: my-device" \
   "https://api.example.com/api/circles/42/logs?request_id=550e8400-e29b-41d4-a716-446655440000"
 ```
 
-## Query Parameters
-
-`GET /api/circles/{circle}/logs` and `GET /api/me/logs` accept:
-
-| Param | Type | Description |
-|-------|------|-------------|
-| `limit` | int | Max items per page (1-50, default 20) |
-| `from` | datetime | Filter: created_at >= from |
-| `to` | datetime | Filter: created_at <= to |
-| `actionPrefix` | string | Filter: action starts with prefix |
-| `cursor` | string | Cursor for pagination |
-| `request_id` | string | Filter: meta->request_id matches exactly |
-
-### Example: filter by request_id
-
-```bash
-curl -H "X-Device-Id: my-device" \
-  "https://api.example.com/api/circles/42/logs?request_id=550e8400-e29b-41d4-a716-446655440000"
-```
-
 ## Tracing a Request
 
 1. Get `X-Request-Id` from API response header
