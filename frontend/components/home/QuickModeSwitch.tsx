@@ -104,9 +104,10 @@ export default function QuickModeSwitch() {
   };
 
   return (
-    <div className="flex flex-wrap items-center gap-2">
+    <div data-testid="quick-mode-switch" className="flex flex-wrap items-center gap-2">
       <div className="flex overflow-hidden rounded-xl border border-white/15">
         <button
+          data-testid="quick-mode-personal"
           type="button"
           onClick={goPersonal}
           className={`px-3 py-2 text-sm ${
@@ -116,6 +117,7 @@ export default function QuickModeSwitch() {
           個人
         </button>
         <button
+          data-testid="quick-mode-circle"
           type="button"
           onClick={() => {
             if (circles.length === 1) {
@@ -153,6 +155,7 @@ export default function QuickModeSwitch() {
 
       {hasCircles ? (
         <button
+          data-testid="quick-mode-go"
           type="button"
           onClick={() => goCircle()}
           className="rounded-xl border border-white/15 px-3 py-2 text-sm hover:opacity-90"
@@ -161,6 +164,7 @@ export default function QuickModeSwitch() {
         </button>
       ) : (
         <button
+          data-testid="quick-mode-explore"
           type="button"
           onClick={() => router.push("/circles")}
           className="rounded-xl border border-white/15 px-3 py-2 text-sm hover:opacity-90"
