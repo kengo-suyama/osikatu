@@ -167,6 +167,12 @@ test.describe("log features: photos + tags + search filters", () => {
         timeout: 15_000,
       });
 
+      const activeFilters = page.locator('[data-testid="log-filter-active"]');
+      await expect(activeFilters).toBeVisible({ timeout: 5_000 });
+      await expect(activeFilters).toContainText(/No Photo/i);
+      await expect(activeFilters).toContainText(/#photo/i);
+      await expect(activeFilters).toContainText(/写真あり/);
+
       await page.locator('[data-testid="log-search-clear"]').click();
       await expect(cards.filter({ hasText: withPhotoTitle }).first()).toBeVisible({
         timeout: 15_000,
