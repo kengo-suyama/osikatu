@@ -170,6 +170,26 @@ const errorBody = (code: string, message: string) =>
   JSON.stringify({ error: { code, message } });
 ```
 
+## 9. E2E Stress とレポート（flakyトップを可視化）
+
+目的: `e2e:stress` を複数回回した結果から「落ちやすい spec / エラー断片」を集計して優先度付けする。
+
+PowerShell 例:
+
+```powershell
+cd C:\laragon\www\osikatu\frontend
+
+# 20回回す（ログを保存）
+npm run e2e:stress -- 20 2>&1 | Tee-Object -FilePath logs\e2e-stress.log
+
+# 集計レポートを生成（Markdown）
+npm run e2e:stress:report -- logs\e2e-stress.log logs\e2e-stress-report.md
+```
+
+出力:
+- `frontend/logs/e2e-stress.log`（生ログ）
+- `frontend/logs/e2e-stress-report.md`（集計）
+
 ## Related Docs
 
 - Windows E2E 実行手順: `docs/CODEX_LONG_TASK_WINDOWS_E2E.md`
