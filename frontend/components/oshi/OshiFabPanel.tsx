@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { motion } from "framer-motion";
 import { Pencil, User } from "lucide-react";
 
@@ -38,7 +38,8 @@ export default function OshiFabPanel({
   const bottomOffset = 80;
   const positionKey = "osikatu:fab:position";
 
-  const clampPosition = (x: number, y: number) => {
+  const clampPosition = useCallback(
+    (x: number, y: number) => {
     if (typeof window === "undefined") return { x, y };
     const maxX = Math.max(margin, window.innerWidth - size - margin);
     const maxY = Math.max(margin, window.innerHeight - size - margin);
@@ -46,9 +47,11 @@ export default function OshiFabPanel({
       x: Math.min(maxX, Math.max(margin, x)),
       y: Math.min(maxY, Math.max(margin, y)),
     };
-  };
+    },
+    [margin, size]
+  );
 
-  const readStoredPosition = () => {
+  const readStoredPosition = useCallback(() => {
     if (typeof window === "undefined") return null;
     try {
       const raw = window.localStorage.getItem(positionKey);
@@ -59,12 +62,15 @@ export default function OshiFabPanel({
     } catch {
       return null;
     }
-  };
+  }, [clampPosition, positionKey]);
 
-  const savePosition = (next: { x: number; y: number }) => {
+  const savePosition = useCallback(
+    (next: { x: number; y: number }) => {
     if (typeof window === "undefined") return;
     window.localStorage.setItem(positionKey, JSON.stringify(next));
-  };
+    },
+    [positionKey]
+  );
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -90,7 +96,7 @@ export default function OshiFabPanel({
 
     window.addEventListener("resize", handleResize);
     return () => window.removeEventListener("resize", handleResize);
-  }, []);
+  }, [bottomOffset, clampPosition, margin, readStoredPosition, savePosition, size]);
 
   return (
     <>

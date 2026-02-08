@@ -171,6 +171,9 @@ export default function HomeScreen() {
   useEffect(() => {
     eventsRepo.track(ANALYTICS_EVENTS.APP_OPEN, pathname);
     eventsRepo.track(ANALYTICS_EVENTS.NAV_HOME, pathname);
+  }, [pathname]);
+
+  useEffect(() => {
     const storedLater = loadJson<string[]>(LATER_KEY);
     if (storedLater) setLaterIds(storedLater);
 

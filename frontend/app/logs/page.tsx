@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Trash2 } from "lucide-react";
 
 import type { OperationLogDto } from "@/lib/types";
@@ -62,7 +62,7 @@ export default function LogsPage() {
     }
   };
 
-  const loadMore = async () => {
+  const loadMore = useCallback(async () => {
     if (loading || done || !cursor) return;
     setLoading(true);
     try {
@@ -73,7 +73,7 @@ export default function LogsPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [cursor, done, from, loading]);
 
   const showToast = (title: string, description?: string) => {
     setToastTitle(title);
@@ -120,7 +120,7 @@ export default function LogsPage() {
 
     io.observe(el);
     return () => io.disconnect();
-  }, [cursor, done, loading, from]);
+  }, [loadMore]);
 
   return (
     <ToastProvider>

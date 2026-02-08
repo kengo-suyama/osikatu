@@ -252,7 +252,7 @@ export function DailyLucky({ compact = false }: { compact?: boolean }) {
       rotate: Math.random() * 360,
       color: colors[index % colors.length],
     }));
-  }, [showCelebration, celebrationKey]);
+  }, [showCelebration, titleState.rarity]);
 
   useEffect(() => {
     try {
@@ -290,7 +290,7 @@ export function DailyLucky({ compact = false }: { compact?: boolean }) {
     return () => {
       canceled = true;
     };
-  }, []);
+  }, [dateKey]);
 
   useEffect(() => {
     if (!apiMode) return;
