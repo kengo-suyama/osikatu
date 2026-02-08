@@ -1,5 +1,15 @@
 # Unstable Checkout Playbook (Windows / Laragon)
 
+> **TL;DR — 再発したらこの3コマンドだけでOK:**
+>
+> ```powershell
+> pwsh -File scripts/capture-git-parent.ps1 -Start -PollMs 20   # 1) 監視開始
+> pwsh -File scripts/snapshot-proc.ps1                          # 2) スナップショット
+> pwsh -File scripts/capture-git-parent.ps1 -Stop               # 3) 監視停止
+> ```
+>
+> 出力: `_evidence/git_watch_*.jsonl` → `parentName` で犯人特定。詳細は下記。
+
 目的: 「勝手に `git pull --rebase` / `checkout` が走る」「VSCodeが落ちる」などの不安定要因が出たときに、被害を最小化しつつ証拠を揃えて切り分けを進める。
 
 ## 0) 最優先: main を基準点に整流化
