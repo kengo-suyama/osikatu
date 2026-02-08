@@ -34,6 +34,14 @@ const normalizeMe = (value: MeDto): MeDto => {
   const plan = value.plan ?? "free";
   const planStatus = value.planStatus ?? "active";
   const trialEndsAt = value.trialEndsAt ?? null;
+  const deviceId = value.deviceId ?? getDeviceId();
+  const userId =
+    typeof value.userId === "number"
+      ? value.userId
+      : value.userId === null
+        ? null
+        : value.id;
+  const role = value.role ?? "user";
   const themeId = value.ui?.themeId ?? getStoredThemeId();
   const specialBgEnabled =
     typeof value.ui?.specialBgEnabled === "boolean"
@@ -41,6 +49,9 @@ const normalizeMe = (value: MeDto): MeDto => {
       : getStoredSpecialBgEnabled();
   return {
     ...value,
+    deviceId,
+    userId,
+    role,
     plan,
     planStatus,
     trialEndsAt,
@@ -56,6 +67,9 @@ const normalizeMe = (value: MeDto): MeDto => {
 const defaultMe = (): MeDto => {
   const seed: MeDto = {
     id: 1,
+    userId: 1,
+    deviceId: getDeviceId(),
+    role: "user",
     name: "Me",
     email: "me@example.com",
     plan: "free",
