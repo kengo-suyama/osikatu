@@ -3,6 +3,7 @@ import type { ReactNode } from "react";
 import AppHeader from "@/components/layout/AppHeader";
 import BottomNav from "@/components/layout/BottomNav";
 import OnboardingGate from "@/components/onboarding/OnboardingGate";
+import Link from "next/link";
 
 export default function AppShell({ children }: { children: ReactNode }) {
   return (
@@ -12,6 +13,22 @@ export default function AppShell({ children }: { children: ReactNode }) {
         <OnboardingGate />
         <AppHeader />
         <main className="flex-1 px-4 pb-6 pt-4">{children}</main>
+        <footer className="px-4 pb-6 text-xs text-muted-foreground">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div className="flex flex-wrap gap-3">
+              <Link href="/terms" className="underline underline-offset-4 hover:text-foreground">
+                利用規約
+              </Link>
+              <Link href="/privacy" className="underline underline-offset-4 hover:text-foreground">
+                プライバシー
+              </Link>
+              <Link href="/contact" className="underline underline-offset-4 hover:text-foreground">
+                お問い合わせ
+              </Link>
+            </div>
+            <div className="opacity-70">osikatu</div>
+          </div>
+        </footer>
       </div>
       <BottomNav />
     </div>
