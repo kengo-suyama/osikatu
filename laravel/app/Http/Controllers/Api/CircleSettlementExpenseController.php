@@ -576,7 +576,9 @@ class CircleSettlementExpenseController extends Controller
         }
 
         if (!PlanGate::circleHasPlus($circle)) {
-            return ApiResponse::error('PLAN_REQUIRED', 'Plus plan required for settlement expenses.', null, 403);
+            return ApiResponse::error('PLAN_REQUIRED', 'Plus plan required for settlement expenses.', [
+                'requiredPlan' => 'plus',
+            ], 402);
         }
 
         $meProfile = MeProfileResolver::resolve($deviceId);

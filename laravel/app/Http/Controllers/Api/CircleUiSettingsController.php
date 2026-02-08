@@ -26,7 +26,9 @@ class CircleUiSettingsController extends Controller
         }
 
         if (!PlanGate::hasPlus($user)) {
-            return ApiResponse::error('PLAN_REQUIRED_PLUS', 'Plus plan required.', null, 403);
+            return ApiResponse::error('PLAN_REQUIRED', 'Plus plan required.', [
+                'requiredPlan' => 'plus',
+            ], 402);
         }
 
         $circleModel = Circle::query()->where('id', $circle)->first();

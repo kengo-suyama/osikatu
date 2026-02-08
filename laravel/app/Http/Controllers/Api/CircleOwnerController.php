@@ -39,7 +39,9 @@ class CircleOwnerController extends Controller
         }
 
         if (!PlanGate::circleHasPlus($circleModel)) {
-            return ApiResponse::error('PLAN_REQUIRED', 'Plus plan required for owner dashboard.', null, 403);
+            return ApiResponse::error('PLAN_REQUIRED', 'Plus plan required for owner dashboard.', [
+                'requiredPlan' => 'plus',
+            ], 402);
         }
 
         $meProfile = MeProfileResolver::resolve($deviceId);
@@ -198,7 +200,9 @@ class CircleOwnerController extends Controller
         }
 
         if (!PlanGate::circleHasPlus($circleModel)) {
-            return ApiResponse::error('PLAN_REQUIRED', 'Plus plan required for owner dashboard.', null, 403);
+            return ApiResponse::error('PLAN_REQUIRED', 'Plus plan required for owner dashboard.', [
+                'requiredPlan' => 'plus',
+            ], 402);
         }
 
         $meProfile = MeProfileResolver::resolve($deviceId);

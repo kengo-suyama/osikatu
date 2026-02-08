@@ -70,7 +70,9 @@ class CircleController extends Controller
         }
 
         if ($user->plan !== 'plus' && !PlanGate::isTrialActive($user)) {
-            return ApiResponse::error('PLAN_REQUIRED', 'Plus plan required to create circles.', null, 403);
+            return ApiResponse::error('PLAN_REQUIRED', 'Plus plan required to create circles.', [
+                'requiredPlan' => 'plus',
+            ], 402);
         }
 
         $rawTags = $data['oshiTags'] ?? [];
