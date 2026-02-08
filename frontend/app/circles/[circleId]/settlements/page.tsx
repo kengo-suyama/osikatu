@@ -111,6 +111,7 @@ export default function CircleSettlementsPage({
   const [ceOccurredOn, setCeOccurredOn] = useState(today);
   const [ceParticipants, setCeParticipants] = useState<number[]>([]);
   const [ceLoading, setCeLoading] = useState(false);
+  const [ceShares, setCeShares] = useState<Record<number, string>>({});
 
   const [showVoidReplaceDialog, setShowVoidReplaceDialog] = useState(false);
   const [vrTargetExpenseId, setVrTargetExpenseId] = useState<number | null>(null);
@@ -120,6 +121,27 @@ export default function CircleSettlementsPage({
   const [vrPayerMemberId, setVrPayerMemberId] = useState<number | null>(null);
   const [vrParticipants, setVrParticipants] = useState<number[]>([]);
   const [vrLoading, setVrLoading] = useState(false);
+  const [vrShares, setVrShares] = useState<Record<number, string>>({});
+
+  const ceTotal = Number(ceAmountYen) || 0;
+  const ceFixedSum = Object.values(ceShares).reduce((s, v) => s + (Number(v) || 0), 0);
+  const ceCreateError =
+    ceSplitType === "fixed" && ceAmountYen && ceFixedSum !== ceTotal
+      ? "個別指定の合計が金額と一致しません"
+      : null;
+  const ceCreateDisabled =
+    ceLoading || !ceTitle.trim() || !ceAmountYen || ceTotal <= 0 || !cePayerMemberId ||
+    (ceSplitType === "fixed" && ceFixedSum !== ceTotal);
+
+  const vrTotal = Number(vrAmountYen) || 0;
+  const vrFixedSum = Object.values(vrShares).reduce((s, v) => s + (Number(v) || 0), 0);
+  const vrCreateError =
+    vrSplitType === "fixed" && vrAmountYen && vrFixedSum !== vrTotal
+      ? "個別指定の合計が金額と一致しません"
+      : null;
+  const vrCreateDisabled =
+    vrLoading || !vrTitle.trim() || !vrAmountYen || vrTotal <= 0 || !vrPayerMemberId ||
+    (vrSplitType === "fixed" && vrFixedSum !== vrTotal);
 
   const canUseSettlements =
     plan === "plus" && (circleRole === "owner" || circleRole === "admin");
@@ -341,6 +363,7 @@ export default function CircleSettlementsPage({
     setCePayerMemberId(members[0]?.id ?? null);
     setCeOccurredOn(today);
     setCeParticipants(members.map((m) => m.id));
+    setCeShares(Object.fromEntries(members.map((m) => [m.id, ""])));
     setShowCreateExpenseDialog(true);
   };
 
@@ -355,6 +378,11 @@ export default function CircleSettlementsPage({
         payerMemberId: cePayerMemberId,
         occurredOn: ceOccurredOn || undefined,
         participants: ceSplitType === "equal" ? ceParticipants : undefined,
+        shares: ceSplitType === "fixed"
+          ? Object.entries(ceShares)
+              .filter(([, v]) => Number(v) > 0)
+              .map(([k, v]) => ({ memberId: Number(k), shareYen: Number(v) }))
+          : undefined,
       });
       setShowCreateExpenseDialog(false);
       showToast("登録しました", "立替を登録しました。");
@@ -389,6 +417,7 @@ export default function CircleSettlementsPage({
     setVrSplitType(expense.splitType === "fixed" ? "fixed" : "equal");
     setVrPayerMemberId(expense.payerMemberId);
     setVrParticipants(expense.shares.map((s) => s.memberId));
+    setVrShares(Object.fromEntries(expense.shares.map((s) => [s.memberId, String(s.shareYen)])));
     setShowVoidReplaceDialog(true);
   };
 
@@ -403,6 +432,11 @@ export default function CircleSettlementsPage({
         payerMemberId: vrPayerMemberId,
         occurredOn: today,
         participants: vrSplitType === "equal" ? vrParticipants : undefined,
+        shares: vrSplitType === "fixed"
+          ? Object.entries(vrShares)
+              .filter(([, v]) => Number(v) > 0)
+              .map(([k, v]) => ({ memberId: Number(k), shareYen: Number(v) }))
+          : undefined,
       });
       setShowVoidReplaceDialog(false);
       showToast("置換しました", "立替を取消して新しい立替に置換しました。");
@@ -945,6 +979,30 @@ export default function CircleSettlementsPage({
                 </div>
               </div>
             )}
+            {ceSplitType === "fixed" && (
+              <div className="grid gap-1">
+                <div className="text-xs text-muted-foreground">個別金額</div>
+                <div className="grid gap-2">
+                  {members.map((m) => (
+                    <div key={m.id} className="flex items-center gap-2">
+                      <span className="w-16 text-xs truncate">{m.nickname ?? m.initial ?? ("#" + m.id)}</span>
+                      <Input
+                        type="number"
+                        min={0}
+                        inputMode="numeric"
+                        placeholder="0"
+                        value={ceShares[m.id] ?? ""}
+                        onChange={(e) => setCeShares((prev) => ({ ...prev, [m.id]: e.target.value }))}
+                        className="h-8 text-xs"
+                      />
+                    </div>
+                  ))}
+                </div>
+                <div className="text-xs text-muted-foreground">
+                  合計: {ceFixedSum}円 / {ceTotal}円
+                </div>
+              </div>
+            )}
             <div className="grid gap-1">
               <div className="text-xs text-muted-foreground">日付</div>
               <Input
@@ -953,10 +1011,15 @@ export default function CircleSettlementsPage({
                 onChange={(e) => setCeOccurredOn(e.target.value)}
               />
             </div>
+            {ceCreateError && (
+              <div className="text-xs text-rose-500" data-testid="settlement-create-error">
+                {ceCreateError}
+              </div>
+            )}
             <Button
               size="sm"
               onClick={handleCreateExpense}
-              disabled={ceLoading}
+              disabled={ceCreateDisabled}
               data-testid="settlement-create-submit"
             >
               登録
@@ -1068,10 +1131,39 @@ export default function CircleSettlementsPage({
                 </div>
               </div>
             )}
+            {vrSplitType === "fixed" && (
+              <div className="grid gap-1">
+                <div className="text-xs text-muted-foreground">個別金額</div>
+                <div className="grid gap-2">
+                  {members.map((m) => (
+                    <div key={m.id} className="flex items-center gap-2">
+                      <span className="w-16 text-xs truncate">{m.nickname ?? m.initial ?? ("#" + m.id)}</span>
+                      <Input
+                        type="number"
+                        min={0}
+                        inputMode="numeric"
+                        placeholder="0"
+                        value={vrShares[m.id] ?? ""}
+                        onChange={(e) => setVrShares((prev) => ({ ...prev, [m.id]: e.target.value }))}
+                        className="h-8 text-xs"
+                      />
+                    </div>
+                  ))}
+                </div>
+                <div className="text-xs text-muted-foreground">
+                  合計: {vrFixedSum}円 / {vrTotal}円
+                </div>
+              </div>
+            )}
+            {vrCreateError && (
+              <div className="text-xs text-rose-500" data-testid="settlement-void-replace-error">
+                {vrCreateError}
+              </div>
+            )}
             <Button
               size="sm"
               onClick={handleVoidReplace}
-              disabled={vrLoading}
+              disabled={vrCreateDisabled}
               data-testid="settlement-void-replace-submit"
             >
               取消して置換
