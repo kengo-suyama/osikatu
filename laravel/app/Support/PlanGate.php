@@ -35,6 +35,10 @@ class PlanGate
 
     public static function hasPlus(User $user): bool
     {
+        if (SubscriptionResolver::hasPlus($user)) {
+            return true;
+        }
+
         return ($user->plan ?? 'free') === 'plus';
     }
 

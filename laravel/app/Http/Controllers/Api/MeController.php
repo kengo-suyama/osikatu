@@ -10,6 +10,7 @@ use App\Support\ApiResponse;
 use App\Support\CurrentUser;
 use App\Support\ImageUploadService;
 use App\Support\PlanGate;
+use App\Support\SubscriptionResolver;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Validator;
@@ -33,6 +34,8 @@ class MeController extends Controller
             $trialRemainingDays = max(0, $trialRemainingDays);
         }
 
+        $plan = SubscriptionResolver::planForApi($user);
+
         return ApiResponse::success([
             'id' => $user->id,
             'userId' => $isGuest ? null : $user->id,
@@ -40,9 +43,9 @@ class MeController extends Controller
             'role' => $isGuest ? 'guest' : 'user',
             'name' => $user->name,
             'email' => $user->email,
-            'plan' => $user->plan ?? 'free',
+            'plan' => $plan,
             'planStatus' => $user->plan_status ?? 'active',
-            'effectivePlan' => PlanGate::effectiveUserPlan($user),
+            'effectivePlan' => $plan,
             'trialEndsAt' => $user->trial_ends_at?->toIso8601String(),
             'trialActive' => $trialActive,
             'trialRemainingDays' => $trialRemainingDays,
