@@ -124,13 +124,8 @@ export default function CircleChatScreen({ circleId }: { circleId: number }) {
   }, [circleId, messages]);
 
   useEffect(() => {
-    if (circle?.ui) {
-      setSpecialBgEnabled(Boolean(circle.ui.specialBgEnabled));
-      setCircleThemeId(circle.ui.circleThemeId ?? null);
-    } else {
-      setSpecialBgEnabled(false);
-      setCircleThemeId(null);
-    }
+    setSpecialBgEnabled(Boolean(circle?.ui?.specialBgEnabled));
+    setCircleThemeId(circle?.ui?.circleThemeId ?? null);
   }, [circle?.ui?.circleThemeId, circle?.ui?.specialBgEnabled]);
 
   useEffect(() => {

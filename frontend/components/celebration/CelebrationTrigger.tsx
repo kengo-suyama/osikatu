@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import CelebrationLayer from "@/components/celebration/CelebrationLayer";
 import { Button } from "@/components/ui/button";
@@ -75,19 +75,22 @@ export default function CelebrationTrigger({
     });
   }, [prefs, oshiName, oshiBirthday, userBirthday, anniversaries]);
 
-  const triggerCelebration = (reason: "auto" | "manual") => {
-    if (!theme || !prefs?.enabled) return;
-    setOpen(true);
-    if (timerRef.current) {
-      window.clearTimeout(timerRef.current);
-    }
-    const duration =
-      CELEBRATION_DURATION_MS[theme.intensity] + CELEBRATION_AFTERGLOW_MS;
-    timerRef.current = window.setTimeout(() => setOpen(false), duration);
-    if (reason === "auto" && prefs.muteAfterShown) {
-      markCelebrationShown(theme.onceKey);
-    }
-  };
+  const triggerCelebration = useCallback(
+    (reason: "auto" | "manual") => {
+      if (!theme || !prefs?.enabled) return;
+      setOpen(true);
+      if (timerRef.current) {
+        window.clearTimeout(timerRef.current);
+      }
+      const duration =
+        CELEBRATION_DURATION_MS[theme.intensity] + CELEBRATION_AFTERGLOW_MS;
+      timerRef.current = window.setTimeout(() => setOpen(false), duration);
+      if (reason === "auto" && prefs.muteAfterShown) {
+        markCelebrationShown(theme.onceKey);
+      }
+    },
+    [prefs?.enabled, prefs?.muteAfterShown, theme]
+  );
 
   useEffect(() => {
     if (!theme || !prefs?.enabled) return;
@@ -95,7 +98,7 @@ export default function CelebrationTrigger({
     if (lastAutoKeyRef.current === theme.onceKey) return;
     lastAutoKeyRef.current = theme.onceKey;
     triggerCelebration("auto");
-  }, [theme, prefs]);
+  }, [theme, prefs, triggerCelebration]);
 
   useEffect(() => {
     return () => {
