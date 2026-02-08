@@ -122,12 +122,18 @@ class PinWriteService
     ): CirclePin {
         $parsed = $this->extractTitleAndUrl($body);
 
+        $maxSort = CirclePin::query()
+            ->where('circle_id', $circleId)
+            ->max('sort_order');
+        $nextSort = ($maxSort ?? 0) + 1;
+
         return CirclePin::create([
             'circle_id' => $circleId,
             'created_by_member_id' => $member->id,
             'title' => $parsed['title'],
             'url' => $parsed['url'],
             'body' => $body,
+            'sort_order' => $nextSort,
             'pinned_at' => now(),
         ]);
     }

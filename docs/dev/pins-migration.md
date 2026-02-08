@@ -26,14 +26,17 @@
   - role `owner/admin` は write 可能
   - 上限は `free=3`, `plus(owner/admin)=10`（APIで強制）
 
-## 並び順（暫定決定）
+## 並び順（確定）
 
 `GET /api/circles/{circle}/pins` の並び:
-1) `sortOrder`（昇順、`null` は最後）
+1) `sortOrder`（降順、`null` は最後）— 新しいピンが上
 2) `pinnedAt`（降順）
 3) `id`（降順）
 
 UI 側はAPIの順序を尊重する（クライアント側で再ソートしない）。
+
+v2 create 時に `sort_order = max(sort_order) + 1` を自動採番する。
+既存の null 行は `BackfillCirclePins::backfillSortOrder()` で埋める（idempotent）。
 
 ## チェックリスト（暫定）
 
