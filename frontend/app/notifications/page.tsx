@@ -126,6 +126,7 @@ export default function NotificationsPage() {
                 key={item.id}
                 type="button"
                 onClick={() => handleClick(item)}
+                data-testid="notification-item"
                 className={cn(
                   "w-full rounded-2xl border p-4 text-left transition",
                   item.readAt
@@ -135,8 +136,11 @@ export default function NotificationsPage() {
               >
                 <div className="flex items-start justify-between gap-2">
                   <div>
-                    <div className="text-sm font-semibold">{item.title}</div>
+                    <div className="text-sm font-semibold" data-testid="notification-title">{item.title}</div>
                     <div className="text-xs text-muted-foreground">{item.body}</div>
+                    {item.sourceType && (
+                      <div className="mt-1 text-[10px] text-muted-foreground/70" data-testid="notification-type">{item.sourceType}</div>
+                    )}
                   </div>
                   {!item.readAt ? (
                     <span className="rounded-full bg-emerald-500/20 px-2 py-0.5 text-[10px] text-emerald-700">
@@ -144,8 +148,11 @@ export default function NotificationsPage() {
                     </span>
                   ) : null}
                 </div>
-                <div className="mt-2 text-xs text-muted-foreground">
-                  {formatTime(item.notifyAt || item.createdAt)}
+                <div className="mt-2 flex items-center justify-between text-xs text-muted-foreground">
+                  <span>{formatTime(item.notifyAt || item.createdAt)}</span>
+                  {item.linkUrl && (
+                    <span className="text-[10px] underline opacity-60" data-testid="notification-open">開く</span>
+                  )}
                 </div>
               </button>
             ))}
