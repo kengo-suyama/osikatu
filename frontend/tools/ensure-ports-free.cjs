@@ -119,24 +119,21 @@ const isKnownKillableListener = ({ port, name, commandLine }) => {
       (cmd.includes("--port=8001") || cmd.includes("--port 8001")) &&
       (cmd.includes("--host=127.0.0.1") || cmd.includes("--host 127.0.0.1"));
 
-    // Match Laravel's resources/server.php only when called via artisan serve (which we validate above).
-    // Direct invocations of `php resources/server.php` are NOT matched because we can't validate
-    // their host binding. This is intentional to avoid terminating network-exposed servers.
-    // If you need to auto-kill direct invocations, add explicit host validation here.
-    const isLaravelServerPhp = false; // Disabled: no host validation available for direct invocations
-
+    // Note: Direct invocations of `php resources/server.php` are intentionally NOT matched
+    // because we cannot validate their host binding. Only `php artisan serve` with explicit
+    // --host=127.0.0.1 is auto-terminated (validated above as isArtisanServe).
     // Only match PHP built-in server explicitly bound to localhost to avoid terminating
     // network-accessible servers (e.g., `php -S 0.0.0.0:8001` or `php -S 192.168.1.100:8001`)
     const isPhpBuiltInServer = cmd.includes(" -s ") && cmd.includes("127.0.0.1:8001");
 
-    return isArtisanServe || isLaravelServerPhp || isPhpBuiltInServer;
+    return isArtisanServe || isPhpBuiltInServer;
   }
 
   if (port === 3103 && n === "node.exe") {
     // Only match Next.js dev server without explicit non-localhost host binding
     // to avoid terminating intentionally network-exposed servers.
     // Check for explicit network-exposed binding like --host 0.0.0.0, --host ::, or --host <IP>
-    const hostMatch = cmd.match(/(?:--host|-h)[= ]([^\s]+)/);
+    const hostMatch = cmd.match(/(?:--host|-h)[=\s]([^\s]+)/);
     const hostValue = hostMatch ? hostMatch[1].toLowerCase() : null;
     
     const bindsToNonLocalhost = 
@@ -198,7 +195,9 @@ const tryFreePortWindows = async (port) => {
 
   if (!killedAny) return { port, freed: false, details };
 
-  for (let i = 0; i < 20; i += 1) {
+  // Wait for the port to become available after terminating processes.
+  // Process termination on Windows is typically immediate, so check up to 10 times (2.5 seconds total).
+  for (let i = 0; i < 10; i += 1) {
     const check = await checkPort(port);
     if (check.free) return { port, freed: true, details };
     await sleep(250);
