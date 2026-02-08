@@ -244,7 +244,7 @@ export default function CircleSettlementsPage({
   return (
     <ToastProvider>
       <div className="mx-auto max-w-xl space-y-4 px-4 py-6">
-        <div>
+        <div data-testid="settlement-page-header">
           <div className="text-lg font-semibold">割り勘（精算）</div>
           <div className="mt-1 text-xs text-muted-foreground">
             PayPay IDなどの個人情報は保存しません。
@@ -264,7 +264,7 @@ export default function CircleSettlementsPage({
             Plusのオーナー/管理者のみご利用いただけます。
           </Card>
         ) : (
-          <Card className="rounded-2xl border p-4 shadow-sm">
+          <Card className="rounded-2xl border p-4 shadow-sm" data-testid="settlement-create-form">
             <div className="text-sm font-semibold text-muted-foreground">立替登録</div>
             <div className="mt-3 grid gap-3">
               <div className="grid gap-2">
@@ -328,6 +328,7 @@ export default function CircleSettlementsPage({
                 size="sm"
                 onClick={handleCreate}
                 disabled={actionLoading}
+                data-testid="settlement-create-submit"
               >
                 精算を登録
               </Button>
@@ -335,7 +336,7 @@ export default function CircleSettlementsPage({
           </Card>
         )}
 
-        <Card className="rounded-2xl border p-4 shadow-sm">
+        <Card className="rounded-2xl border p-4 shadow-sm" data-testid="settlement-results">
           <div className="flex items-center justify-between">
             <div className="text-sm font-semibold text-muted-foreground">精算結果</div>
             {settlements.length ? (
@@ -349,6 +350,7 @@ export default function CircleSettlementsPage({
                 <button
                   key={item.id}
                   type="button"
+                  data-testid={`settlement-item-${item.id}`}
                   className={cn(
                     "w-full rounded-xl border border-border/60 px-3 py-2 text-left text-sm",
                     activeSettlement?.id === item.id && "bg-muted/40"
