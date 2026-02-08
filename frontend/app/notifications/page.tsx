@@ -100,6 +100,43 @@ export default function NotificationsPage() {
     [items]
   );
 
+  const formatSourceType = (sourceType: string | null): string | null => {
+    if (!sourceType) return null;
+    const map: Record<string, string> = {
+      scheduleProposal: "予定提案",
+      userSchedule: "個人予定",
+      circleSchedule: "サークル予定",
+    };
+    return map[sourceType] ?? sourceType;
+  };
+
+  const dateLabel = (isoStr: string | null): string => {
+    if (!isoStr) return "";
+    const d = new Date(isoStr);
+    const now = new Date();
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const target = new Date(d.getFullYear(), d.getMonth(), d.getDate());
+    const diff = (today.getTime() - target.getTime()) / 86400000;
+    if (diff === 0) return "今日";
+    if (diff === 1) return "昨日";
+    return `${d.getMonth() + 1}月${d.getDate()}日`;
+  };
+
+  const grouped = useMemo(() => {
+    const groups: { label: string; items: NotificationDto[] }[] = [];
+    let currentLabel = "";
+    for (const item of items) {
+      const label = dateLabel(item.notifyAt || item.createdAt);
+      if (label !== currentLabel) {
+        groups.push({ label, items: [item] });
+        currentLabel = label;
+      } else {
+        groups[groups.length - 1].items.push(item);
+      }
+    }
+    return groups;
+  }, [items]);
+
   return (
     <ToastProvider>
       <div className="mx-auto max-w-xl space-y-4 px-4 py-6">
@@ -123,41 +160,48 @@ export default function NotificationsPage() {
             {error}
           </Card>
         ) : items.length ? (
-          <div className="space-y-3">
-            {items.map((item) => (
-              <button
-                key={item.id}
-                type="button"
-                onClick={() => handleClick(item)}
-                data-testid="notification-item"
-                className={cn(
-                  "w-full rounded-2xl border p-4 text-left transition",
-                  item.readAt
-                    ? "border-border/60 bg-background"
-                    : "border-emerald-500/40 bg-emerald-500/10"
-                )}
-              >
-                <div className="flex items-start justify-between gap-2">
-                  <div>
-                    <div className="text-sm font-semibold" data-testid="notification-title">{item.title}</div>
-                    <div className="text-xs text-muted-foreground">{item.body}</div>
-                    {item.sourceType && (
-                      <div className="mt-1 text-[10px] text-muted-foreground/70" data-testid="notification-type">{item.sourceType}</div>
-                    )}
-                  </div>
-                  {!item.readAt ? (
-                    <span className="rounded-full bg-emerald-500/20 px-2 py-0.5 text-[10px] text-emerald-700">
-                      未読
-                    </span>
-                  ) : null}
+          <div className="space-y-4" data-testid="notification-list">
+            {grouped.map((group) => (
+              <div key={group.label}>
+                <div className="mb-1.5 text-[11px] font-medium text-muted-foreground/80" data-testid="notification-date-group">{group.label}</div>
+                <div className="space-y-2">
+                  {group.items.map((item) => (
+                    <button
+                      key={item.id}
+                      type="button"
+                      onClick={() => handleClick(item)}
+                      data-testid="notification-item"
+                      className={cn(
+                        "w-full rounded-2xl border p-4 text-left transition",
+                        item.readAt
+                          ? "border-border/60 bg-background"
+                          : "border-emerald-500/40 bg-emerald-500/10"
+                      )}
+                    >
+                      <div className="flex items-start justify-between gap-2">
+                        <div>
+                          <div className="text-sm font-semibold" data-testid="notification-title">{item.title}</div>
+                          <div className="text-xs text-muted-foreground">{item.body}</div>
+                          {item.sourceType && (
+                            <div className="mt-1 text-[10px] text-muted-foreground/70" data-testid="notification-type">{formatSourceType(item.sourceType)}</div>
+                          )}
+                        </div>
+                        {!item.readAt ? (
+                          <span className="rounded-full bg-emerald-500/20 px-2 py-0.5 text-[10px] text-emerald-700">
+                            未読
+                          </span>
+                        ) : null}
+                      </div>
+                      <div className="mt-2 flex items-center justify-between text-xs text-muted-foreground">
+                        <span>{formatTime(item.notifyAt || item.createdAt)}</span>
+                        {item.linkUrl && (
+                          <span className="text-[10px] underline opacity-60" data-testid="notification-open">開く</span>
+                        )}
+                      </div>
+                    </button>
+                  ))}
                 </div>
-                <div className="mt-2 flex items-center justify-between text-xs text-muted-foreground">
-                  <span>{formatTime(item.notifyAt || item.createdAt)}</span>
-                  {item.linkUrl && (
-                    <span className="text-[10px] underline opacity-60" data-testid="notification-open">開く</span>
-                  )}
-                </div>
-              </button>
+              </div>
             ))}
 
             {nextCursor ? (
@@ -166,6 +210,7 @@ export default function NotificationsPage() {
                 size="sm"
                 onClick={handleLoadMore}
                 disabled={actionLoading}
+                data-testid="notification-load-more"
               >
                 もっと見る
               </Button>
