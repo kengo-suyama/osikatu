@@ -17,6 +17,7 @@ Codex long task for PR #43:
 - Git guard (block rebase on main + checkout log): `docs/dev/git-guard.md`
 - Unstable checkout / evidence playbook: `docs/dev/unstable-checkout-playbook.md`
 - E2E mocking rules: `docs/dev/e2e-mocking-rules.md`
+- Workstation setup (rollout checklist): `docs/dev/workstation-setup.md`
 
 ## Repo Snapshot (As Of 2026-02-06)
 
