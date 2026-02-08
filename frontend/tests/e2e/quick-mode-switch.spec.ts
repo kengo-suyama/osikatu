@@ -78,6 +78,45 @@ const setupCircleMock = async (page: Parameters<typeof test>[1]["page"]) => {
   );
 };
 
+/**
+ * Extended mocks: circles list + circle detail + hub sub-endpoints.
+ * Needed when verifying the circle hub page actually renders.
+ */
+const setupCircleHubMocks = async (page: Parameters<typeof test>[1]["page"]) => {
+  await setupCircleMock(page);
+
+  await page.route(new RegExp(`/api/circles/${CIRCLE_ID}$`), (route) =>
+    route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: successBody(mockCircle()),
+    }),
+  );
+  await page.route(new RegExp(`/api/circles/${CIRCLE_ID}/chat/messages`), (route) =>
+    route.fulfill({ status: 200, contentType: "application/json", body: successBody([]) }),
+  );
+  await page.route(new RegExp(`/api/circles/${CIRCLE_ID}/posts`), (route) =>
+    route.fulfill({ status: 200, contentType: "application/json", body: successBody([]) }),
+  );
+  await page.route(new RegExp(`/api/circles/${CIRCLE_ID}/announcement`), (route) =>
+    route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: successBody({ circleId: CIRCLE_ID, text: null, updatedAt: null, updatedBy: null }),
+    }),
+  );
+  await page.route(new RegExp(`/api/circles/${CIRCLE_ID}/logs`), (route) =>
+    route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: successBody({ items: [], nextCursor: null }),
+    }),
+  );
+  await page.route(new RegExp(`/api/circles/${CIRCLE_ID}/owner`), (route) =>
+    route.fulfill({ status: 404, contentType: "application/json", body: "{}" }),
+  );
+};
+
 test.describe("quick mode switch", () => {
   test("clicking circle button navigates to circle hub", async ({ page, request }) => {
     const deviceId = `device-e2e-qms1-${Date.now()}`;
@@ -147,5 +186,32 @@ test.describe("quick mode switch", () => {
       expect(mode).toBe("personal");
     }).toPass({ timeout: 5_000 });
     logPass("Personal mode set after clicking personal button");
+  });
+  test("personal to circle transition shows circle hub screen", async ({ page, request }) => {
+    const deviceId = `device-e2e-qms3-${Date.now()}`;
+    await ensureOnboardingDone(request, deviceId);
+    await ensureOshi(request, deviceId);
+
+    await page.addInitScript((did: string) => {
+      localStorage.setItem("osikatu:device:id", did);
+      localStorage.setItem("osikatu:data-source", "api");
+    }, deviceId);
+
+    await setupCircleHubMocks(page);
+
+    await page.goto("/home", { waitUntil: "domcontentloaded" });
+
+    const goBtn = page.locator('[data-testid="quick-mode-go"]');
+    await expect(goBtn).toBeVisible({ timeout: 45_000 });
+    logPass("QuickModeSwitch loaded with circles");
+
+    await goBtn.click();
+
+    await page.waitForURL(`**/circles/${CIRCLE_ID}`, { timeout: 15_000, waitUntil: "commit" });
+    logPass("URL changed to circle hub");
+
+    const hub = page.locator('[data-testid="circle-home"]');
+    await expect(hub).toBeVisible({ timeout: 30_000 });
+    logPass("CircleHomeScreen is visible after mode switch");
   });
 });
