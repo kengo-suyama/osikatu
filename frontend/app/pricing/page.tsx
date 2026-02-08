@@ -5,6 +5,7 @@ import Link from "next/link";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { meRepo } from "@/lib/repo/meRepo";
+import { billingRepo } from "@/lib/repo/billingRepo";
 import type { MeDto } from "@/lib/types";
 
 const plans = [
@@ -37,6 +38,8 @@ const plans = [
 
 export default function PricingPage() {
   const [me, setMe] = useState<MeDto | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [busy, setBusy] = useState<"checkout" | "portal" | null>(null);
 
   useEffect(() => {
     meRepo.getMe().then(setMe).catch(() => {});
@@ -71,17 +74,25 @@ export default function PricingPage() {
                 <div className="rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-medium text-primary">
                   \u73FE\u5728\u306E\u30D7\u30E9\u30F3
                 </div>
-              ) : plan.id !== "free" ? (
+              ) : plan.id === "plus" ? (
                 <Button
                   size="sm"
                   variant="secondary"
                   data-testid="pricing-upgrade"
                   onClick={() => {
-                    // Future: redirect to Stripe checkout
-                    window.location.href = "/settings/billing";
+                    setError(null);
+                    setBusy("checkout");
+                    billingRepo
+                      .createCheckoutUrl()
+                      .then((url) => {
+                        window.location.href = url;
+                      })
+                      .catch(() => setError("\u30A2\u30C3\u30D7\u30B0\u30EC\u30FC\u30C9\u306B\u5931\u6557\u3057\u307E\u3057\u305F"))
+                      .finally(() => setBusy(null));
                   }}
+                  disabled={busy !== null}
                 >
-                  \u30A2\u30C3\u30D7\u30B0\u30EC\u30FC\u30C9
+                  {busy === "checkout" ? "\u51E6\u7406\u4E2D..." : "\u30A2\u30C3\u30D7\u30B0\u30EC\u30FC\u30C9"}
                 </Button>
               ) : null}
             </div>
@@ -98,15 +109,29 @@ export default function PricingPage() {
 
       {currentPlan !== "free" && (
         <div className="pt-2">
-          <Link
-            href="/settings/billing"
-            className="text-xs text-muted-foreground underline"
+          <Button
+            variant="link"
+            className="h-auto p-0 text-xs text-muted-foreground underline"
             data-testid="billing-portal-link"
+            disabled={busy !== null}
+            onClick={() => {
+              setError(null);
+              setBusy("portal");
+              billingRepo
+                .createPortalUrl()
+                .then((url) => {
+                  window.location.href = url;
+                })
+                .catch(() => setError("\u8ACB\u6C42\u7BA1\u7406\u30DD\u30FC\u30BF\u30EB\u306E\u53D6\u5F97\u306B\u5931\u6557\u3057\u307E\u3057\u305F"))
+                .finally(() => setBusy(null));
+            }}
           >
-            \u8ACB\u6C42\u7BA1\u7406\u30DD\u30FC\u30BF\u30EB\u3078
-          </Link>
+            {busy === "portal" ? "\u51E6\u7406\u4E2D..." : "\u8ACB\u6C42\u7BA1\u7406\u30DD\u30FC\u30BF\u30EB\u3078"}
+          </Button>
         </div>
       )}
+
+      {error ? <div className="text-xs text-red-500">{error}</div> : null}
 
       <div>
         <Link href="/home" className="text-sm underline">

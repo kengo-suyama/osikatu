@@ -73,4 +73,23 @@ export const billingRepo = {
       headers: { "X-Device-Id": getDeviceId() },
     });
   },
+
+  async createCheckoutUrl(): Promise<string> {
+    if (!isApiMode()) {
+      await this.updatePlan("plus");
+      return "/home";
+    }
+
+    const res = await apiSend<{ url: string }>("/api/billing/checkout", "POST", null);
+    return res.url;
+  },
+
+  async createPortalUrl(): Promise<string> {
+    if (!isApiMode()) {
+      return "/settings/billing";
+    }
+
+    const res = await apiGet<{ url: string }>("/api/billing/portal");
+    return res.url;
+  },
 };
