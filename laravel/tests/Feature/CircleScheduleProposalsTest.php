@@ -523,6 +523,33 @@ class CircleScheduleProposalsTest extends TestCase
         $this->assertEquals('approved', $log->meta['result'] ?? null);
     }
 
+    public function test_approve_response_has_request_id(): void
+    {
+        [$circle, $members, $profiles] = $this->createCircleWithMembers('plus', 2);
+
+        $create = $this->withHeaders([
+            'X-Device-Id' => $profiles[1]->device_id,
+        ])->postJson("/api/circles/{$circle->id}/schedule-proposals", $this->proposalPayload());
+        $proposalId = $create->json('success.data.proposal.id');
+
+        $response = $this->withHeaders([
+            'X-Device-Id' => $profiles[0]->device_id,
+        ])->postJson("/api/circles/{$circle->id}/schedule-proposals/{$proposalId}/approve");
+
+        $response->assertStatus(200);
+        $response->assertHeader('X-Request-Id');
+
+        $requestId = $response->headers->get('X-Request-Id');
+        $this->assertNotEmpty($requestId);
+
+        $log = OperationLog::where('circle_id', $circle->id)
+            ->where('action', 'proposal.approve')
+            ->first();
+
+        $this->assertNotNull($log);
+        $this->assertEquals($requestId, $log->meta['request_id'] ?? null);
+    }
+
     public function test_reject_creates_operation_log(): void
     {
         [$circle, $members, $profiles] = $this->createCircleWithMembers('plus', 2);
