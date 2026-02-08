@@ -57,6 +57,7 @@ class CirclePinsLimitTest extends TestCase
             ])->postJson("/api/circles/{$circle->id}/pins", [
                 'body' => "pin {$i}",
             ])->assertStatus(201)
+                ->assertHeader('X-Osikatu-Deprecated', 'pins-v1')
                 ->assertJsonPath('success.data.isPinned', true);
         }
 
@@ -65,6 +66,7 @@ class CirclePinsLimitTest extends TestCase
         ])->postJson("/api/circles/{$circle->id}/pins", [
             'body' => 'pin 4',
         ])->assertStatus(422)
+            ->assertHeader('X-Osikatu-Deprecated', 'pins-v1')
             ->assertJsonPath('error.code', 'PIN_LIMIT_EXCEEDED');
     }
 
@@ -77,7 +79,8 @@ class CirclePinsLimitTest extends TestCase
                 'X-Device-Id' => 'device-pins-plus-owner-001',
             ])->postJson("/api/circles/{$circle->id}/pins", [
                 'body' => "pin {$i}",
-            ])->assertStatus(201);
+            ])->assertStatus(201)
+                ->assertHeader('X-Osikatu-Deprecated', 'pins-v1');
         }
 
         $this->withHeaders([
@@ -85,6 +88,7 @@ class CirclePinsLimitTest extends TestCase
         ])->postJson("/api/circles/{$circle->id}/pins", [
             'body' => 'pin 11',
         ])->assertStatus(422)
+            ->assertHeader('X-Osikatu-Deprecated', 'pins-v1')
             ->assertJsonPath('error.code', 'PIN_LIMIT_EXCEEDED');
     }
 
@@ -97,6 +101,7 @@ class CirclePinsLimitTest extends TestCase
         ])->postJson("/api/circles/{$circle->id}/pins", [
             'body' => 'pin 1',
         ])->assertStatus(403)
+            ->assertHeader('X-Osikatu-Deprecated', 'pins-v1')
             ->assertJsonPath('error.code', 'FORBIDDEN');
     }
 
@@ -112,6 +117,7 @@ class CirclePinsLimitTest extends TestCase
                 'body' => "pin {$i}",
             ]);
             $res->assertStatus(201);
+            $res->assertHeader('X-Osikatu-Deprecated', 'pins-v1');
             $ids[] = $res->json('success.data.id');
         }
 
@@ -119,13 +125,14 @@ class CirclePinsLimitTest extends TestCase
             'X-Device-Id' => 'device-pins-unpin-001',
         ])->postJson("/api/circles/{$circle->id}/pins/{$ids[0]}/unpin")
             ->assertOk()
+            ->assertHeader('X-Osikatu-Deprecated', 'pins-v1')
             ->assertJsonPath('success.data.unpinned', true);
 
         $this->withHeaders([
             'X-Device-Id' => 'device-pins-unpin-001',
         ])->postJson("/api/circles/{$circle->id}/pins", [
             'body' => 'pin 4',
-        ])->assertStatus(201);
+        ])->assertStatus(201)
+            ->assertHeader('X-Osikatu-Deprecated', 'pins-v1');
     }
 }
-

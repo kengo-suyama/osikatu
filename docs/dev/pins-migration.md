@@ -48,6 +48,9 @@ Phase3 の UI はクリックで on/off をトグルし、本文を書き換え�
 当面は後方互換のため残す。
 
 将来のcleanup候補:
-- v1 pins API の deprecated 明記
+- v1 pins API は deprecated（互換維持のため当面残す）
+  - レスポンスヘッダ:
+    - `X-Osikatu-Deprecated: pins-v1`
+    - `X-Osikatu-Use: /api/circles/{circle}/pins-v2`
+  - 内部実装は `PinWriteService` に委譲し、v1/v2でロジックが二重実装にならないようにする（Phase4）
 - `posts.is_pinned` 依存の縮退（移行完了後に段階削除）
-

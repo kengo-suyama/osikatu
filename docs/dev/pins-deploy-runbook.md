@@ -5,6 +5,7 @@
 前提:
 - `_evidence/` などのログはコミットしない
 - `circle_pins` は `posts.is_pinned` の既存データを自動では持っていない
+- 互換のため v1 pins API（`/api/circles/{circle}/pins` の write）は残っているが deprecated。新規実装は `pins-v2` を使う。
 
 ## 1) Backfill（dry-run）
 
