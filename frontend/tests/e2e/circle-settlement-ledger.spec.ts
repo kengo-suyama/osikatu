@@ -969,7 +969,7 @@ test.describe("circle settlement ledger (read-only)", () => {
       new RegExp(`/api/circles/${CIRCLE_ID}/settlements/expenses(\\?.*)?$`),
       (route) =>
         route.fulfill({
-          status: 403,
+          status: 402,
           contentType: "application/json",
           body: errorBody("PLAN_REQUIRED", "Plus plan required for settlement expenses."),
         })
@@ -978,7 +978,7 @@ test.describe("circle settlement ledger (read-only)", () => {
       new RegExp(`/api/circles/${CIRCLE_ID}/settlements/balances$`),
       (route) =>
         route.fulfill({
-          status: 403,
+          status: 402,
           contentType: "application/json",
           body: errorBody("PLAN_REQUIRED", "Plus plan required for settlement expenses."),
         })
@@ -987,7 +987,7 @@ test.describe("circle settlement ledger (read-only)", () => {
       new RegExp(`/api/circles/${CIRCLE_ID}/settlements/suggestions$`),
       (route) =>
         route.fulfill({
-          status: 403,
+          status: 402,
           contentType: "application/json",
           body: errorBody("PLAN_REQUIRED", "Plus plan required for settlement expenses."),
         })

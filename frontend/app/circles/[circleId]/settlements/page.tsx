@@ -263,8 +263,15 @@ export default function CircleSettlementsPage({
 
         if (rejected?.reason instanceof ApiRequestError) {
           const apiErr = rejected.reason as ApiRequestError;
-          if (apiErr.status === 403) {
+          if (apiErr.status === 402 || apiErr.code === "PLAN_REQUIRED") {
             setExpenseLedgerForbidden(apiErr.message || "Plusが必要です。");
+            setExpenseLedgerItems([]);
+            setExpenseLedgerBalances(null);
+            setExpenseLedgerSuggestions(null);
+            return;
+          }
+          if (apiErr.status === 403) {
+            setExpenseLedgerForbidden(apiErr.message || "権限がありません。");
             setExpenseLedgerItems([]);
             setExpenseLedgerBalances(null);
             setExpenseLedgerSuggestions(null);
