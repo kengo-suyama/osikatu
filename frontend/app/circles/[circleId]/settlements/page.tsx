@@ -651,6 +651,9 @@ export default function CircleSettlementsPage({
               data-testid="settlement-suggestions"
             >
               <div className="text-sm font-semibold text-muted-foreground">おすすめ送金</div>
+              <div className="mt-1 text-xs text-muted-foreground" data-testid="settlement-suggestion-note">
+                送金回数が最小になる組み合わせを提案しています。残高の合計は0円になります。
+              </div>
               {!expenseLedgerSuggestions?.items?.length ? (
                 <div className="mt-3 text-sm text-muted-foreground">提案がありません。</div>
               ) : (
