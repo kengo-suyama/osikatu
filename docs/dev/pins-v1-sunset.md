@@ -60,33 +60,104 @@
 
 ## Phase6 Runbook: deny を本番でON/OFFする手順（コピペ用）
 
-### 事前条件（deny をONにする前）
+### (A) 事前確認（観測準備）
 
-- 観測期間を取る（目安: 数日〜1週間）
-- 本番ログで `pins_v1_write_called` を集計し、発生がゼロになっていることを確認
-  - ゼロにならない場合: 旧クライアント/バッチが `pins-v1` write を叩いている可能性が高い
-- 影響範囲:
-  - 影響あり: v1 write（`POST/PATCH /api/circles/{circle}/pins`, `POST .../unpin`）
-  - 影響なし: read（`GET /api/circles/{circle}/pins`）、`pins-v2` write
+deny を入れる前に、v1 write がまだ来ていないか確認する。
 
-### deny をONにする（段階導入）
+1. ログ検索（Laravel log / 集約基盤）:
 
-1. 環境変数:
-   - `PINS_V1_WRITE_MODE=deny`
-2. config cache 更新（環境により必須）:
-   - `php artisan config:cache`
-3. 動作確認（v2 経路で壊さない確認）:
-   - 新UI（pins-v2 write）から pin を「追加→編集→解除」して成功すること
-4. deny 後の監視:
-   - `pins_v1_write_called` が `result=deny` / `http_status=410` で発生していないか確認
-   - 発生するなら旧クライアントが残存。更新促進や経路特定へ
+```bash
+# storage/logs で直接検索（Laragon/ローカル）
+grep "pins_v1_write_called" storage/logs/laravel.log | tail -50
 
-### deny をOFF（delegateに戻す: 即時ロールバック）
+# request_id で相関する場合（RequestIdMiddleware 導入済み）
+grep "pins_v1_write_called" storage/logs/laravel.log | grep '"result":"allow"'
+```
 
-1. 環境変数:
-   - `PINS_V1_WRITE_MODE=delegate`
-2. config cache 更新:
-   - `php artisan config:cache`
+2. 確認ポイント:
+   - 直近 7 日で `result=allow` がゼロか？
+   - ゼロでないなら: `request_id` と `actor_user_id` で呼び出し元を特定
+   - `endpoint` カラムで `POST /api/circles/{circle}/pins` 等の内訳を確認
+
+3. 影響範囲:
+   - **影響あり**: v1 write（`POST/PATCH /api/circles/{circle}/pins`, `POST .../unpin`）
+   - **影響なし**: read（`GET /api/circles/{circle}/pins`）、`pins-v2` write すべて
+
+### (B) delegate → deny に切り替え
+
+```bash
+# 1. 環境変数を変更（.env または環境変数管理）
+PINS_V1_WRITE_MODE=deny
+
+# 2. config cache を更新（これをしないと反映されない）
+php artisan config:cache
+
+# 3. 確認: 値が deny になっていること
+php artisan tinker --execute="echo config('pins.v1_write_mode');"
+# 出力: deny
+```
+
+### (C) 410 を受けた旧クライアントの挙動
+
+deny が有効な状態で v1 write を叩くと:
+
+```
+HTTP/1.1 410 Gone
+X-Osikatu-Deprecated: pins-v1
+X-Osikatu-Use: /api/circles/{circle}/pins-v2
+X-Request-Id: <uuid>
+Content-Type: application/json
+
+{"error":{"code":"PINS_V1_DEPRECATED","message":"..."}}}
+```
+
+- 正しく v2 に移行済みのクライアント: 影響なし（v1 write を叩かない）
+- 未移行のクライアント: 410 エラーを受ける（ピン追加/編集/解除が失敗）
+- `X-Osikatu-Use` ヘッダで移行先を案内
+
+### (D) ロールバック（deny → delegate）
+
+問題が出たら即座に戻す:
+
+```bash
+# 1. 環境変数を戻す
+PINS_V1_WRITE_MODE=delegate
+
+# 2. config cache を更新
+php artisan config:cache
+
+# 3. 確認
+php artisan tinker --execute="echo config('pins.v1_write_mode');"
+# 出力: delegate
+```
+
+ロールバック後の注意:
+- v1 write が再び `result=allow` で通るようになる
+- deny 中に失敗したリクエストの自動リトライは発生しない（クライアント側で再操作が必要）
+
+### (E) 観測（deny 後の監視）
+
+deny を有効にした後:
+
+```bash
+# deny で弾かれたリクエストを確認
+grep "pins_v1_write_called" storage/logs/laravel.log | grep '"result":"deny"'
+
+# request_id で特定のリクエストを追跡
+grep "<request_id>" storage/logs/laravel.log
+```
+
+確認項目:
+- `result=deny` / `http_status=410` が発生しているか
+- 発生するなら `actor_user_id` / `request_id` で呼び出し元を特定
+- 発生しなければ: 移行完了の証拠
+
+### (F) 段階導入の例
+
+1. **ステージング環境で先に deny**: 数日間 410 が出ないか確認
+2. **本番で deny**: ロールバック手順を手元に置いて切り替え
+3. **1週間監視**: `result=deny` がゼロであれば Phase7（410 固定）へ進む
+4. **Phase7**: ルートの物理削除は、さらに数週間ゼロを確認してから
 
 ## Observability: pins-v1 write のログ schema（固定）
 
