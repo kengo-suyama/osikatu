@@ -296,7 +296,7 @@ export default function CircleHomeScreen({ circleId }: { circleId: number }) {
   const circleTitle = circle.name?.trim() ? circle.name : `Circle #${circleId}`;
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-4" data-testid="circle-home">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <div className="text-xs text-muted-foreground">サークルHome</div>
@@ -316,7 +316,7 @@ export default function CircleHomeScreen({ circleId }: { circleId: number }) {
           ) : null}
         </div>
         <Button asChild variant="secondary">
-          <Link href={`/circles/${circleId}/chat`}>
+          <Link href={`/circles/${circleId}/chat`} data-testid="circle-hub-chat">
             <MessageCircle className="mr-2 h-4 w-4" />
             チャットへ
           </Link>
@@ -396,7 +396,7 @@ export default function CircleHomeScreen({ circleId }: { circleId: number }) {
             <div className="text-sm font-semibold text-muted-foreground">作戦会議（チャット）</div>
             <div className="text-xs text-muted-foreground">最近の3件</div>
           </div>
-          <Link href={`/circles/${circleId}/chat`} className="text-xs underline">
+          <Link href={`/circles/${circleId}/chat`} className="text-xs underline" data-testid="circle-hub-chat-preview">
             チャットへ
           </Link>
         </div>
@@ -422,7 +422,7 @@ export default function CircleHomeScreen({ circleId }: { circleId: number }) {
             <div className="text-sm font-semibold text-muted-foreground">遠征情報（ピン）</div>
             <div className="text-xs text-muted-foreground">集合・会場・持ち物</div>
           </div>
-          <Link href={`/circles/${circleId}/pins`} className="text-xs underline">
+          <Link href={`/circles/${circleId}/pins`} className="text-xs underline" data-testid="circle-hub-pins">
             一覧へ
           </Link>
         </div>
@@ -460,7 +460,7 @@ export default function CircleHomeScreen({ circleId }: { circleId: number }) {
           </div>
           <div className="mt-3">
             <Button asChild variant="secondary" size="sm">
-              <Link href={`/circles/${circleId}/calendar`}>カレンダーへ</Link>
+              <Link href={`/circles/${circleId}/calendar`} data-testid="circle-hub-calendar">カレンダーへ</Link>
             </Button>
           </div>
         </Card>
@@ -475,7 +475,7 @@ export default function CircleHomeScreen({ circleId }: { circleId: number }) {
           </div>
           <div className="mt-3">
             <Button asChild variant="secondary" size="sm">
-              <Link href={`/circles/${circleId}/members`}>一覧へ</Link>
+              <Link href={`/circles/${circleId}/members`} data-testid="circle-hub-members">一覧へ</Link>
             </Button>
           </div>
         </Card>
@@ -490,7 +490,7 @@ export default function CircleHomeScreen({ circleId }: { circleId: number }) {
           </div>
           <div className="mt-3">
             <Button asChild variant="secondary" size="sm">
-              <Link href={`/circles/${circleId}/album`}>アルバムへ</Link>
+              <Link href={`/circles/${circleId}/album`} data-testid="circle-hub-album">アルバムへ</Link>
             </Button>
           </div>
         </Card>
@@ -511,7 +511,7 @@ export default function CircleHomeScreen({ circleId }: { circleId: number }) {
         </div>
         <div className="mt-3">
           <Button asChild variant="secondary" size="sm" disabled={!isManager}>
-            <Link href={`/circles/${circleId}/settlements`}>精算へ</Link>
+            <Link href={`/circles/${circleId}/settlements`} data-testid="circle-hub-settlements">精算へ</Link>
           </Button>
         </div>
       </Card>
@@ -522,7 +522,7 @@ export default function CircleHomeScreen({ circleId }: { circleId: number }) {
             <div className="text-sm font-semibold text-muted-foreground">サークル操作ログ</div>
             <div className="text-xs text-muted-foreground">最新5件</div>
           </div>
-          <Link href={`/circles/${circleId}/logs`} className="text-xs underline">
+          <Link href={`/circles/${circleId}/logs`} className="text-xs underline" data-testid="circle-hub-logs">
             もっと見る
           </Link>
         </div>
@@ -562,7 +562,7 @@ export default function CircleHomeScreen({ circleId }: { circleId: number }) {
           </div>
           <div className="mt-3">
             <Button asChild variant="secondary" size="sm">
-              <Link href={`/circles/${circleId}/settings`}>設定へ</Link>
+              <Link href={`/circles/${circleId}/settings`} data-testid="circle-hub-settings">設定へ</Link>
             </Button>
           </div>
         </Card>
