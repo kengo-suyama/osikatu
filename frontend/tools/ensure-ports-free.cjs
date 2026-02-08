@@ -244,13 +244,15 @@ async function main(argv = process.argv.slice(2)) {
     process.exit(1);
   }
 
+  if (isWindows && isCi) {
+    console.log("[preflight] CI=true detected; auto-kill is disabled.");
+  }
+
   const results = await Promise.all(ports.map(checkPort));
   const blocked = results.filter((item) => !item.free);
 
   if (blocked.length > 0) {
     if (isWindows) {
-      if (isCi) console.log("[preflight] CI=true detected; auto-kill is disabled.");
-
       for (const item of blocked) {
         await tryFreePortWindows(item.port);
       }
