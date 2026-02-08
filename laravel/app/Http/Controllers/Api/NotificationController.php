@@ -5,8 +5,10 @@ declare(strict_types=1);
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Models\CircleMember;
 use App\Models\MeProfile;
 use App\Models\Notification;
+use App\Models\User;
 use App\Support\ApiResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
@@ -106,7 +108,7 @@ class NotificationController extends Controller
             'sourceType' => $this->toCamelSourceType($notification->source_type),
             'sourceId' => $notification->source_id ? (int) $notification->source_id : null,
             'sourceMeta' => is_array($notification->source_meta) ? $notification->source_meta : null,
-            'openPath' => $this->buildOpenPath($notification),
+            'openPath' => $this->buildOpenPath($notification, $notification->user_id),
         ];
     }
 
@@ -120,29 +122,51 @@ class NotificationController extends Controller
         };
     }
 
-    private function buildOpenPath(Notification $notification): ?string
+    private function buildOpenPath(Notification $notification, ?int $userId): ?string
     {
         $meta = is_array($notification->source_meta) ? $notification->source_meta : [];
+        $circleId = $meta['circleId'] ?? null;
 
         return match ($notification->source_type) {
-            'schedule_proposal' => $this->buildScheduleProposalPath($notification, $meta),
+            'schedule_proposal' => $this->buildScheduleProposalPath($notification, $meta, $userId),
+            'pins' => $circleId ? "/circles/{$circleId}/pins" : $notification->link_url,
+            'settlement' => $circleId ? "/circles/{$circleId}/settlements" : $notification->link_url,
             default => $notification->link_url,
         };
     }
 
-    private function buildScheduleProposalPath(Notification $notification, array $meta): ?string
+    private function buildScheduleProposalPath(Notification $notification, array $meta, ?int $userId): ?string
     {
         $circleId = $meta['circleId'] ?? null;
         if (!$circleId) {
             return null;
         }
 
-        $proposalId = $notification->source_id;
-        if ($proposalId) {
-            return "/circles/{$circleId}/calendar?focusProposalId={$proposalId}";
+        $isManager = $this->isCircleManager((int) $circleId, $userId);
+
+        $tab = $isManager ? 'proposals' : 'mine';
+
+        return "/circles/{$circleId}/calendar?tab={$tab}";
+    }
+
+    private function isCircleManager(int $circleId, ?int $userId): bool
+    {
+        if (!$userId) {
+            return false;
         }
 
-        return "/circles/{$circleId}/calendar";
+        $member = CircleMember::query()
+            ->where('circle_id', $circleId)
+            ->where('user_id', $userId)
+            ->first();
+
+        if (!$member || !in_array($member->role, ['owner', 'admin'], true)) {
+            return false;
+        }
+
+        $user = User::find($userId);
+
+        return $user && $user->plan === 'plus';
     }
 
     private function resolveUserId(Request $request): ?int

@@ -194,7 +194,7 @@ export default function NotificationsPage() {
                       </div>
                       <div className="mt-2 flex items-center justify-between text-xs text-muted-foreground">
                         <span>{formatTime(item.notifyAt || item.createdAt)}</span>
-                        {item.linkUrl && (
+                        {(item.openPath || item.linkUrl) && (
                           <span className="text-[10px] underline opacity-60" data-testid="notification-open">開く</span>
                         )}
                       </div>
