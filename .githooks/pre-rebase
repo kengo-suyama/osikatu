@@ -1,0 +1,23 @@
+#!/bin/sh
+set -eu
+
+# Block rebasing main by default. Allow override with ALLOW_REBASE_MAIN=1.
+
+branch="$(git symbolic-ref --quiet --short HEAD 2>/dev/null || echo DETACHED)"
+gitdir="$(git rev-parse --git-dir 2>/dev/null || echo .git)"
+logfile="$gitdir/guard.log"
+ts="$(date -u +"%Y-%m-%dT%H:%M:%SZ" 2>/dev/null || date)"
+
+upstream="${1-}"
+onto="${2-}"
+
+if [ "$branch" = "main" ] && [ "${ALLOW_REBASE_MAIN-}" != "1" ]; then
+  printf "%s pre-rebase BLOCK branch=%s upstream=%s onto=%s args=%s\n" "$ts" "$branch" "$upstream" "$onto" "$*" >>"$logfile" 2>/dev/null || true
+  echo "Blocked: rebase on 'main' is disabled in this repo."
+  echo "If you really need it, rerun with: ALLOW_REBASE_MAIN=1 git rebase ..."
+  exit 1
+fi
+
+printf "%s pre-rebase ALLOW branch=%s upstream=%s onto=%s args=%s\n" "$ts" "$branch" "$upstream" "$onto" "$*" >>"$logfile" 2>/dev/null || true
+exit 0
+
