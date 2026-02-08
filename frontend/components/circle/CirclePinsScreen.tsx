@@ -46,7 +46,14 @@ const parsePinBody = (raw: string): PinParts => {
     }
   }
 
-  const rest = lines.slice(1).filter((line) => !/^URL:\s*/i.test(line.trim()));
+  const rest = lines
+    .slice(1)
+    .filter((line) => {
+      const trimmed = line.trim();
+      if (/^URL:\s*/i.test(trimmed)) return false;
+      if (/^-\s*\[( |x|X)\]\s+/.test(trimmed)) return false;
+      return true;
+    });
   const restBody = rest.join("\n").trim();
 
   return { title, url, body: restBody, checklist };
@@ -79,6 +86,7 @@ export default function CirclePinsScreen({ circleId }: { circleId: number }) {
   const [pins, setPins] = useState<PostDto[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [mutatingId, setMutatingId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -182,16 +190,69 @@ export default function CirclePinsScreen({ circleId }: { circleId: number }) {
 
   const unpin = async (post: PostDto) => {
     if (!canManage) return;
+    if (mutatingId) return;
+    const postId = String(post.id);
     setError(null);
     try {
+      setMutatingId(postId);
       await postRepo.unpin(circleId, post.id);
-      setPins((prev) => prev.filter((p) => String(p.id) !== String(post.id)));
+      setPins((prev) => prev.filter((p) => String(p.id) !== postId));
     } catch (err) {
       if (err instanceof ApiRequestError) {
         setError(err.message);
       } else {
         setError(err instanceof Error ? err.message : "解除に失敗しました");
       }
+    } finally {
+      setMutatingId(null);
+    }
+  };
+
+  const toggleChecklist = async (post: PostDto, itemIndex: number) => {
+    if (!canManage) return;
+    if (mutatingId) return;
+
+    const postId = String(post.id);
+    const raw = normalizeNewlines(post.body ?? "");
+    const lines = raw.split("\n");
+
+    const checklistLineIndexes: number[] = [];
+    for (let i = 0; i < lines.length; i += 1) {
+      if (/^-\s*\[( |x|X)\]\s+/.test(lines[i].trim())) checklistLineIndexes.push(i);
+    }
+
+    const lineIndex = checklistLineIndexes[itemIndex];
+    if (lineIndex === undefined) return;
+
+    const before = lines[lineIndex];
+    const toggled = before.replace(
+      /^(\s*-\s*\[)( |x|X)(\])(\s+)/,
+      (_m, p1: string, state: string, p3: string, ws: string) =>
+        `${p1}${state.trim() ? " " : "x"}${p3}${ws}`
+    );
+    if (toggled === before) return;
+
+    const nextLines = [...lines];
+    nextLines[lineIndex] = toggled;
+    const nextBody = nextLines.join("\n");
+
+    setError(null);
+    setMutatingId(postId);
+    setPins((prev) => prev.map((p) => (String(p.id) === postId ? { ...p, body: nextBody } : p)));
+
+    try {
+      const updated = await postRepo.updatePin(circleId, post.id, nextBody);
+      setPins((prev) => sortPinsDesc(prev.map((p) => (String(p.id) === String(updated.id) ? updated : p))));
+    } catch (err) {
+      // rollback
+      setPins((prev) => prev.map((p) => (String(p.id) === postId ? { ...p, body: post.body } : p)));
+      if (err instanceof ApiRequestError) {
+        setError(err.message);
+      } else {
+        setError(err instanceof Error ? err.message : "保存に失敗しました");
+      }
+    } finally {
+      setMutatingId(null);
     }
   };
 
@@ -284,6 +345,7 @@ export default function CirclePinsScreen({ circleId }: { circleId: number }) {
                         variant="ghost"
                         size="sm"
                         onClick={() => void unpin(post)}
+                        disabled={mutatingId === postId}
                         data-testid={`pin-unpin-${postId}`}
                       >
                         解除
@@ -297,10 +359,19 @@ export default function CirclePinsScreen({ circleId }: { circleId: number }) {
                     <div className="text-xs font-semibold text-muted-foreground">チェックリスト</div>
                     <div className="space-y-1">
                       {parts.checklist.map((item, idx) => (
-                        <div key={`${postId}-${idx}`} className="flex items-start gap-2 text-sm">
+                        <button
+                          key={`${postId}-${idx}`}
+                          type="button"
+                          className="flex w-full items-start gap-2 rounded-lg px-1 py-1 text-left text-sm hover:bg-muted/30"
+                          onClick={() => void toggleChecklist(post, idx)}
+                          disabled={!canManage || mutatingId === postId}
+                          data-testid={`pin-check-${postId}-${idx}`}
+                          aria-checked={item.checked}
+                          role="checkbox"
+                        >
                           <div className="mt-0.5 text-xs opacity-70">{item.checked ? "✓" : "□"}</div>
                           <div className="min-w-0 flex-1">{item.text}</div>
-                        </div>
+                        </button>
                       ))}
                     </div>
                   </div>
