@@ -77,7 +77,7 @@ class StripeWebhookTest extends TestCase
     {
         config(['services.stripe.webhook_secret' => 'whsec_test_secret']);
 
-        Log::fake();
+        Log::spy();
 
         $payload = $this->makePayload('evt_sig_001');
 
@@ -88,9 +88,17 @@ class StripeWebhookTest extends TestCase
         $response->assertStatus(400);
         $response->assertJsonPath('error.code', 'INVALID_SIGNATURE');
 
-        Log::assertLogged('warning', function ($message) {
-            return str_contains($message, 'billing_webhook_invalid_signature');
-        });
+        Log::shouldHaveReceived('warning')
+            ->withArgs(function ($message, $context = []) {
+                if (!is_string($message)) {
+                    return false;
+                }
+                if (!str_contains($message, 'billing_webhook_invalid_signature')) {
+                    return false;
+                }
+                return is_array($context);
+            })
+            ->once();
     }
 
     public function test_valid_signature_passes(): void
