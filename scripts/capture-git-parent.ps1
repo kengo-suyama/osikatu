@@ -7,7 +7,8 @@ Param(
   [string]$Mode = "Observe",
   [int]$PollMs = 100,
   [string]$EvidenceDir = "_evidence",
-  [string]$LogPath
+  [string]$LogPath,
+  [switch]$Notify
 )
 
 $ErrorActionPreference = "Stop"
@@ -167,6 +168,36 @@ function Should-Deny([string]$actionTag) {
   return ($actionTag -in @("PULL_REBASE", "REBASE"))
 }
 
+function Send-Notification([string]$actionTag, [string]$parentName, [string]$gitCmd) {
+  # Console highlight
+  Write-Host ""
+  Write-Host ("=" * 60) -ForegroundColor Red
+  Write-Host "[DETECTED] Git operation: $actionTag" -ForegroundColor Yellow
+  Write-Host "  Parent: $parentName" -ForegroundColor Cyan
+  Write-Host "  Command: $gitCmd" -ForegroundColor Gray
+  Write-Host "  Time: $((Get-Date).ToString('HH:mm:ss'))" -ForegroundColor Gray
+  Write-Host ("=" * 60) -ForegroundColor Red
+  Write-Host ""
+
+  # Beep
+  [Console]::Beep(800, 300)
+  [Console]::Beep(1000, 300)
+
+  # Windows toast notification (best-effort)
+  try {
+    [Windows.UI.Notifications.ToastNotificationManager, Windows.UI.Notifications, ContentType = WindowsRuntime] | Out-Null
+    $template = [Windows.UI.Notifications.ToastNotificationManager]::GetTemplateContent([Windows.UI.Notifications.ToastTemplateType]::ToastText02)
+    $textNodes = $template.GetElementsByTagName("text")
+    $textNodes.Item(0).AppendChild($template.CreateTextNode("Git $actionTag detected")) | Out-Null
+    $textNodes.Item(1).AppendChild($template.CreateTextNode("Parent: $parentName")) | Out-Null
+    $toast = [Windows.UI.Notifications.ToastNotification]::new($template)
+    $notifier = [Windows.UI.Notifications.ToastNotificationManager]::CreateToastNotifier("osikatu-git-watcher")
+    $notifier.Show($toast)
+  } catch {
+    # Toast not available, that's fine - beep and console are enough
+  }
+}
+
 function Get-AncestorInfo([int]$processId) {
   $info = @{ name = $null; cmdline = $null; pid = $null }
   try {
@@ -205,6 +236,9 @@ function Resolve-ProcLine([int]$gitProcessId, [int]$parentProcessId) {
   $blocked = $false
 
   if (Should-Deny $actionTag) {
+    # Notify before blocking
+    if ($Notify) { Send-Notification $actionTag $parent.name $gitCmd }
+
     try {
       Stop-Process -Id $gitProcessId -Force -ErrorAction SilentlyContinue
       $blocked = $true
@@ -223,6 +257,11 @@ function Resolve-ProcLine([int]$gitProcessId, [int]$parentProcessId) {
   }
 
   if ($blocked) { $actionTag = "BLOCKED" }
+
+  # Notify on dangerous operations even in Observe mode
+  if ($Notify -and -not $blocked -and $actionTag -in @("CHECKOUT", "SWITCH", "PULL_REBASE", "REBASE", "RESET")) {
+    Send-Notification $actionTag $parent.name $gitCmd
+  }
 
   return (JsonLine @{
     ts = (Get-Date).ToString("o")
