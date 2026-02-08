@@ -47,11 +47,37 @@ Remove-Item Env:ALLOW_REBASE_MAIN
 To capture the process that spawns unexpected `git.exe` calls:
 
 ```powershell
-pwsh -File scripts\capture-git-parent.ps1
+# Observe mode (default): log only
+pwsh -File scripts\capture-git-parent.ps1 -Start -PollMs 20
+
+# Deny mode: block pull --rebase and rebase, log + terminate
+pwsh -File scripts\capture-git-parent.ps1 -Start -Mode Deny -PollMs 20
+
+# Stop
+pwsh -File scripts\capture-git-parent.ps1 -Stop
 ```
 
-Leave running in a separate terminal. When `git.exe` is spawned,
-it logs the parent process name and command line to `_evidence/`.
+Logs are written to `_evidence/git_watch_*.jsonl` with parent + grandparent process info.
+
+### Escape Hatch (Deny Mode)
+
+To allow a rebase while Deny mode is active:
+
+```powershell
+$env:ALLOW_GIT_REBASE="1"
+git pull --rebase origin main
+Remove-Item Env:ALLOW_GIT_REBASE
+```
+
+## Evidence Snapshot
+
+After an incident, capture a full snapshot:
+
+```powershell
+pwsh -File scripts\snapshot-proc.ps1
+```
+
+Saves process list, reflog, guard.log, and git status to `_evidence/`.
 
 ## Limitations
 
