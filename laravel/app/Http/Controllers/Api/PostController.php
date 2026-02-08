@@ -5,8 +5,10 @@ declare(strict_types=1);
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Http\Resources\CirclePinResource;
 use App\Http\Resources\PostResource;
 use App\Models\Circle;
+use App\Models\CirclePin;
 use App\Models\CircleMember;
 use App\Models\Post;
 use App\Models\PostAck;
@@ -25,6 +27,25 @@ class PostController extends Controller
 {
     private const PIN_LIMIT_FREE = 3;
     private const PIN_LIMIT_MANAGER_PLUS = 10;
+
+    public function indexPins(int $circle)
+    {
+        $member = $this->resolveMember($circle, request());
+        if (!$member) {
+            return ApiResponse::error('FORBIDDEN', 'Not a circle member.', null, 403);
+        }
+
+        $pins = CirclePin::query()
+            ->where('circle_id', $circle)
+            // Lower sort_order = higher priority; nulls last.
+            ->orderByRaw('sort_order is null')
+            ->orderBy('sort_order')
+            ->orderByDesc('pinned_at')
+            ->orderByDesc('id')
+            ->get();
+
+        return ApiResponse::success(CirclePinResource::collection($pins));
+    }
 
     public function index(int $circle)
     {
@@ -136,6 +157,10 @@ class PostController extends Controller
             ->where('id', $circle)
             ->update(['last_activity_at' => now()]);
 
+        if (($post->is_pinned ?? false) === true) {
+            $this->upsertCirclePinFromPost($post, $member);
+        }
+
         return ApiResponse::success(new PostResource($post), null, 201);
     }
 
@@ -197,6 +222,8 @@ class PostController extends Controller
         Circle::query()
             ->where('id', $circle)
             ->update(['last_activity_at' => now()]);
+
+        $this->upsertCirclePinFromPost($post, $member);
 
         return ApiResponse::success(new PostResource($post), null, 201);
     }
@@ -260,6 +287,8 @@ class PostController extends Controller
             ->where('circle_member_id', $member->id)
             ->exists() ? 1 : 0;
 
+        $this->upsertCirclePinFromPost($postModel, $member);
+
         return ApiResponse::success(new PostResource($postModel));
     }
 
@@ -290,6 +319,10 @@ class PostController extends Controller
         }
 
         $postModel->update(['is_pinned' => false]);
+
+        CirclePin::query()
+            ->where('source_post_id', $postModel->id)
+            ->delete();
 
         return ApiResponse::success(['unpinned' => true]);
     }
@@ -585,5 +618,70 @@ class PostController extends Controller
         }
 
         return null;
+    }
+
+    /**
+     * Keep circle_pins in sync while Phase1 endpoints are still post-backed.
+     *
+     * This allows a later frontend switch (pinsRepo) without breaking existing UI/E2E today.
+     */
+    private function upsertCirclePinFromPost(Post $post, CircleMember $actorMember): void
+    {
+        if (($post->is_pinned ?? false) !== true) {
+            return;
+        }
+
+        $parsed = $this->extractTitleAndUrl((string) ($post->body ?? ''));
+
+        CirclePin::updateOrCreate(
+            ['source_post_id' => $post->id],
+            [
+                'circle_id' => (int) $post->circle_id,
+                'created_by_member_id' => (int) ($post->author_member_id ?? $actorMember->id),
+                'title' => $parsed['title'],
+                'url' => $parsed['url'],
+                'body' => (string) ($post->body ?? ''),
+                'pinned_at' => $post->created_at ?? now(),
+            ]
+        );
+    }
+
+    /**
+     * @return array{title: string, url: ?string}
+     */
+    private function extractTitleAndUrl(string $body): array
+    {
+        $lines = preg_split("/\\r\\n|\\n|\\r/", $body) ?: [];
+        $title = trim((string) ($lines[0] ?? ''));
+        if ($title === '') {
+            $title = '(無題)';
+        }
+
+        $url = null;
+        foreach ($lines as $line) {
+            if (!is_string($line)) {
+                continue;
+            }
+            if (preg_match('/^\\s*URL:\\s*(\\S+)/i', $line, $m) === 1) {
+                $candidate = trim((string) ($m[1] ?? ''));
+                if ($candidate !== '') {
+                    $url = $this->substrSafe($candidate, 2048);
+                }
+                break;
+            }
+        }
+
+        return [
+            'title' => $this->substrSafe($title, 120),
+            'url' => $url,
+        ];
+    }
+
+    private function substrSafe(string $value, int $maxLen): string
+    {
+        if (function_exists('mb_substr')) {
+            return (string) mb_substr($value, 0, $maxLen);
+        }
+        return substr($value, 0, $maxLen);
     }
 }
