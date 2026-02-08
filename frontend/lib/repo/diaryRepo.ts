@@ -17,11 +17,11 @@ export async function listDiaries(filters?: DiaryFilters): Promise<DiaryDto[]> {
   const params = new URLSearchParams();
   if (filters?.q) params.set("q", filters.q);
   if (filters?.tag) params.set("tag", filters.tag);
-  if (filters?.hasPhoto !== undefined) params.set("hasPhoto", String(filters.hasPhoto));
+  if (filters?.hasPhoto === true) params.set("hasPhoto", "1");
   const qs = params.toString();
-  const apiPath = `/api/me/diaries${qs ? `?${qs}` : ""}`;
+  const path = `/api/me/diaries${qs ? `?${qs}` : ""}`;
 
-  return apiGet<DiaryDto[]>(apiPath, {
+  return apiGet<DiaryDto[]>(path, {
     headers: { "X-Device-Id": getDeviceId() },
   });
 }

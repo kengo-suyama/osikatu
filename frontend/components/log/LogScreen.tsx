@@ -13,8 +13,8 @@ import {
   Toast,
   ToastClose,
   ToastDescription,
-  ToastProvider,
   ToastTitle,
+  ToastProvider,
   ToastViewport,
 } from "@/components/ui/toast";
 import { isApiMode } from "@/lib/config";
@@ -106,7 +106,7 @@ export default function LogScreen() {
     const tagSet = new Set<string>();
     for (const d of items) {
       if (d.tags) d.tags.forEach((t) => tagSet.add(t));
-    }
+      }
     return Array.from(tagSet).sort();
   };
 
@@ -239,6 +239,14 @@ export default function LogScreen() {
           images: imageFiles.length > 0 ? imageFiles : undefined,
         });
         setDiaries((prev) => [created, ...prev]);
+        // Add any new tags to the tag list
+        if (parsedTags.length > 0) {
+          setAllTags((prev) => {
+            const s = new Set(prev);
+            parsedTags.forEach((t) => s.add(t));
+            return Array.from(s).sort();
+          });
+        }
         showToast("保存しました");
       } catch {
         showToast("保存に失敗しました");
@@ -662,7 +670,7 @@ export default function LogScreen() {
           )}
           {hydrated && apiMode && !loadingDiaries && diaries.length === 0 ? (
             <div className="rounded-2xl border border-white/10 bg-white/5 p-6 text-center text-sm opacity-70">
-              ログがまだありません
+              {hasActiveFilter ? "条件に一致するログがありません" : "ログがまだありません"}
             </div>
           ) : null}
           {hydrated && apiMode && loadingDiaries ? (
