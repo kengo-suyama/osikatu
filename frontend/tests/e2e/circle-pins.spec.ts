@@ -83,11 +83,11 @@ const setupMocks = async (page: Parameters<typeof test>[1]["page"]) => {
       await route.fulfill({ status: 200, contentType: "application/json", body: successBody(pins) });
       return;
     }
-    // list endpoint only
-    if (method !== "GET") {
-      await route.fallback();
-      return;
-    }
+    throw new Error(`REGRESSION: pins-v1 write called: ${method} ${route.request().url()}`);
+  });
+
+  await page.route(new RegExp(`/api/circles/${CIRCLE_ID}/pins/\\d+(/unpin)?$`), async (route) => {
+    throw new Error(`REGRESSION: pins-v1 write called: ${route.request().method()} ${route.request().url()}`);
   });
 
   await page.route(new RegExp(`/api/circles/${CIRCLE_ID}/pins-v2$`), async (route) => {

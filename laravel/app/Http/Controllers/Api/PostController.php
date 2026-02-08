@@ -43,13 +43,18 @@ class PostController extends Controller
 
     private function logPinsV1WriteEvent(Request $request, int $circleId, string $action, string $result, int $status, ?string $actorRole): void
     {
+        $requestId = (string) ($request->header('X-Request-Id') ?? '');
+
         Log::info('pins_v1_write_called', [
             'circle_id' => $circleId,
             'action' => $action, // create|update|unpin
-            'result' => $result, // allow|deny (switch result)
+            'result' => $result, // allow|deny|error (switch result)
             'http_status' => $status,
             'endpoint' => $request->method() . ' ' . $request->path(),
             'actor_role' => $actorRole ?: 'unknown',
+            'mode' => $this->pinsV1WriteMode(),
+            'request_id' => $requestId !== '' ? $requestId : null,
+            'actor_user_id' => CurrentUser::id(),
         ]);
     }
 
@@ -330,104 +335,112 @@ class PostController extends Controller
             return $this->pinsV1Gone($request, $circle, 'create');
         }
 
-        $member = $this->resolveMember($circle, $request);
-        if (!$member) {
+        $actorRole = null;
+        try {
+            $member = $this->resolveMember($circle, $request);
+            if (!$member) {
+                return $this->pinsV1WriteResponse(
+                    $request,
+                    $circle,
+                    'create',
+                    ApiResponse::error('FORBIDDEN', 'Not a circle member.', null, 403),
+                    'allow',
+                    null,
+                );
+            }
+
+            $actorRole = (string) ($member->role ?? 'unknown');
+
+            $user = $this->resolveUser();
+            if (!$user) {
+                return $this->pinsV1WriteResponse(
+                    $request,
+                    $circle,
+                    'create',
+                    ApiResponse::error('USER_NOT_FOUND', 'User not found.', null, 404),
+                    'allow',
+                    $actorRole,
+                );
+            }
+
+            $pinError = $pinWrite->ensureCanManagePins($member);
+            if ($pinError) {
+                return $this->pinsV1WriteResponse(
+                    $request,
+                    $circle,
+                    'create',
+                    $pinError,
+                    'allow',
+                    $actorRole,
+                );
+            }
+
+            $validator = Validator::make($request->all(), [
+                'body' => ['required', 'string'],
+                'tags' => ['nullable', 'array'],
+                'tags.*' => ['string'],
+                'pinKind' => ['nullable', 'string'],
+                'pinDueAt' => ['nullable', 'date'],
+            ]);
+
+            if ($validator->fails()) {
+                return $this->pinsV1WriteResponse(
+                    $request,
+                    $circle,
+                    'create',
+                    ApiResponse::error('VALIDATION_ERROR', 'Validation failed', $validator->errors(), 422),
+                    'allow',
+                    $actorRole,
+                );
+            }
+
+            $maxPins = $pinWrite->pinLimitFor($user, $member);
+            $limitError = $pinWrite->ensurePinLimit($circle, $maxPins);
+            if ($limitError) {
+                return $this->pinsV1WriteResponse(
+                    $request,
+                    $circle,
+                    'create',
+                    $limitError,
+                    'allow',
+                    $actorRole,
+                );
+            }
+
+            $data = $validator->validated();
+            $post = $pinWrite->createPinnedPost(
+                $circle,
+                $member,
+                (string) $data['body'],
+                $data['tags'] ?? [],
+                $data['pinKind'] ?? null,
+                $data['pinDueAt'] ?? null,
+            );
+
+            $post->load(['user', 'authorMember.meProfile', 'media']);
+            $post->loadCount('likes');
+            $post->loadCount('acks');
+            $post->liked_by_me = 0;
+            $post->acked_by_me = 0;
+
+            Circle::query()
+                ->where('id', $circle)
+                ->update(['last_activity_at' => now()]);
+
+            $pinWrite->projectFromPost($post, $member);
+
             return $this->pinsV1WriteResponse(
                 $request,
                 $circle,
                 'create',
-                ApiResponse::error('FORBIDDEN', 'Not a circle member.', null, 403),
+                ApiResponse::success(new PostResource($post), null, 201),
                 'allow',
-                null,
+                $actorRole,
             );
+        } catch (\Throwable $e) {
+            $this->logPinsV1WriteEvent($request, $circle, 'create', 'error', 500, $actorRole);
+            throw $e;
         }
-
-        $user = $this->resolveUser();
-        if (!$user) {
-            return $this->pinsV1WriteResponse(
-                $request,
-                $circle,
-                'create',
-                ApiResponse::error('USER_NOT_FOUND', 'User not found.', null, 404),
-                'allow',
-                (string) ($member->role ?? 'unknown'),
-            );
-        }
-
-        $pinError = $pinWrite->ensureCanManagePins($member);
-        if ($pinError) {
-            return $this->pinsV1WriteResponse(
-                $request,
-                $circle,
-                'create',
-                $pinError,
-                'allow',
-                (string) ($member->role ?? 'unknown'),
-            );
-        }
-
-        $validator = Validator::make($request->all(), [
-            'body' => ['required', 'string'],
-            'tags' => ['nullable', 'array'],
-            'tags.*' => ['string'],
-            'pinKind' => ['nullable', 'string'],
-            'pinDueAt' => ['nullable', 'date'],
-        ]);
-
-        if ($validator->fails()) {
-            return $this->pinsV1WriteResponse(
-                $request,
-                $circle,
-                'create',
-                ApiResponse::error('VALIDATION_ERROR', 'Validation failed', $validator->errors(), 422),
-                'allow',
-                (string) ($member->role ?? 'unknown'),
-            );
-        }
-
-        $maxPins = $pinWrite->pinLimitFor($user, $member);
-        $limitError = $pinWrite->ensurePinLimit($circle, $maxPins);
-        if ($limitError) {
-            return $this->pinsV1WriteResponse(
-                $request,
-                $circle,
-                'create',
-                $limitError,
-                'allow',
-                (string) ($member->role ?? 'unknown'),
-            );
-        }
-
-        $data = $validator->validated();
-        $post = $pinWrite->createPinnedPost(
-            $circle,
-            $member,
-            (string) $data['body'],
-            $data['tags'] ?? [],
-            $data['pinKind'] ?? null,
-            $data['pinDueAt'] ?? null,
-        );
-
-        $post->load(['user', 'authorMember.meProfile', 'media']);
-        $post->loadCount('likes');
-        $post->loadCount('acks');
-        $post->liked_by_me = 0;
-        $post->acked_by_me = 0;
-
-        Circle::query()
-            ->where('id', $circle)
-            ->update(['last_activity_at' => now()]);
-
-        $pinWrite->projectFromPost($post, $member);
-
-        return $this->pinsV1WriteResponse(
-            $request,
-            $circle,
-            'create',
-            ApiResponse::success(new PostResource($post), null, 201),
-            'allow',
-            (string) ($member->role ?? 'unknown'),
-        );
     }
 
     public function updatePin(Request $request, int $circle, int $post)
@@ -438,109 +451,117 @@ class PostController extends Controller
             return $this->pinsV1Gone($request, $circle, 'update');
         }
 
-        $member = $this->resolveMember($circle, $request);
-        if (!$member) {
+        $actorRole = null;
+        try {
+            $member = $this->resolveMember($circle, $request);
+            if (!$member) {
+                return $this->pinsV1WriteResponse(
+                    $request,
+                    $circle,
+                    'update',
+                    ApiResponse::error('FORBIDDEN', 'Not a circle member.', null, 403),
+                    'allow',
+                    null,
+                );
+            }
+
+            $actorRole = (string) ($member->role ?? 'unknown');
+
+            $user = $this->resolveUser();
+            if (!$user) {
+                return $this->pinsV1WriteResponse(
+                    $request,
+                    $circle,
+                    'update',
+                    ApiResponse::error('USER_NOT_FOUND', 'User not found.', null, 404),
+                    'allow',
+                    $actorRole,
+                );
+            }
+
+            $pinError = $pinWrite->ensureCanManagePins($member);
+            if ($pinError) {
+                return $this->pinsV1WriteResponse(
+                    $request,
+                    $circle,
+                    'update',
+                    $pinError,
+                    'allow',
+                    $actorRole,
+                );
+            }
+
+            $postModel = Post::query()
+                ->where('id', $post)
+                ->where('circle_id', $circle)
+                ->first();
+
+            if (!$postModel || !$postModel->is_pinned) {
+                return $this->pinsV1WriteResponse(
+                    $request,
+                    $circle,
+                    'update',
+                    ApiResponse::error('NOT_FOUND', 'Pin not found.', null, 404),
+                    'allow',
+                    $actorRole,
+                );
+            }
+
+            $validator = Validator::make($request->all(), [
+                'body' => ['required', 'string'],
+                'tags' => ['nullable', 'array'],
+                'tags.*' => ['string'],
+                'pinKind' => ['nullable', 'string'],
+                'pinDueAt' => ['nullable', 'date'],
+            ]);
+
+            if ($validator->fails()) {
+                return $this->pinsV1WriteResponse(
+                    $request,
+                    $circle,
+                    'update',
+                    ApiResponse::error('VALIDATION_ERROR', 'Validation failed', $validator->errors(), 422),
+                    'allow',
+                    $actorRole,
+                );
+            }
+
+            $data = $validator->validated();
+
+            $pinWrite->updatePinnedPost(
+                $postModel,
+                (string) $data['body'],
+                $data['tags'] ?? null,
+                $data['pinKind'] ?? null,
+                $data['pinDueAt'] ?? null,
+            );
+
+            $postModel->load(['user', 'authorMember.meProfile', 'media']);
+            $postModel->loadCount('likes');
+            $postModel->loadCount('acks');
+            $postModel->liked_by_me = PostLike::query()
+                ->where('post_id', $postModel->id)
+                ->where('user_id', CurrentUser::id())
+                ->exists() ? 1 : 0;
+            $postModel->acked_by_me = PostAck::query()
+                ->where('post_id', $postModel->id)
+                ->where('circle_member_id', $member->id)
+                ->exists() ? 1 : 0;
+
+            $pinWrite->projectFromPost($postModel, $member);
+
             return $this->pinsV1WriteResponse(
                 $request,
                 $circle,
                 'update',
-                ApiResponse::error('FORBIDDEN', 'Not a circle member.', null, 403),
+                ApiResponse::success(new PostResource($postModel)),
                 'allow',
-                null,
+                $actorRole,
             );
+        } catch (\Throwable $e) {
+            $this->logPinsV1WriteEvent($request, $circle, 'update', 'error', 500, $actorRole);
+            throw $e;
         }
-
-        $user = $this->resolveUser();
-        if (!$user) {
-            return $this->pinsV1WriteResponse(
-                $request,
-                $circle,
-                'update',
-                ApiResponse::error('USER_NOT_FOUND', 'User not found.', null, 404),
-                'allow',
-                (string) ($member->role ?? 'unknown'),
-            );
-        }
-
-        $pinError = $pinWrite->ensureCanManagePins($member);
-        if ($pinError) {
-            return $this->pinsV1WriteResponse(
-                $request,
-                $circle,
-                'update',
-                $pinError,
-                'allow',
-                (string) ($member->role ?? 'unknown'),
-            );
-        }
-
-        $postModel = Post::query()
-            ->where('id', $post)
-            ->where('circle_id', $circle)
-            ->first();
-
-        if (!$postModel || !$postModel->is_pinned) {
-            return $this->pinsV1WriteResponse(
-                $request,
-                $circle,
-                'update',
-                ApiResponse::error('NOT_FOUND', 'Pin not found.', null, 404),
-                'allow',
-                (string) ($member->role ?? 'unknown'),
-            );
-        }
-
-        $validator = Validator::make($request->all(), [
-            'body' => ['required', 'string'],
-            'tags' => ['nullable', 'array'],
-            'tags.*' => ['string'],
-            'pinKind' => ['nullable', 'string'],
-            'pinDueAt' => ['nullable', 'date'],
-        ]);
-
-        if ($validator->fails()) {
-            return $this->pinsV1WriteResponse(
-                $request,
-                $circle,
-                'update',
-                ApiResponse::error('VALIDATION_ERROR', 'Validation failed', $validator->errors(), 422),
-                'allow',
-                (string) ($member->role ?? 'unknown'),
-            );
-        }
-
-        $data = $validator->validated();
-
-        $pinWrite->updatePinnedPost(
-            $postModel,
-            (string) $data['body'],
-            $data['tags'] ?? null,
-            $data['pinKind'] ?? null,
-            $data['pinDueAt'] ?? null,
-        );
-
-        $postModel->load(['user', 'authorMember.meProfile', 'media']);
-        $postModel->loadCount('likes');
-        $postModel->loadCount('acks');
-        $postModel->liked_by_me = PostLike::query()
-            ->where('post_id', $postModel->id)
-            ->where('user_id', CurrentUser::id())
-            ->exists() ? 1 : 0;
-        $postModel->acked_by_me = PostAck::query()
-            ->where('post_id', $postModel->id)
-            ->where('circle_member_id', $member->id)
-            ->exists() ? 1 : 0;
-
-        $pinWrite->projectFromPost($postModel, $member);
-
-        return $this->pinsV1WriteResponse(
-            $request,
-            $circle,
-            'update',
-            ApiResponse::success(new PostResource($postModel)),
-            'allow',
-            (string) ($member->role ?? 'unknown'),
-        );
     }
 
     public function unpinPin(Request $request, int $circle, int $post)
@@ -551,68 +572,76 @@ class PostController extends Controller
             return $this->pinsV1Gone($request, $circle, 'unpin');
         }
 
-        $member = $this->resolveMember($circle, $request);
-        if (!$member) {
+        $actorRole = null;
+        try {
+            $member = $this->resolveMember($circle, $request);
+            if (!$member) {
+                return $this->pinsV1WriteResponse(
+                    $request,
+                    $circle,
+                    'unpin',
+                    ApiResponse::error('FORBIDDEN', 'Not a circle member.', null, 403),
+                    'allow',
+                    null,
+                );
+            }
+
+            $actorRole = (string) ($member->role ?? 'unknown');
+
+            $user = $this->resolveUser();
+            if (!$user) {
+                return $this->pinsV1WriteResponse(
+                    $request,
+                    $circle,
+                    'unpin',
+                    ApiResponse::error('USER_NOT_FOUND', 'User not found.', null, 404),
+                    'allow',
+                    $actorRole,
+                );
+            }
+
+            $pinError = $pinWrite->ensureCanManagePins($member);
+            if ($pinError) {
+                return $this->pinsV1WriteResponse(
+                    $request,
+                    $circle,
+                    'unpin',
+                    $pinError,
+                    'allow',
+                    $actorRole,
+                );
+            }
+
+            $postModel = Post::query()
+                ->where('id', $post)
+                ->where('circle_id', $circle)
+                ->first();
+
+            if (!$postModel || !$postModel->is_pinned) {
+                return $this->pinsV1WriteResponse(
+                    $request,
+                    $circle,
+                    'unpin',
+                    ApiResponse::error('NOT_FOUND', 'Pin not found.', null, 404),
+                    'allow',
+                    $actorRole,
+                );
+            }
+
+            $pinWrite->unpinPost($postModel);
+
             return $this->pinsV1WriteResponse(
                 $request,
                 $circle,
                 'unpin',
-                ApiResponse::error('FORBIDDEN', 'Not a circle member.', null, 403),
+                ApiResponse::success(['unpinned' => true]),
                 'allow',
-                null,
+                $actorRole,
             );
+        } catch (\Throwable $e) {
+            $this->logPinsV1WriteEvent($request, $circle, 'unpin', 'error', 500, $actorRole);
+            throw $e;
         }
-
-        $user = $this->resolveUser();
-        if (!$user) {
-            return $this->pinsV1WriteResponse(
-                $request,
-                $circle,
-                'unpin',
-                ApiResponse::error('USER_NOT_FOUND', 'User not found.', null, 404),
-                'allow',
-                (string) ($member->role ?? 'unknown'),
-            );
-        }
-
-        $pinError = $pinWrite->ensureCanManagePins($member);
-        if ($pinError) {
-            return $this->pinsV1WriteResponse(
-                $request,
-                $circle,
-                'unpin',
-                $pinError,
-                'allow',
-                (string) ($member->role ?? 'unknown'),
-            );
-        }
-
-        $postModel = Post::query()
-            ->where('id', $post)
-            ->where('circle_id', $circle)
-            ->first();
-
-        if (!$postModel || !$postModel->is_pinned) {
-            return $this->pinsV1WriteResponse(
-                $request,
-                $circle,
-                'unpin',
-                ApiResponse::error('NOT_FOUND', 'Pin not found.', null, 404),
-                'allow',
-                (string) ($member->role ?? 'unknown'),
-            );
-        }
-
-        $pinWrite->unpinPost($postModel);
-
-        return $this->pinsV1WriteResponse(
-            $request,
-            $circle,
-            'unpin',
-            ApiResponse::success(['unpinned' => true]),
-            'allow',
-            (string) ($member->role ?? 'unknown'),
-        );
     }
 
     public function storeMedia(Request $request, int $post)
