@@ -690,10 +690,18 @@ class PostController extends Controller
 
     private function ensurePinLimit(int $circleId, int $maxPins): ?\Illuminate\Http\JsonResponse
     {
-        $count = Post::query()
+        $postCount = Post::query()
             ->where('circle_id', $circleId)
             ->where('is_pinned', true)
             ->count();
+
+        $pinCount = CirclePin::query()
+            ->where('circle_id', $circleId)
+            ->count();
+
+        // Safety: v1 writes are post-backed, but pins are now read from circle_pins.
+        // Use the larger count to avoid undercount during migration/backfill or if projection lags.
+        $count = max((int) $postCount, (int) $pinCount);
 
         if ($count >= $maxPins) {
             return ApiResponse::error('PIN_LIMIT_EXCEEDED', 'ピンの上限に達しています', [
