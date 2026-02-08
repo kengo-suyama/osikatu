@@ -59,7 +59,7 @@ git diff origin/main...HEAD --stat
 注意: このドキュメント自体にチェック用の文字列が含まれるため、除外して実行する。
 
 ```powershell
-git grep -n "<<<<<<<\|=======\|>>>>>>>" -- . ":!docs/GITHUB_AGENTS_PR43_WINDOWS_E2E.md" ":!docs/CODEX_LONG_TASK_WINDOWS_E2E.md" || true
+git grep -n -E "^(<{7}|={7}|>{7})" -- . || true
 ```
 
 ヒットしたら作業停止して、該当ファイルを修正する（PRにpush）。
@@ -197,4 +197,3 @@ Merge decision:
 CI未設定/チェック未報告の場合は、以下のどちらかを提案（作業は勝手に始めない、提案だけ）。
 - GitHub Actions で `npm run tools:test` と `npm run e2e:doctor` だけ回す（E2E本体は除外可）
 - もしくは “ローカル証跡必須” を docs に明記して運用に寄せる
-

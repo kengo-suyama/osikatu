@@ -9,6 +9,9 @@ Codex long-running instructions:
 GitHub Agents PR #43 instructions:
 - `docs/GITHUB_AGENTS_PR43_WINDOWS_E2E.md`
 
+Codex long task for PR #43:
+- `docs/CODEX_LONG_TASK_PR43_WINDOWS_E2E_STABILITY.md`
+
 ## Repo Snapshot (As Of 2026-02-06)
 
 - Default branch: `main`
