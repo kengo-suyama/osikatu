@@ -57,6 +57,12 @@ cd C:\laragon\www\osikatu
 pwsh -File scripts/capture-git-parent.ps1 -Start
 ```
 
+より取りこぼしを減らす（poll fallback 時）:
+
+```powershell
+pwsh -File scripts/capture-git-parent.ps1 -Start -PollMs 20
+```
+
 停止:
 
 ```powershell
@@ -68,6 +74,7 @@ pwsh -File scripts/capture-git-parent.ps1 -Stop
 
 注意:
 - `git.exe` を起動しないツール（libgit2等）には効きません。
+- WMIのイベント購読が権限不足で失敗する場合があります。その場合は自動で polling へフォールバックします（ログに `mode: poll_fallback` が出ます）。
 
 ## 4) VSCode クラッシュ（fileWatcher など）を疑う場合
 
