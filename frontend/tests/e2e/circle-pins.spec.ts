@@ -60,6 +60,9 @@ const setupMocks = async (page: Parameters<typeof test>[1]["page"]) => {
   );
 
   let pins: any[] = [];
+  let nextPinId = 9001;
+  let nextSourcePostId = 456;
+  let nextSortOrder = 1;
 
   await page.route("**/api/me", (route) =>
     route.fulfill({ status: 200, contentType: "application/json", body: successBody(baseMe()) }),
@@ -100,21 +103,27 @@ const setupMocks = async (page: Parameters<typeof test>[1]["page"]) => {
     const payload = route.request().postDataJSON?.() as { body?: string } | undefined;
     const body = payload?.body ?? "";
 
+    const urlMatch = body.match(/^\s*URL:\s*(\S+)/im);
+    const url = urlMatch?.[1] ?? null;
+
     const createdPin = {
-      id: 9001,
+      id: nextPinId,
       circleId: CIRCLE_ID,
       createdByMemberId: 1,
       title: body.split("\n")[0] ?? "(無題)",
-      url: null,
+      url,
       body,
       checklistJson: null,
-      sortOrder: null,
+      sortOrder: nextSortOrder,
       pinnedAt: now,
       updatedAt: now,
       createdAt: now,
-      sourcePostId: 456,
+      sourcePostId: nextSourcePostId,
     };
     pins = [createdPin, ...pins];
+    nextPinId += 1;
+    nextSourcePostId += 1;
+    nextSortOrder += 1;
 
     await route.fulfill({ status: 201, contentType: "application/json", body: successBody(createdPin) });
   });
@@ -225,5 +234,37 @@ test.describe("circle pins", () => {
     await expect(item).toContainText("https://example.com/meet");
     await expect(item).toContainText("チェックリスト");
     await expect(item).toContainText("チケット発券");
+  });
+
+  test("newer pin appears first (ordering regression guard)", async ({ page }) => {
+    await setupMocks(page);
+
+    await page.goto(`/circles/${CIRCLE_ID}/pins`, { waitUntil: "domcontentloaded" });
+    const root = page.locator('[data-testid="circle-pins"]');
+    await expect(root).toBeVisible({ timeout: 30_000 });
+
+    // Create 1st pin
+    await page.locator('[data-testid="pins-add"]').click();
+    await expect(page.locator('[data-testid="pin-dialog"]')).toBeVisible({ timeout: 10_000 });
+    await page.locator('[data-testid="pin-title"]').fill("pin-1");
+    await page.locator('[data-testid="pin-body"]').fill("first");
+    await page.locator('[data-testid="pin-save"]').click();
+
+    await expect(page.locator('[data-testid="pin-item-456"]')).toBeVisible({ timeout: 15_000 });
+
+    // Create 2nd pin
+    await page.locator('[data-testid="pins-add"]').click();
+    await expect(page.locator('[data-testid="pin-dialog"]')).toBeVisible({ timeout: 10_000 });
+    await page.locator('[data-testid="pin-title"]').fill("pin-2");
+    await page.locator('[data-testid="pin-body"]').fill("second");
+    await page.locator('[data-testid="pin-save"]').click();
+
+    await expect(page.locator('[data-testid="pin-item-457"]')).toBeVisible({ timeout: 15_000 });
+
+    // Assert order: latest (pin-2) should be the first item in the list.
+    const items = page.locator('[data-testid^="pin-item-"]');
+    await expect(items).toHaveCount(2);
+    await expect(items.nth(0)).toContainText("pin-2");
+    await expect(items.nth(1)).toContainText("pin-1");
   });
 });

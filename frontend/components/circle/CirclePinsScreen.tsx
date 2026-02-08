@@ -71,9 +71,17 @@ const buildPinBody = (title: string, url: string, body: string) => {
 
 const sortPinsDesc = (pins: CirclePinDto[]) =>
   [...pins].sort((a, b) => {
-    const aSort = a.sortOrder ?? Number.POSITIVE_INFINITY;
-    const bSort = b.sortOrder ?? Number.POSITIVE_INFINITY;
-    if (aSort !== bSort) return aSort - bSort;
+    // Mirror the API ordering:
+    // 1) sortOrder DESC (nulls last)
+    // 2) pinnedAt DESC
+    // 3) id DESC
+    const aNull = a.sortOrder == null;
+    const bNull = b.sortOrder == null;
+    if (aNull !== bNull) return aNull ? 1 : -1;
+
+    const aSort = a.sortOrder ?? 0;
+    const bSort = b.sortOrder ?? 0;
+    if (aSort !== bSort) return bSort - aSort;
 
     const aTime = new Date(a.pinnedAt ?? a.createdAt ?? 0).getTime();
     const bTime = new Date(b.pinnedAt ?? b.createdAt ?? 0).getTime();
