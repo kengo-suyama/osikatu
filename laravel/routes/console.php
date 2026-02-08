@@ -30,6 +30,18 @@ Artisan::command('app:backfill-circle-pins {--dry-run}', function () {
     return 0;
 })->purpose('Backfill circle_pins from legacy pinned posts');
 
+Artisan::command('app:backfill-circle-pins-sort-order {--dry-run}', function () {
+    $dryRun = (bool) $this->option('dry-run');
+
+    $result = app(BackfillCirclePins::class)->backfillSortOrder($dryRun);
+
+    $this->info('Backfill complete.');
+    $this->line('circles: ' . ($result['circles'] ?? 0));
+    $this->line('filled: ' . ($result['filled'] ?? 0));
+
+    return 0;
+})->purpose('Backfill circle_pins.sort_order where it is null (idempotent)');
+
 Artisan::command('pins:v1-status', function () {
     $result = app(PinsV1Status::class)->handle();
 
