@@ -14,7 +14,7 @@ import {
   ToastViewport,
 } from "@/components/ui/toast";
 import type { NotificationDto } from "@/lib/types";
-import { fetchNotifications, markNotificationRead } from "@/lib/repo/notificationRepo";
+import { fetchNotifications, markNotificationRead, markAllNotificationsRead } from "@/lib/repo/notificationRepo";
 import { cn } from "@/lib/utils";
 
 export default function NotificationsPage() {
@@ -24,6 +24,7 @@ export default function NotificationsPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [actionLoading, setActionLoading] = useState(false);
+  const [showUnreadOnly, setShowUnreadOnly] = useState(false);
 
   const [toastOpen, setToastOpen] = useState(false);
   const [toastTitle, setToastTitle] = useState("");
@@ -90,6 +91,18 @@ export default function NotificationsPage() {
     }
   };
 
+  const handleReadAll = async () => {
+    setActionLoading(true);
+    const result = await markAllNotificationsRead();
+    if (result) {
+      setItems((prev) => prev.map((item) => ({ ...item, readAt: item.readAt || new Date().toISOString() })));
+      showToast("一括既読", result.markedCount + "件を既読にしました");
+    } else {
+      showToast("失敗", "一括既読に失敗しました");
+    }
+    setActionLoading(false);
+  };
+
   const formatTime = (value: string | null) => {
     if (!value) return "";
     return value.replace("T", " ").slice(0, 16);
@@ -122,10 +135,12 @@ export default function NotificationsPage() {
     return `${d.getMonth() + 1}月${d.getDate()}日`;
   };
 
+  const displayItems = useMemo(() => showUnreadOnly ? items.filter((i) => !i.readAt) : items, [items, showUnreadOnly]);
+
   const grouped = useMemo(() => {
     const groups: { label: string; items: NotificationDto[] }[] = [];
     let currentLabel = "";
-    for (const item of items) {
+    for (const item of displayItems) {
       const label = dateLabel(item.notifyAt || item.createdAt);
       if (label !== currentLabel) {
         groups.push({ label, items: [item] });
@@ -135,7 +150,7 @@ export default function NotificationsPage() {
       }
     }
     return groups;
-  }, [items]);
+  }, [displayItems]);
 
   return (
     <ToastProvider>
@@ -149,6 +164,27 @@ export default function NotificationsPage() {
             <Bell className="h-4 w-4" />
             未読 {unreadCount}
           </div>
+        </div>
+        <div className="flex gap-2">
+          <button
+            type="button"
+            onClick={() => setShowUnreadOnly((v) => !v)}
+            className={`rounded-full border px-3 py-1 text-xs ${showUnreadOnly ? "bg-emerald-500/15 text-emerald-600 border-emerald-500/50" : "border-border/60 text-muted-foreground"}`}
+            data-testid="notification-filter-unread"
+          >
+            未読のみ
+          </button>
+          {unreadCount > 0 && (
+            <button
+              type="button"
+              onClick={handleReadAll}
+              disabled={actionLoading}
+              className="rounded-full border border-border/60 px-3 py-1 text-xs text-muted-foreground hover:bg-muted/40"
+              data-testid="notification-read-all"
+            >
+              全て既読
+            </button>
+          )}
         </div>
 
         {loading ? (

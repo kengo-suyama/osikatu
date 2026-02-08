@@ -169,6 +169,21 @@ class NotificationController extends Controller
         return $user && $user->plan === 'plus';
     }
 
+    public function readAll(Request $request)
+    {
+        $userId = $this->resolveUserId($request);
+        if (!$userId) {
+            return ApiResponse::error('UNAUTHORIZED', 'Unauthorized.', null, 401);
+        }
+
+        $count = Notification::query()
+            ->where('user_id', $userId)
+            ->whereNull('read_at')
+            ->update(['read_at' => Carbon::now('Asia/Tokyo')]);
+
+        return ApiResponse::success(['markedCount' => $count]);
+    }
+
     private function resolveUserId(Request $request): ?int
     {
         $deviceId = $request->header('X-Device-Id');
