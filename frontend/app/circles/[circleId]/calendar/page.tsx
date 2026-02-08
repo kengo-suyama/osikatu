@@ -87,6 +87,7 @@ export default function CircleCalendarPage({
   const isPremium = ["premium", "plus"].includes(me?.effectivePlan ?? me?.plan ?? "free");
   const isManager = myRole === "owner" || myRole === "admin";
   const canEdit = isPremium && isManager;
+  const pendingApproveCount = canEdit ? pendingProposals.length : 0;
 
   const calendar = useMemo(() => {
     const now = new Date();
@@ -314,11 +315,25 @@ export default function CircleCalendarPage({
   return (
     <ToastProvider>
       <div className="mx-auto max-w-xl space-y-4 px-4 py-6">
-        <div>
-          <div className="text-lg font-semibold">みんなの予定（カレンダー）</div>
-          <div className="mt-1 text-xs text-muted-foreground">
-            {circleName ? `${circleName} の共有予定` : "サークル共有予定"}
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <div className="text-lg font-semibold">みんなの予定（カレンダー）</div>
+            <div className="mt-1 text-xs text-muted-foreground">
+              {circleName ? `${circleName} の共有予定` : "サークル共有予定"}
+            </div>
           </div>
+
+          {pendingApproveCount > 0 ? (
+            <Button
+              asChild
+              size="sm"
+              variant="secondary"
+              className="h-7 rounded-full bg-amber-100 px-3 text-[11px] font-medium text-amber-900 hover:bg-amber-100/80"
+              data-testid="approve-ready-indicator"
+            >
+              <a href="#pending-proposals">承認待ち {pendingApproveCount}件</a>
+            </Button>
+          ) : null}
         </div>
 
         {accessDenied ? (
@@ -556,8 +571,17 @@ export default function CircleCalendarPage({
 
             {/* Pending proposals (visible to owner/admin with plus) */}
             {canEdit && pendingProposals.length > 0 && (
-              <Card className="rounded-2xl border p-4 shadow-sm" data-testid="schedule-proposal-list">
-                <div className="text-sm font-semibold text-muted-foreground">メンバーからの提案</div>
+              <Card
+                id="pending-proposals"
+                className="rounded-2xl border p-4 shadow-sm"
+                data-testid="schedule-proposal-list"
+              >
+                <div className="flex items-center justify-between gap-2">
+                  <div className="text-sm font-semibold text-muted-foreground">メンバーからの提案</div>
+                  <div className="rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-medium text-amber-900">
+                    {pendingProposals.length}件
+                  </div>
+                </div>
                 <div className="mt-2 space-y-2">
                   {pendingProposals.map((p) => (
                     <div key={p.id} className="rounded-xl border border-border/60 p-3" data-testid={`schedule-proposal-item-${p.id}`}>
