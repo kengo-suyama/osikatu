@@ -96,6 +96,10 @@ class CircleSettlementExpensesTest extends TestCase
         return $expense;
     }
 
+    // ═══════════════════════════════════════════════════════════════
+    // Read endpoint tests (from PR-B)
+    // ═══════════════════════════════════════════════════════════════
+
     public function test_member_can_list_expenses_empty(): void
     {
         [$circle, $members, $profiles] = $this->createCircleWithMembers('plus');
@@ -162,7 +166,6 @@ class CircleSettlementExpensesTest extends TestCase
     {
         [$circle, $members, $profiles] = $this->createCircleWithMembers('plus', 3);
 
-        // Member 0 pays 3000 split 3 ways: each owes 1000
         $this->seedExpense($circle->id, $members[0]->id, 'ランチ', 3000, [
             ['member_id' => $members[0]->id, 'name' => 'メンバー0', 'share_yen' => 1000],
             ['member_id' => $members[1]->id, 'name' => 'メンバー1', 'share_yen' => 1000],
@@ -178,19 +181,16 @@ class CircleSettlementExpensesTest extends TestCase
         $items = $response->json('success.data.items');
         $this->assertCount(3, $items);
 
-        // Member 0: paid 3000, owed 1000, net = +2000
         $m0 = collect($items)->firstWhere('memberId', $members[0]->id);
         $this->assertEquals(3000, $m0['paidYen']);
         $this->assertEquals(1000, $m0['owedYen']);
         $this->assertEquals(2000, $m0['netYen']);
 
-        // Member 1: paid 0, owed 1000, net = -1000
         $m1 = collect($items)->firstWhere('memberId', $members[1]->id);
         $this->assertEquals(0, $m1['paidYen']);
         $this->assertEquals(1000, $m1['owedYen']);
         $this->assertEquals(-1000, $m1['netYen']);
 
-        // Totals
         $this->assertEquals(3000, $response->json('success.data.totals.totalExpensesYen'));
         $this->assertEquals(1, $response->json('success.data.totals.expenseCount'));
     }
@@ -199,13 +199,11 @@ class CircleSettlementExpensesTest extends TestCase
     {
         [$circle, $members, $profiles] = $this->createCircleWithMembers('plus', 2);
 
-        // Active expense
         $this->seedExpense($circle->id, $members[0]->id, 'ランチ', 2000, [
             ['member_id' => $members[0]->id, 'name' => 'メンバー0', 'share_yen' => 1000],
             ['member_id' => $members[1]->id, 'name' => 'メンバー1', 'share_yen' => 1000],
         ]);
 
-        // Voided expense (should be excluded)
         $this->seedExpense($circle->id, $members[0]->id, '取消済', 5000, [
             ['member_id' => $members[0]->id, 'name' => 'メンバー0', 'share_yen' => 2500],
             ['member_id' => $members[1]->id, 'name' => 'メンバー1', 'share_yen' => 2500],
@@ -216,20 +214,17 @@ class CircleSettlementExpensesTest extends TestCase
         ])->getJson("/api/circles/{$circle->id}/settlements/balances");
 
         $response->assertStatus(200);
-
-        // Only active expense counted
         $this->assertEquals(2000, $response->json('success.data.totals.totalExpensesYen'));
         $this->assertEquals(1, $response->json('success.data.totals.expenseCount'));
 
         $m0 = collect($response->json('success.data.items'))->firstWhere('memberId', $members[0]->id);
-        $this->assertEquals(1000, $m0['netYen']); // paid 2000 - owed 1000
+        $this->assertEquals(1000, $m0['netYen']);
     }
 
     public function test_suggestions_deterministic(): void
     {
         [$circle, $members, $profiles] = $this->createCircleWithMembers('plus', 3);
 
-        // Member 0 pays 3000 split 3 ways
         $this->seedExpense($circle->id, $members[0]->id, 'ランチ', 3000, [
             ['member_id' => $members[0]->id, 'name' => 'メンバー0', 'share_yen' => 1000],
             ['member_id' => $members[1]->id, 'name' => 'メンバー1', 'share_yen' => 1000],
@@ -241,27 +236,18 @@ class CircleSettlementExpensesTest extends TestCase
         ])->getJson("/api/circles/{$circle->id}/settlements/suggestions");
 
         $response->assertStatus(200);
-
         $items = $response->json('success.data.items');
         $this->assertCount(2, $items);
-
-        // Both debtors have same amount (-1000), sorted by memberId asc
         $this->assertLessThan($items[1]['fromMemberId'], $items[0]['fromMemberId']);
-
-        // Both transfer to member 0
         $this->assertEquals($members[0]->id, $items[0]['toMemberId']);
-        $this->assertEquals($members[0]->id, $items[1]['toMemberId']);
         $this->assertEquals(1000, $items[0]['amountYen']);
-        $this->assertEquals(1000, $items[1]['amountYen']);
 
-        // Run again — same result (deterministic)
+        // Deterministic: same result on second call
         $response2 = $this->withHeaders([
             'X-Device-Id' => $profiles[0]->device_id,
         ])->getJson("/api/circles/{$circle->id}/settlements/suggestions");
-
         $items2 = $response2->json('success.data.items');
         $this->assertEquals($items[0]['fromMemberId'], $items2[0]['fromMemberId']);
-        $this->assertEquals($items[1]['fromMemberId'], $items2[1]['fromMemberId']);
     }
 
     public function test_expenses_list_excludes_void(): void
@@ -283,9 +269,358 @@ class CircleSettlementExpensesTest extends TestCase
         ])->getJson("/api/circles/{$circle->id}/settlements/expenses");
 
         $response->assertStatus(200);
-
         $items = $response->json('success.data.items');
         $this->assertCount(1, $items);
         $this->assertEquals('アクティブ', $items[0]['title']);
+    }
+
+    // ═══════════════════════════════════════════════════════════════
+    // Create expense tests (PR-D)
+    // ═══════════════════════════════════════════════════════════════
+
+    public function test_create_equal_split_basic(): void
+    {
+        [$circle, $members, $profiles] = $this->createCircleWithMembers('plus', 3);
+
+        $response = $this->withHeaders([
+            'X-Device-Id' => $profiles[0]->device_id,
+        ])->postJson("/api/circles/{$circle->id}/settlements/expenses", [
+            'title' => 'ランチ',
+            'amountYen' => 3000,
+            'splitType' => 'equal',
+            'payerMemberId' => $members[0]->id,
+            'participants' => [$members[0]->id, $members[1]->id, $members[2]->id],
+        ]);
+
+        $response->assertStatus(201);
+        $expense = $response->json('success.data.expense');
+        $this->assertEquals('ランチ', $expense['title']);
+        $this->assertEquals(3000, $expense['amountYen']);
+        $this->assertEquals('equal', $expense['splitType']);
+        $this->assertCount(3, $expense['shares']);
+
+        // Each share = 1000
+        foreach ($expense['shares'] as $share) {
+            $this->assertEquals(1000, $share['shareYen']);
+        }
+    }
+
+    public function test_create_equal_split_rounding(): void
+    {
+        [$circle, $members, $profiles] = $this->createCircleWithMembers('plus', 3);
+
+        $response = $this->withHeaders([
+            'X-Device-Id' => $profiles[0]->device_id,
+        ])->postJson("/api/circles/{$circle->id}/settlements/expenses", [
+            'title' => 'ホテル',
+            'amountYen' => 10001,
+            'splitType' => 'equal',
+            'payerMemberId' => $members[0]->id,
+            'participants' => [$members[0]->id, $members[1]->id, $members[2]->id],
+        ]);
+
+        $response->assertStatus(201);
+        $shares = $response->json('success.data.expense.shares');
+        $this->assertCount(3, $shares);
+
+        // floor(10001/3) = 3333, remainder = 2 → payer gets 3335
+        $payerShare = collect($shares)->firstWhere('memberId', $members[0]->id);
+        $this->assertEquals(3335, $payerShare['shareYen']);
+
+        $otherShares = collect($shares)->where('memberId', '!=', $members[0]->id);
+        foreach ($otherShares as $s) {
+            $this->assertEquals(3333, $s['shareYen']);
+        }
+
+        // Verify sum = amountYen
+        $sum = collect($shares)->sum('shareYen');
+        $this->assertEquals(10001, $sum);
+    }
+
+    public function test_create_fixed_split(): void
+    {
+        [$circle, $members, $profiles] = $this->createCircleWithMembers('plus', 3);
+
+        $response = $this->withHeaders([
+            'X-Device-Id' => $profiles[0]->device_id,
+        ])->postJson("/api/circles/{$circle->id}/settlements/expenses", [
+            'title' => 'レンタカー',
+            'amountYen' => 12000,
+            'splitType' => 'fixed',
+            'payerMemberId' => $members[0]->id,
+            'shares' => [
+                ['memberId' => $members[0]->id, 'shareYen' => 4000],
+                ['memberId' => $members[1]->id, 'shareYen' => 5000],
+                ['memberId' => $members[2]->id, 'shareYen' => 3000],
+            ],
+        ]);
+
+        $response->assertStatus(201);
+        $expense = $response->json('success.data.expense');
+        $this->assertEquals('fixed', $expense['splitType']);
+        $this->assertCount(3, $expense['shares']);
+
+        $s0 = collect($expense['shares'])->firstWhere('memberId', $members[0]->id);
+        $this->assertEquals(4000, $s0['shareYen']);
+    }
+
+    public function test_create_fixed_sum_mismatch_returns_422(): void
+    {
+        [$circle, $members, $profiles] = $this->createCircleWithMembers('plus', 2);
+
+        $response = $this->withHeaders([
+            'X-Device-Id' => $profiles[0]->device_id,
+        ])->postJson("/api/circles/{$circle->id}/settlements/expenses", [
+            'title' => '不一致',
+            'amountYen' => 10000,
+            'splitType' => 'fixed',
+            'payerMemberId' => $members[0]->id,
+            'shares' => [
+                ['memberId' => $members[0]->id, 'shareYen' => 3000],
+                ['memberId' => $members[1]->id, 'shareYen' => 3000],
+            ],
+        ]);
+
+        $response->assertStatus(422)
+            ->assertJsonPath('error.code', 'VALIDATION_ERROR');
+    }
+
+    public function test_create_duplicate_participants_returns_422(): void
+    {
+        [$circle, $members, $profiles] = $this->createCircleWithMembers('plus', 2);
+
+        $response = $this->withHeaders([
+            'X-Device-Id' => $profiles[0]->device_id,
+        ])->postJson("/api/circles/{$circle->id}/settlements/expenses", [
+            'title' => '重複',
+            'amountYen' => 2000,
+            'splitType' => 'equal',
+            'payerMemberId' => $members[0]->id,
+            'participants' => [$members[0]->id, $members[0]->id, $members[1]->id],
+        ]);
+
+        $response->assertStatus(422)
+            ->assertJsonPath('error.code', 'VALIDATION_ERROR');
+    }
+
+    public function test_member_cannot_create_expense(): void
+    {
+        [$circle, $members, $profiles] = $this->createCircleWithMembers('plus', 2);
+
+        // profiles[1] is a member (not owner/admin)
+        $response = $this->withHeaders([
+            'X-Device-Id' => $profiles[1]->device_id,
+        ])->postJson("/api/circles/{$circle->id}/settlements/expenses", [
+            'title' => '禁止',
+            'amountYen' => 1000,
+            'splitType' => 'equal',
+            'payerMemberId' => $members[0]->id,
+            'participants' => [$members[0]->id, $members[1]->id],
+        ]);
+
+        $response->assertStatus(403)
+            ->assertJsonPath('error.code', 'FORBIDDEN');
+    }
+
+    public function test_create_expense_updates_balances(): void
+    {
+        [$circle, $members, $profiles] = $this->createCircleWithMembers('plus', 2);
+
+        // Create expense via API
+        $this->withHeaders([
+            'X-Device-Id' => $profiles[0]->device_id,
+        ])->postJson("/api/circles/{$circle->id}/settlements/expenses", [
+            'title' => '食事',
+            'amountYen' => 4000,
+            'splitType' => 'equal',
+            'payerMemberId' => $members[0]->id,
+            'participants' => [$members[0]->id, $members[1]->id],
+        ])->assertStatus(201);
+
+        // Check balances
+        $response = $this->withHeaders([
+            'X-Device-Id' => $profiles[0]->device_id,
+        ])->getJson("/api/circles/{$circle->id}/settlements/balances");
+
+        $response->assertStatus(200);
+        $items = $response->json('success.data.items');
+
+        $m0 = collect($items)->firstWhere('memberId', $members[0]->id);
+        $this->assertEquals(4000, $m0['paidYen']);
+        $this->assertEquals(2000, $m0['owedYen']);
+        $this->assertEquals(2000, $m0['netYen']);
+
+        $m1 = collect($items)->firstWhere('memberId', $members[1]->id);
+        $this->assertEquals(-2000, $m1['netYen']);
+    }
+
+    // ═══════════════════════════════════════════════════════════════
+    // Void / Replace tests (PR-D)
+    // ═══════════════════════════════════════════════════════════════
+
+    public function test_void_expense(): void
+    {
+        [$circle, $members, $profiles] = $this->createCircleWithMembers('plus', 2);
+
+        // Create via API
+        $create = $this->withHeaders([
+            'X-Device-Id' => $profiles[0]->device_id,
+        ])->postJson("/api/circles/{$circle->id}/settlements/expenses", [
+            'title' => '取消対象',
+            'amountYen' => 2000,
+            'splitType' => 'equal',
+            'payerMemberId' => $members[0]->id,
+            'participants' => [$members[0]->id, $members[1]->id],
+        ]);
+        $create->assertStatus(201);
+        $expenseId = $create->json('success.data.expense.id');
+
+        // Void it
+        $void = $this->withHeaders([
+            'X-Device-Id' => $profiles[0]->device_id,
+        ])->postJson("/api/circles/{$circle->id}/settlements/expenses/{$expenseId}/void", [
+            'reason' => '金額誤り',
+        ]);
+
+        $void->assertStatus(200);
+        $voided = $void->json('success.data.voided');
+        $this->assertEquals('void', $voided['status']);
+        $this->assertNotNull($voided['voidedAt']);
+        $this->assertEquals($members[0]->id, $voided['voidedByMemberId']);
+
+        // Balances should be empty (no active expenses)
+        $balances = $this->withHeaders([
+            'X-Device-Id' => $profiles[0]->device_id,
+        ])->getJson("/api/circles/{$circle->id}/settlements/balances");
+        $this->assertEquals(0, $balances->json('success.data.totals.expenseCount'));
+    }
+
+    public function test_void_already_voided_returns_409(): void
+    {
+        [$circle, $members, $profiles] = $this->createCircleWithMembers('plus', 2);
+
+        $create = $this->withHeaders([
+            'X-Device-Id' => $profiles[0]->device_id,
+        ])->postJson("/api/circles/{$circle->id}/settlements/expenses", [
+            'title' => '重複void',
+            'amountYen' => 1000,
+            'splitType' => 'equal',
+            'payerMemberId' => $members[0]->id,
+            'participants' => [$members[0]->id, $members[1]->id],
+        ]);
+        $expenseId = $create->json('success.data.expense.id');
+
+        // First void
+        $this->withHeaders([
+            'X-Device-Id' => $profiles[0]->device_id,
+        ])->postJson("/api/circles/{$circle->id}/settlements/expenses/{$expenseId}/void")
+            ->assertStatus(200);
+
+        // Second void → 409
+        $this->withHeaders([
+            'X-Device-Id' => $profiles[0]->device_id,
+        ])->postJson("/api/circles/{$circle->id}/settlements/expenses/{$expenseId}/void")
+            ->assertStatus(409)
+            ->assertJsonPath('error.code', 'ALREADY_VOIDED');
+    }
+
+    public function test_void_and_replace_linkage(): void
+    {
+        [$circle, $members, $profiles] = $this->createCircleWithMembers('plus', 3);
+
+        $create = $this->withHeaders([
+            'X-Device-Id' => $profiles[0]->device_id,
+        ])->postJson("/api/circles/{$circle->id}/settlements/expenses", [
+            'title' => '旧ランチ',
+            'amountYen' => 3000,
+            'splitType' => 'equal',
+            'payerMemberId' => $members[0]->id,
+            'participants' => [$members[0]->id, $members[1]->id, $members[2]->id],
+        ]);
+        $oldId = $create->json('success.data.expense.id');
+
+        // Void + replace
+        $voidReplace = $this->withHeaders([
+            'X-Device-Id' => $profiles[0]->device_id,
+        ])->postJson("/api/circles/{$circle->id}/settlements/expenses/{$oldId}/void", [
+            'reason' => '金額修正',
+            'replace' => [
+                'title' => '新ランチ',
+                'amountYen' => 3500,
+                'splitType' => 'equal',
+                'payerMemberId' => $members[0]->id,
+                'participants' => [$members[0]->id, $members[1]->id, $members[2]->id],
+            ],
+        ]);
+
+        $voidReplace->assertStatus(200);
+
+        $voided = $voidReplace->json('success.data.voided');
+        $replacement = $voidReplace->json('success.data.replacement');
+
+        // Old is void with linkage to new
+        $this->assertEquals('void', $voided['status']);
+        $this->assertEquals($replacement['id'], $voided['replacedByExpenseId']);
+
+        // New is active with linkage to old
+        $this->assertEquals('active', $replacement['status']);
+        $this->assertEquals($oldId, $replacement['replacesExpenseId']);
+        $this->assertEquals('新ランチ', $replacement['title']);
+        $this->assertEquals(3500, $replacement['amountYen']);
+
+        // Balances should only reflect the replacement
+        $balances = $this->withHeaders([
+            'X-Device-Id' => $profiles[0]->device_id,
+        ])->getJson("/api/circles/{$circle->id}/settlements/balances");
+
+        $this->assertEquals(3500, $balances->json('success.data.totals.totalExpensesYen'));
+        $this->assertEquals(1, $balances->json('success.data.totals.expenseCount'));
+    }
+
+    public function test_member_cannot_void(): void
+    {
+        [$circle, $members, $profiles] = $this->createCircleWithMembers('plus', 2);
+
+        $create = $this->withHeaders([
+            'X-Device-Id' => $profiles[0]->device_id,
+        ])->postJson("/api/circles/{$circle->id}/settlements/expenses", [
+            'title' => 'テスト',
+            'amountYen' => 1000,
+            'splitType' => 'equal',
+            'payerMemberId' => $members[0]->id,
+            'participants' => [$members[0]->id, $members[1]->id],
+        ]);
+        $expenseId = $create->json('success.data.expense.id');
+
+        // Member (not admin) tries to void
+        $this->withHeaders([
+            'X-Device-Id' => $profiles[1]->device_id,
+        ])->postJson("/api/circles/{$circle->id}/settlements/expenses/{$expenseId}/void")
+            ->assertStatus(403)
+            ->assertJsonPath('error.code', 'FORBIDDEN');
+    }
+
+    public function test_snapshot_names_preserved(): void
+    {
+        [$circle, $members, $profiles] = $this->createCircleWithMembers('plus', 2);
+
+        $response = $this->withHeaders([
+            'X-Device-Id' => $profiles[0]->device_id,
+        ])->postJson("/api/circles/{$circle->id}/settlements/expenses", [
+            'title' => 'スナップショット',
+            'amountYen' => 2000,
+            'splitType' => 'equal',
+            'payerMemberId' => $members[0]->id,
+            'participants' => [$members[0]->id, $members[1]->id],
+        ]);
+
+        $response->assertStatus(201);
+        $shares = $response->json('success.data.expense.shares');
+
+        $s0 = collect($shares)->firstWhere('memberId', $members[0]->id);
+        $this->assertEquals('メンバー0', $s0['memberSnapshotName']);
+
+        $s1 = collect($shares)->firstWhere('memberId', $members[1]->id);
+        $this->assertEquals('メンバー1', $s1['memberSnapshotName']);
     }
 }

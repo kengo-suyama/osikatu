@@ -20,6 +20,8 @@ class CircleSettlementExpense extends Model
         'occurred_on',
         'note',
         'status',
+        'voided_at',
+        'voided_by_member_id',
         'replaced_by_expense_id',
         'replaces_expense_id',
     ];
@@ -27,6 +29,7 @@ class CircleSettlementExpense extends Model
     protected $casts = [
         'amount_yen' => 'integer',
         'occurred_on' => 'date',
+        'voided_at' => 'datetime',
     ];
 
     public function circle(): BelongsTo
