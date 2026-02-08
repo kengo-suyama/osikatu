@@ -46,6 +46,29 @@ Get-Process | Where-Object { $_.ProcessName -match "code|vscode|git|gh|github|so
 
 推奨: `./_evidence/` に `yyyymmdd_hhmmss_process.txt` として保存（ローカルのみ、コミットしない）。
 
+## 3.5) git.exe 起動の親プロセスを自動で記録（WMI監視）
+
+Procmon を開けない状況でも、`git.exe` の起動イベントを `_evidence/` に自動記録できます。
+
+開始:
+
+```powershell
+cd C:\laragon\www\osikatu
+pwsh -File scripts/capture-git-parent.ps1 -Start
+```
+
+停止:
+
+```powershell
+pwsh -File scripts/capture-git-parent.ps1 -Stop
+```
+
+ログ:
+- `_evidence/git_process_create_watch_YYYYMMDD_HHMMSS.log`（JSON lines）
+
+注意:
+- `git.exe` を起動しないツール（libgit2等）には効きません。
+
 ## 4) VSCode クラッシュ（fileWatcher など）を疑う場合
 
 見る場所:
@@ -72,4 +95,3 @@ code --disable-extensions --user-data-dir "%TEMP%\vscode-osikatu-clean" "C:\lara
 
 git CLI の `rebase` を `main` 上でブロックするフック（GUIツールは無視する場合あり）:
 - `docs/dev/git-guard.md`
-

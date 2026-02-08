@@ -2,6 +2,9 @@
 set -eu
 
 # Block rebasing main by default. Allow override with ALLOW_REBASE_MAIN=1.
+#
+# Enhancement: also block when DETACHED + GIT_REFLOG_ACTION contains "pull"
+# (catches `git pull --rebase` which detaches HEAD before rebasing).
 
 branch="$(git symbolic-ref --quiet --short HEAD 2>/dev/null || echo DETACHED)"
 gitdir="$(git rev-parse --git-dir 2>/dev/null || echo .git)"
@@ -10,14 +13,31 @@ ts="$(date -u +"%Y-%m-%dT%H:%M:%SZ" 2>/dev/null || date)"
 
 upstream="${1-}"
 onto="${2-}"
+reflog_action="${GIT_REFLOG_ACTION-}"
 
-if [ "$branch" = "main" ] && [ "${ALLOW_REBASE_MAIN-}" != "1" ]; then
-  printf "%s pre-rebase BLOCK branch=%s upstream=%s onto=%s args=%s\n" "$ts" "$branch" "$upstream" "$onto" "$*" >>"$logfile" 2>/dev/null || true
+should_block=0
+
+# Case 1: on main branch
+if [ "$branch" = "main" ]; then
+  should_block=1
+fi
+
+# Case 2: DETACHED + pull action (pull --rebase detaches HEAD temporarily)
+if [ "$branch" = "DETACHED" ]; then
+  case "$reflog_action" in
+    *pull*) should_block=1 ;;
+  esac
+fi
+
+if [ "$should_block" = "1" ] && [ "${ALLOW_REBASE_MAIN-}" != "1" ]; then
+  printf "%s pre-rebase BLOCK branch=%s upstream=%s onto=%s reflog=%s args=%s\n" \
+    "$ts" "$branch" "$upstream" "$onto" "$reflog_action" "$*" >>"$logfile" 2>/dev/null || true
   echo "Blocked: rebase on 'main' is disabled in this repo."
+  echo "  branch=$branch reflog_action=$reflog_action"
   echo "If you really need it, rerun with: ALLOW_REBASE_MAIN=1 git rebase ..."
   exit 1
 fi
 
-printf "%s pre-rebase ALLOW branch=%s upstream=%s onto=%s args=%s\n" "$ts" "$branch" "$upstream" "$onto" "$*" >>"$logfile" 2>/dev/null || true
+printf "%s pre-rebase ALLOW branch=%s upstream=%s onto=%s reflog=%s args=%s\n" \
+  "$ts" "$branch" "$upstream" "$onto" "$reflog_action" "$*" >>"$logfile" 2>/dev/null || true
 exit 0
-
