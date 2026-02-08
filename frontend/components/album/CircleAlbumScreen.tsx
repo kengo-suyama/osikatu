@@ -102,6 +102,7 @@ export default function CircleAlbumScreen({ circleId }: { circleId: number }) {
       );
     }
     return (
+      // eslint-disable-next-line @next/next/no-img-element
       <img
         src={current.url}
         alt="album"
@@ -172,6 +173,7 @@ export default function CircleAlbumScreen({ circleId }: { circleId: number }) {
               {item.type === "video" ? (
                 <video src={item.url} className="h-24 w-full object-cover" muted />
               ) : (
+                // eslint-disable-next-line @next/next/no-img-element
                 <img src={item.url} alt="album" className="h-24 w-full object-cover" />
               )}
             </button>

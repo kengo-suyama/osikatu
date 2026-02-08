@@ -133,6 +133,7 @@ export default function OshiProfileForm({
           <div className="text-sm font-semibold text-muted-foreground">画像アップロード</div>
           {imagePreview ? (
             <div className="h-36 w-full overflow-hidden rounded-xl border" data-testid="oshi-photo-preview">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
               <img src={imagePreview} alt="推し画像" className="h-full w-full object-cover" />
             </div>
           ) : (

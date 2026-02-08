@@ -468,6 +468,7 @@ export default function LogScreen() {
                           setDragOverLogIndex(null);
                         }}
                       >
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
                         <img src={src} alt="添付写真" className="h-24 w-full object-cover" />
                         <button
                           type="button"
@@ -612,6 +613,7 @@ export default function LogScreen() {
                     {diary.attachments && diary.attachments.length > 0 ? (
                       <div className="grid grid-cols-2 gap-2" data-testid="log-diary-images">
                         {diary.attachments.map((att) => (
+                          // eslint-disable-next-line @next/next/no-img-element
                           <img
                             key={att.id}
                             src={att.url}
@@ -659,6 +661,7 @@ export default function LogScreen() {
                     {post.images && post.images.length > 0 ? (
                       <div className="grid grid-cols-2 gap-2">
                         {post.images.map((src) => (
+                          // eslint-disable-next-line @next/next/no-img-element
                           <img
                             key={src}
                             src={src}

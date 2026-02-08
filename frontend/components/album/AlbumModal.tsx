@@ -265,6 +265,7 @@ export default function AlbumModal({
                           playsInline
                         />
                       ) : (
+                        // eslint-disable-next-line @next/next/no-img-element
                         <img
                           src={item.url}
                           alt={item.name ?? "アルバム"}
@@ -285,6 +286,7 @@ export default function AlbumModal({
                       playsInline
                     />
                   ) : current ? (
+                    // eslint-disable-next-line @next/next/no-img-element
                     <img
                       src={current.url}
                       alt={current.name ?? "アルバム"}
@@ -336,6 +338,7 @@ export default function AlbumModal({
                         muted
                       />
                     ) : (
+                      // eslint-disable-next-line @next/next/no-img-element
                       <img
                         src={item.url}
                         alt={item.name ?? "アルバム"}
@@ -412,6 +415,7 @@ export default function AlbumModal({
                                 playsInline
                               />
                             ) : (
+                              // eslint-disable-next-line @next/next/no-img-element
                               <img
                                 src={item.url}
                                 alt={item.name ?? "アルバム"}
@@ -432,6 +436,7 @@ export default function AlbumModal({
                             playsInline
                           />
                         ) : savedCurrent ? (
+                          // eslint-disable-next-line @next/next/no-img-element
                           <img
                             src={savedCurrent.url}
                             alt={savedCurrent.name ?? "アルバム"}
@@ -589,6 +594,7 @@ export default function AlbumModal({
                                 playsInline
                               />
                             ) : (
+                              // eslint-disable-next-line @next/next/no-img-element
                               <img
                                 src={item.url}
                                 alt={item.name ?? "アルバム"}

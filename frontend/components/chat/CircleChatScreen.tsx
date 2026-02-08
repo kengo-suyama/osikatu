@@ -393,6 +393,7 @@ export default function CircleChatScreen({ circleId }: { circleId: number }) {
                             data-testid="chat-media"
                           />
                         ) : (
+                          // eslint-disable-next-line @next/next/no-img-element
                           <img
                             src={mediaItem.url}
                             alt="chat media"

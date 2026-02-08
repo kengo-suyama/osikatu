@@ -30,6 +30,7 @@ export default function OshiMediaViewer({
       >
         <div className="media-frame__content h-full w-full">
           {item.mediaType === "image" ? (
+            // eslint-disable-next-line @next/next/no-img-element
             <img
               src={item.url}
               alt="oshi media"
