@@ -13,7 +13,6 @@ const repoDir = path.resolve(frontendDir, "..");
 const laravelDir = path.resolve(repoDir, "laravel");
 
 const PORTS = [3103, 8001];
-
 const safeString = (value) => (typeof value === "string" ? value : "");
 
 const run = (file, args, opts = {}) => {
@@ -119,6 +118,7 @@ const listRecentLogs = () => {
       .readdirSync(logsDir)
       .map((name) => path.join(logsDir, name))
       .filter((p) => fs.statSync(p).isFile())
+      .filter((p) => p.toLowerCase().endsWith(".log"))
       .sort((a, b) => fs.statSync(b).mtimeMs - fs.statSync(a).mtimeMs);
     return files.slice(0, 5);
   } catch {
@@ -134,8 +134,10 @@ async function main() {
 
   console.log("");
   console.log(`[doctor] node=${process.version}`);
-  const npmV = run("npm", ["-v"]);
-  console.log(`[doctor] npm=${npmV.ok ? npmV.stdout.trim() : "(failed to run npm -v)"}`);
+  const npmV = process.platform === "win32" ? run("cmd.exe", ["/c", "npm", "-v"]) : run("npm", ["-v"]);
+  console.log(
+    `[doctor] npm=${npmV.ok ? npmV.stdout.trim() : `(failed to run npm -v${npmV.error ? `: ${npmV.error.message}` : ""})`}`
+  );
   const phpV = run("php", ["-v"]);
   console.log(`[doctor] php=${phpV.ok ? phpV.stdout.split(/\r?\n/)[0].trim() : "(failed to run php -v)"}`);
 
@@ -222,4 +224,3 @@ main().catch((err) => {
   console.error(`[doctor] ERROR: ${err instanceof Error ? err.stack : String(err)}`);
   process.exit(1);
 });
-
