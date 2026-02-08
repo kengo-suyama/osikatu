@@ -115,6 +115,8 @@ Route::post('/circles/{circle}/settlements', [SettlementController::class, 'stor
 Route::get('/circles/{circle}/settlements/expenses', [CircleSettlementExpenseController::class, 'index']);
 Route::get('/circles/{circle}/settlements/balances', [CircleSettlementExpenseController::class, 'balances']);
 Route::get('/circles/{circle}/settlements/suggestions', [CircleSettlementExpenseController::class, 'suggestions']);
+Route::post('/circles/{circle}/settlements/expenses', [CircleSettlementExpenseController::class, 'store']);
+Route::post('/circles/{circle}/settlements/expenses/{expense}/void', [CircleSettlementExpenseController::class, 'voidExpense']);
 
 Route::get('/circles/{circle}/settlements/{settlement}', [SettlementController::class, 'show']);
 Route::patch('/circles/{circle}/settlements/{settlement}', [SettlementController::class, 'update']);

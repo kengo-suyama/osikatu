@@ -8,15 +8,20 @@ use App\Http\Controllers\Controller;
 use App\Models\Circle;
 use App\Models\CircleMember;
 use App\Models\CircleSettlementExpense;
+use App\Models\CircleSettlementExpenseShare;
 use App\Support\ApiResponse;
 use App\Support\MeProfileResolver;
 use App\Support\PlanGate;
 use App\Support\SettlementBalanceService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Validator;
 
 class CircleSettlementExpenseController extends Controller
 {
+    // ── Read endpoints (member+) ────────────────────────────────────
+
     public function index(Request $request, int $circle): JsonResponse
     {
         $guard = $this->requireMember($request, $circle);
@@ -67,6 +72,428 @@ class CircleSettlementExpenseController extends Controller
         return ApiResponse::success(SettlementBalanceService::suggestions($circle));
     }
 
+    // ── Write endpoints (owner/admin) ───────────────────────────────
+
+    public function store(Request $request, int $circle): JsonResponse
+    {
+        $guard = $this->requireOwnerAdmin($request, $circle);
+        if ($guard instanceof JsonResponse) {
+            return $guard;
+        }
+
+        $validator = Validator::make($request->all(), [
+            'title' => ['required', 'string', 'max:255'],
+            'amountYen' => ['required', 'integer', 'min:1'],
+            'splitType' => ['required', 'in:equal,fixed'],
+            'payerMemberId' => ['required', 'integer'],
+            'occurredOn' => ['nullable', 'date'],
+            'note' => ['nullable', 'string', 'max:2000'],
+            'participants' => ['required_if:splitType,equal', 'array', 'min:1', 'max:200'],
+            'participants.*' => ['integer'],
+            'shares' => ['required_if:splitType,fixed', 'array', 'min:1', 'max:200'],
+            'shares.*.memberId' => ['required', 'integer'],
+            'shares.*.shareYen' => ['required', 'integer', 'min:0'],
+        ]);
+
+        if ($validator->fails()) {
+            return ApiResponse::error('VALIDATION_ERROR', 'Validation failed', $validator->errors(), 422);
+        }
+
+        $data = $validator->validated();
+        $member = $guard['member'];
+        $circleId = $circle;
+
+        // Validate payer is a circle member
+        $payerMember = CircleMember::query()
+            ->where('circle_id', $circleId)
+            ->where('id', $data['payerMemberId'])
+            ->with('meProfile')
+            ->first();
+
+        if (!$payerMember) {
+            return ApiResponse::error('VALIDATION_ERROR', 'Payer must be a circle member', [
+                'payerMemberId' => ['Payer is not a member of this circle.'],
+            ], 422);
+        }
+
+        $splitType = $data['splitType'];
+        $amountYen = (int) $data['amountYen'];
+        $occurredOn = $data['occurredOn'] ?? now()->toDateString();
+
+        if ($splitType === 'equal') {
+            return $this->createEqualExpense($circleId, $member, $payerMember, $data, $amountYen, $occurredOn);
+        }
+
+        return $this->createFixedExpense($circleId, $member, $payerMember, $data, $amountYen, $occurredOn);
+    }
+
+    public function voidExpense(Request $request, int $circle, int $expense): JsonResponse
+    {
+        $guard = $this->requireOwnerAdmin($request, $circle);
+        if ($guard instanceof JsonResponse) {
+            return $guard;
+        }
+
+        $member = $guard['member'];
+
+        $expenseModel = CircleSettlementExpense::query()
+            ->where('circle_id', $circle)
+            ->where('id', $expense)
+            ->first();
+
+        if (!$expenseModel) {
+            return ApiResponse::error('NOT_FOUND', 'Expense not found.', null, 404);
+        }
+
+        if ($expenseModel->status === 'void') {
+            return ApiResponse::error('ALREADY_VOIDED', 'Expense is already voided.', null, 409);
+        }
+
+        $replaceData = $request->input('replace');
+
+        $result = DB::transaction(function () use ($expenseModel, $member, $circle, $replaceData, $request) {
+            // Void the expense
+            $expenseModel->update([
+                'status' => 'void',
+                'voided_at' => now(),
+                'voided_by_member_id' => $member->id,
+            ]);
+
+            $newExpense = null;
+
+            if ($replaceData && is_array($replaceData)) {
+                // Create replacement expense via a nested store-like flow
+                $newExpense = $this->createReplacementExpense($circle, $member, $replaceData, $expenseModel->id);
+
+                if ($newExpense instanceof JsonResponse) {
+                    // Validation error in replacement — abort transaction
+                    throw new \RuntimeException('REPLACE_VALIDATION:' . $newExpense->getContent());
+                }
+
+                // Set linkage
+                $expenseModel->update(['replaced_by_expense_id' => $newExpense->id]);
+            }
+
+            return [
+                'voided' => $expenseModel->fresh()->load('shares'),
+                'replacement' => $newExpense?->load('shares'),
+            ];
+        });
+
+        // Check if transaction threw a validation error
+        if ($result instanceof JsonResponse) {
+            return $result;
+        }
+
+        $response = [
+            'voided' => self::mapExpense($result['voided']),
+        ];
+
+        if ($result['replacement']) {
+            $response['replacement'] = self::mapExpense($result['replacement']);
+        }
+
+        return ApiResponse::success($response);
+    }
+
+    // ── Equal split logic ───────────────────────────────────────────
+
+    private function createEqualExpense(
+        int $circleId,
+        CircleMember $creator,
+        CircleMember $payer,
+        array $data,
+        int $amountYen,
+        string $occurredOn,
+    ): JsonResponse {
+        $participantIds = array_values(array_unique($data['participants'] ?? []));
+
+        if (count($participantIds) !== count($data['participants'] ?? [])) {
+            return ApiResponse::error('VALIDATION_ERROR', 'Duplicate participants', [
+                'participants' => ['Participants must not contain duplicates.'],
+            ], 422);
+        }
+
+        // Ensure payer is included
+        if (!in_array($payer->id, $participantIds, true)) {
+            $participantIds[] = $payer->id;
+        }
+
+        // Validate all participants are circle members
+        $members = CircleMember::query()
+            ->where('circle_id', $circleId)
+            ->whereIn('id', $participantIds)
+            ->with('meProfile')
+            ->get()
+            ->keyBy('id');
+
+        if ($members->count() !== count($participantIds)) {
+            return ApiResponse::error('VALIDATION_ERROR', 'Invalid participants', [
+                'participants' => ['All participants must be members of this circle.'],
+            ], 422);
+        }
+
+        $n = count($participantIds);
+        $base = (int) floor($amountYen / $n);
+        $remainder = $amountYen - $base * $n;
+
+        $expense = DB::transaction(function () use (
+            $circleId, $creator, $payer, $data, $amountYen, $occurredOn,
+            $participantIds, $members, $base, $remainder,
+        ) {
+            $expense = CircleSettlementExpense::create([
+                'circle_id' => $circleId,
+                'created_by' => $creator->id,
+                'payer_member_id' => $payer->id,
+                'title' => $data['title'],
+                'amount_yen' => $amountYen,
+                'split_type' => 'equal',
+                'occurred_on' => $occurredOn,
+                'note' => $data['note'] ?? null,
+                'status' => 'active',
+            ]);
+
+            foreach ($participantIds as $pid) {
+                $m = $members->get($pid);
+                $share = $pid === $payer->id ? $base + $remainder : $base;
+
+                CircleSettlementExpenseShare::create([
+                    'expense_id' => $expense->id,
+                    'member_id' => $pid,
+                    'member_snapshot_name' => $m?->meProfile?->nickname ?? ('Member #' . $pid),
+                    'share_yen' => $share,
+                    'created_at' => now(),
+                ]);
+            }
+
+            return $expense;
+        });
+
+        $expense->load('shares');
+
+        return ApiResponse::success([
+            'expense' => self::mapExpense($expense),
+        ], null, 201);
+    }
+
+    // ── Fixed split logic ───────────────────────────────────────────
+
+    private function createFixedExpense(
+        int $circleId,
+        CircleMember $creator,
+        CircleMember $payer,
+        array $data,
+        int $amountYen,
+        string $occurredOn,
+    ): JsonResponse {
+        $sharesInput = $data['shares'] ?? [];
+
+        // Check for duplicate member IDs
+        $memberIds = array_column($sharesInput, 'memberId');
+        if (count($memberIds) !== count(array_unique($memberIds))) {
+            return ApiResponse::error('VALIDATION_ERROR', 'Duplicate shares', [
+                'shares' => ['Each member may appear only once in shares.'],
+            ], 422);
+        }
+
+        // Validate sum == amountYen
+        $sum = array_sum(array_column($sharesInput, 'shareYen'));
+        if ($sum !== $amountYen) {
+            return ApiResponse::error('VALIDATION_ERROR', 'Shares sum mismatch', [
+                'shares' => ["Shares total ({$sum}) must equal amountYen ({$amountYen})."],
+            ], 422);
+        }
+
+        // Validate all members exist in circle
+        $members = CircleMember::query()
+            ->where('circle_id', $circleId)
+            ->whereIn('id', $memberIds)
+            ->with('meProfile')
+            ->get()
+            ->keyBy('id');
+
+        if ($members->count() !== count($memberIds)) {
+            return ApiResponse::error('VALIDATION_ERROR', 'Invalid shares members', [
+                'shares' => ['All share members must belong to this circle.'],
+            ], 422);
+        }
+
+        $expense = DB::transaction(function () use (
+            $circleId, $creator, $payer, $data, $amountYen, $occurredOn,
+            $sharesInput, $members,
+        ) {
+            $expense = CircleSettlementExpense::create([
+                'circle_id' => $circleId,
+                'created_by' => $creator->id,
+                'payer_member_id' => $payer->id,
+                'title' => $data['title'],
+                'amount_yen' => $amountYen,
+                'split_type' => 'fixed',
+                'occurred_on' => $occurredOn,
+                'note' => $data['note'] ?? null,
+                'status' => 'active',
+            ]);
+
+            foreach ($sharesInput as $s) {
+                $m = $members->get($s['memberId']);
+                CircleSettlementExpenseShare::create([
+                    'expense_id' => $expense->id,
+                    'member_id' => $s['memberId'],
+                    'member_snapshot_name' => $m?->meProfile?->nickname ?? ('Member #' . $s['memberId']),
+                    'share_yen' => $s['shareYen'],
+                    'created_at' => now(),
+                ]);
+            }
+
+            return $expense;
+        });
+
+        $expense->load('shares');
+
+        return ApiResponse::success([
+            'expense' => self::mapExpense($expense),
+        ], null, 201);
+    }
+
+    // ── Replacement helper (for void+replace) ───────────────────────
+
+    private function createReplacementExpense(
+        int $circleId,
+        CircleMember $creator,
+        array $data,
+        int $replacesExpenseId,
+    ): CircleSettlementExpense|JsonResponse {
+        // Minimal validation for replace payload
+        $validator = Validator::make($data, [
+            'title' => ['required', 'string', 'max:255'],
+            'amountYen' => ['required', 'integer', 'min:1'],
+            'splitType' => ['required', 'in:equal,fixed'],
+            'payerMemberId' => ['required', 'integer'],
+            'occurredOn' => ['nullable', 'date'],
+            'note' => ['nullable', 'string', 'max:2000'],
+            'participants' => ['required_if:splitType,equal', 'array', 'min:1', 'max:200'],
+            'participants.*' => ['integer'],
+            'shares' => ['required_if:splitType,fixed', 'array', 'min:1', 'max:200'],
+            'shares.*.memberId' => ['required', 'integer'],
+            'shares.*.shareYen' => ['required', 'integer', 'min:0'],
+        ]);
+
+        if ($validator->fails()) {
+            return ApiResponse::error('VALIDATION_ERROR', 'Replace payload validation failed', $validator->errors(), 422);
+        }
+
+        $vData = $validator->validated();
+        $amountYen = (int) $vData['amountYen'];
+        $occurredOn = $vData['occurredOn'] ?? now()->toDateString();
+
+        $payerMember = CircleMember::query()
+            ->where('circle_id', $circleId)
+            ->where('id', $vData['payerMemberId'])
+            ->with('meProfile')
+            ->first();
+
+        if (!$payerMember) {
+            return ApiResponse::error('VALIDATION_ERROR', 'Replace payer must be a circle member', null, 422);
+        }
+
+        if ($vData['splitType'] === 'equal') {
+            $participantIds = array_values(array_unique($vData['participants'] ?? []));
+            if (!in_array($payerMember->id, $participantIds, true)) {
+                $participantIds[] = $payerMember->id;
+            }
+
+            $members = CircleMember::query()
+                ->where('circle_id', $circleId)
+                ->whereIn('id', $participantIds)
+                ->with('meProfile')
+                ->get()
+                ->keyBy('id');
+
+            if ($members->count() !== count($participantIds)) {
+                return ApiResponse::error('VALIDATION_ERROR', 'Invalid replace participants', null, 422);
+            }
+
+            $n = count($participantIds);
+            $base = (int) floor($amountYen / $n);
+            $remainder = $amountYen - $base * $n;
+
+            $expense = CircleSettlementExpense::create([
+                'circle_id' => $circleId,
+                'created_by' => $creator->id,
+                'payer_member_id' => $payerMember->id,
+                'title' => $vData['title'],
+                'amount_yen' => $amountYen,
+                'split_type' => 'equal',
+                'occurred_on' => $occurredOn,
+                'note' => $vData['note'] ?? null,
+                'status' => 'active',
+                'replaces_expense_id' => $replacesExpenseId,
+            ]);
+
+            foreach ($participantIds as $pid) {
+                $m = $members->get($pid);
+                $share = $pid === $payerMember->id ? $base + $remainder : $base;
+                CircleSettlementExpenseShare::create([
+                    'expense_id' => $expense->id,
+                    'member_id' => $pid,
+                    'member_snapshot_name' => $m?->meProfile?->nickname ?? ('Member #' . $pid),
+                    'share_yen' => $share,
+                    'created_at' => now(),
+                ]);
+            }
+
+            return $expense;
+        }
+
+        // Fixed split for replacement
+        $sharesInput = $vData['shares'] ?? [];
+        $memberIds = array_column($sharesInput, 'memberId');
+        $sum = array_sum(array_column($sharesInput, 'shareYen'));
+
+        if ($sum !== $amountYen) {
+            return ApiResponse::error('VALIDATION_ERROR', 'Replace shares sum mismatch', null, 422);
+        }
+
+        $members = CircleMember::query()
+            ->where('circle_id', $circleId)
+            ->whereIn('id', $memberIds)
+            ->with('meProfile')
+            ->get()
+            ->keyBy('id');
+
+        if ($members->count() !== count($memberIds)) {
+            return ApiResponse::error('VALIDATION_ERROR', 'Invalid replace share members', null, 422);
+        }
+
+        $expense = CircleSettlementExpense::create([
+            'circle_id' => $circleId,
+            'created_by' => $creator->id,
+            'payer_member_id' => $payerMember->id,
+            'title' => $vData['title'],
+            'amount_yen' => $amountYen,
+            'split_type' => 'fixed',
+            'occurred_on' => $occurredOn,
+            'note' => $vData['note'] ?? null,
+            'status' => 'active',
+            'replaces_expense_id' => $replacesExpenseId,
+        ]);
+
+        foreach ($sharesInput as $s) {
+            $m = $members->get($s['memberId']);
+            CircleSettlementExpenseShare::create([
+                'expense_id' => $expense->id,
+                'member_id' => $s['memberId'],
+                'member_snapshot_name' => $m?->meProfile?->nickname ?? ('Member #' . $s['memberId']),
+                'share_yen' => $s['shareYen'],
+                'created_at' => now(),
+            ]);
+        }
+
+        return $expense;
+    }
+
+    // ── Guards ───────────────────────────────────────────────────────
+
     private function requireMember(Request $request, int $circleId): array|JsonResponse
     {
         $deviceId = $request->header('X-Device-Id');
@@ -103,6 +530,22 @@ class CircleSettlementExpenseController extends Controller
         ];
     }
 
+    private function requireOwnerAdmin(Request $request, int $circleId): array|JsonResponse
+    {
+        $result = $this->requireMember($request, $circleId);
+        if ($result instanceof JsonResponse) {
+            return $result;
+        }
+
+        if (!in_array($result['member']->role, ['owner', 'admin'], true)) {
+            return ApiResponse::error('FORBIDDEN', 'Owner/Admin only', null, 403);
+        }
+
+        return $result;
+    }
+
+    // ── Mapper ──────────────────────────────────────────────────────
+
     private static function mapExpense(CircleSettlementExpense $expense): array
     {
         return [
@@ -116,6 +559,8 @@ class CircleSettlementExpenseController extends Controller
             'occurredOn' => $expense->occurred_on?->toDateString(),
             'note' => $expense->note,
             'status' => $expense->status,
+            'voidedAt' => $expense->voided_at?->toIso8601String(),
+            'voidedByMemberId' => $expense->voided_by_member_id,
             'replacedByExpenseId' => $expense->replaced_by_expense_id,
             'replacesExpenseId' => $expense->replaces_expense_id,
             'shares' => $expense->shares->map(fn($s) => [
