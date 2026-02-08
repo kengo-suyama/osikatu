@@ -150,4 +150,51 @@ test.describe("log diary create", () => {
       logFail("Create diary with tags", e);
     }
   });
+  test("created diary persists after navigating away and back", async ({ page, request }) => {
+    const deviceId = `device-e2e-diary-persist-${Date.now()}`;
+    await ensureOnboardingDone(request, deviceId);
+    await ensureOshi(request, deviceId);
+
+    await page.addInitScript((did: string) => {
+      localStorage.setItem("osikatu:device:id", did);
+      localStorage.setItem("osikatu:data-source", "api");
+    }, deviceId);
+
+    try {
+      await page.goto("/log", { waitUntil: "domcontentloaded" });
+
+      const form = page.locator('[data-testid="log-create-form"]');
+      await expect(form).toBeVisible({ timeout: 45_000 });
+
+      const submitBtn = page.locator('[data-testid="log-create-submit"]');
+      await expect(submitBtn).toBeEnabled({ timeout: 30_000 });
+
+      // Create a diary with a unique title
+      const title = `Persist Test ${Date.now()}`;
+      await page.locator('[data-testid="log-create-title"]').fill(title);
+      await page.locator('[data-testid="log-create-body"]').fill("Persistence check");
+      await submitBtn.click();
+
+      // Verify it appears in the list
+      const card = page.locator('[data-testid="log-diary-card"]').first();
+      await expect(card).toBeVisible({ timeout: 15_000 });
+      await expect(card).toContainText(title);
+
+      // Navigate away to home
+      await page.goto("/home", { waitUntil: "domcontentloaded" });
+      await expect(page).toHaveURL(/\/home/);
+
+      // Navigate back to log
+      await page.goto("/log", { waitUntil: "domcontentloaded" });
+
+      // Verify the diary still exists
+      const cardAfter = page.locator('[data-testid="log-diary-card"]').first();
+      await expect(cardAfter).toBeVisible({ timeout: 30_000 });
+      await expect(cardAfter).toContainText(title);
+
+      logPass("Diary persists after navigating away and back");
+    } catch (e) {
+      logFail("Diary persistence", e);
+    }
+  });
 });
