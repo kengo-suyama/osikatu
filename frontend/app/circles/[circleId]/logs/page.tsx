@@ -18,6 +18,7 @@ import {
   ToastViewport,
 } from "@/components/ui/toast";
 import { Trash2 } from "lucide-react";
+import { Input } from "@/components/ui/input";
 import { formatLogTime, logSentence } from "@/lib/ui/logText";
 
 type RangeKey = "7d" | "30d" | "all";
@@ -42,6 +43,7 @@ export default function CircleLogsPage() {
   const [loading, setLoading] = useState(false);
   const [done, setDone] = useState(false);
   const [forbidden, setForbidden] = useState(false);
+  const [requestIdFilter, setRequestIdFilter] = useState("");
   const [deletingLogId, setDeletingLogId] = useState<string | null>(null);
   const [toastOpen, setToastOpen] = useState(false);
   const [toastTitle, setToastTitle] = useState("");
@@ -226,6 +228,16 @@ export default function CircleLogsPage() {
           </button>
         </div>
 
+        <div className="mt-3">
+          <Input
+            placeholder="request_id で絞り込み"
+            value={requestIdFilter}
+            onChange={(e) => setRequestIdFilter(e.target.value)}
+            className="h-8 text-xs font-mono"
+            data-testid="oplog-requestid-filter"
+          />
+        </div>
+
         <div className="mt-4 space-y-2">
           {error ? (
             <div className="rounded-2xl border border-white/10 bg-white/5 p-6 text-center text-sm text-muted-foreground">
@@ -237,7 +249,11 @@ export default function CircleLogsPage() {
             </div>
           ) : (
             <>
-              {items.map((log) => (
+              {items.filter((log) => {
+                if (!requestIdFilter.trim()) return true;
+                const rid = typeof log.meta?.request_id === "string" ? log.meta.request_id : "";
+                return rid.toLowerCase().includes(requestIdFilter.trim().toLowerCase());
+              }).map((log) => (
                 <div
                   key={log.id}
                   className="rounded-2xl border border-white/10 bg-white/5 p-3"
