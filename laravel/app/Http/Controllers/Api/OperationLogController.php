@@ -52,10 +52,8 @@ class OperationLogController extends Controller
             return ApiResponse::error('NOT_FOUND', 'Circle not found.', null, 404);
         }
 
-        if (!PlanGate::circleHasPlus($circleModel)) {
-            return ApiResponse::error('PLAN_REQUIRED', 'Plus plan required to view circle logs.', [
-                'requiredPlan' => 'plus',
-            ], 402);
+        if ($deny = PlanGate::requireCirclePlus($circleModel, 'Plus plan required to view circle logs.')) {
+            return $deny;
         }
 
         $meProfile = MeProfileResolver::resolve($deviceId);

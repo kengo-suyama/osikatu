@@ -7,10 +7,42 @@ namespace App\Support;
 use App\Models\Circle;
 use App\Models\CircleMember;
 use App\Models\User;
+use Illuminate\Http\JsonResponse;
 
 class PlanGate
 {
     private const CHAT_FREE_MONTHLY_LIMIT = 30;
+
+    /**
+     * Return 402 response if user does not have Plus plan.
+     * Returns null if user has Plus (meaning: proceed).
+     */
+    public static function requirePlus(User $user, string $context = 'Plus plan required.'): ?JsonResponse
+    {
+        if (self::hasPlus($user)) {
+            return null;
+        }
+
+        return ApiResponse::error('PLAN_REQUIRED', $context, [
+            'requiredPlan' => 'plus',
+            'currentPlan' => SubscriptionResolver::resolve($user),
+        ], 402);
+    }
+
+    /**
+     * Return 402 response if circle does not have Plus plan.
+     * Returns null if circle has Plus (meaning: proceed).
+     */
+    public static function requireCirclePlus(?Circle $circle, string $context = 'Plus plan required.'): ?JsonResponse
+    {
+        if (self::circleHasPlus($circle)) {
+            return null;
+        }
+
+        return ApiResponse::error('PLAN_REQUIRED', $context, [
+            'requiredPlan' => 'plus',
+        ], 402);
+    }
 
     public static function isTrialActive(User $user): bool
     {
