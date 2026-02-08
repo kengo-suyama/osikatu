@@ -204,4 +204,35 @@ test.describe("circle hub navigation", () => {
     await page.waitForURL(`**/circles/${CIRCLE_ID}/members`, { timeout: 15_000 });
     logPass("Navigated to members page via hub");
   });
+  test("clicking settings navigates to settings page (manager)", async ({ page }) => {
+    await setupMocks(page);
+
+    // Override me with plus plan and circle with owner role
+    await page.route("**/api/me", (route) =>
+      route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: successBody({ ...baseMe(), plan: "plus", effectivePlan: "plus" }),
+      }),
+    );
+    await page.route(new RegExp(`/api/circles/${CIRCLE_ID}$`), (route) =>
+      route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: successBody({ ...baseCircle(), myRole: "owner" }),
+      }),
+    );
+
+    await page.goto(`/circles/${CIRCLE_ID}`, { waitUntil: "domcontentloaded" });
+
+    const hub = page.locator('[data-testid="circle-home"]');
+    await expect(hub).toBeVisible({ timeout: 30_000 });
+
+    const settingsBtn = page.locator('[data-testid="circle-hub-settings"]');
+    await expect(settingsBtn).toBeVisible({ timeout: 10_000 });
+    await settingsBtn.click();
+
+    await page.waitForURL(`**/circles/${CIRCLE_ID}/settings`, { timeout: 15_000 });
+    logPass("Navigated to settings page via hub (manager)");
+  });
 });
