@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace Tests\Feature;
 
 use App\Models\BillingSubscription;
-use App\Models\MeProfile;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
@@ -14,136 +13,124 @@ class BillingWebhookSubscriptionSyncTest extends TestCase
 {
     use RefreshDatabase;
 
-    private function signPayload(string $payload, string $secret): string
+    private function postEvent(array $payload): void
     {
-        $timestamp = (string) time();
-        $signature = hash_hmac('sha256', "{$timestamp}.{$payload}", $secret);
+        // These tests cover DB sync logic; signature verification is covered in StripeWebhookTest.
+        config(['services.stripe.webhook_secret' => '']);
 
-        return "t={$timestamp},v1={$signature}";
+        $this->postJson('/api/billing/webhook', $payload)
+            ->assertStatus(200)
+            ->assertJsonPath('success.data.status', 'processed');
     }
 
     public function test_subscription_created_upserts_subscription_row(): void
     {
-        $secret = 'whsec_test_sub_secret';
-        config(['services.stripe.webhook_secret' => $secret]);
-
-        $deviceId = 'device-webhook-sub-001';
         $user = User::factory()->create([
-            'email' => 'subsync@example.com',
+            'email' => 'billing-sub-created@example.com',
         ]);
 
-        MeProfile::create([
-            'device_id' => $deviceId,
-            'nickname' => 'Me',
-            'initial' => 'M',
-            'user_id' => $user->id,
-        ]);
-
-        $payload = json_encode([
-            'id' => 'evt_sub_001',
+        $this->postEvent([
+            'id' => 'evt_sub_created_001',
             'type' => 'customer.subscription.created',
             'data' => [
                 'object' => [
-                    'id' => 'sub_test_001',
-                    'customer' => 'cus_test_001',
+                    'id' => 'sub_123',
+                    'customer' => 'cus_123',
                     'status' => 'active',
                     'cancel_at_period_end' => false,
-                    'current_period_end' => time() + 3600,
+                    'current_period_end' => 1_800_000_000,
                     'metadata' => [
                         'user_id' => (string) $user->id,
-                        'device_id' => $deviceId,
+                        'device_id' => 'device-test-001',
                     ],
                 ],
             ],
-        ], JSON_UNESCAPED_SLASHES);
-
-        $sigHeader = $this->signPayload((string) $payload, $secret);
-
-        $res = $this->call(
-            'POST',
-            '/api/billing/webhook',
-            [],
-            [],
-            [],
-            ['HTTP_Stripe-Signature' => $sigHeader, 'CONTENT_TYPE' => 'application/json'],
-            (string) $payload
-        );
-
-        $res->assertStatus(200);
-        $res->assertJsonPath('success.data.status', 'processed');
-
-        $this->assertDatabaseHas('subscriptions', [
-            'user_id' => $user->id,
-            'plan' => 'plus',
-            'stripe_customer_id' => 'cus_test_001',
-            'stripe_subscription_id' => 'sub_test_001',
-            'status' => 'active',
         ]);
+
+        $sub = BillingSubscription::query()->where('stripe_subscription_id', 'sub_123')->first();
+        $this->assertNotNull($sub);
+        $this->assertSame($user->id, $sub->user_id);
+        $this->assertSame('cus_123', $sub->stripe_customer_id);
+        $this->assertSame('plus', $sub->plan);
+        $this->assertSame('active', $sub->status);
+        $this->assertFalse((bool) $sub->cancel_at_period_end);
+        $this->assertNotNull($sub->current_period_end);
     }
 
-    public function test_subscription_deleted_updates_status(): void
+    public function test_subscription_updated_updates_existing_row(): void
     {
-        $secret = 'whsec_test_sub_secret2';
-        config(['services.stripe.webhook_secret' => $secret]);
-
-        $deviceId = 'device-webhook-sub-002';
         $user = User::factory()->create([
-            'email' => 'subdelete@example.com',
-        ]);
-
-        MeProfile::create([
-            'device_id' => $deviceId,
-            'nickname' => 'Me',
-            'initial' => 'M',
-            'user_id' => $user->id,
+            'email' => 'billing-sub-updated@example.com',
         ]);
 
         BillingSubscription::create([
             'user_id' => $user->id,
             'plan' => 'plus',
-            'status' => 'active',
-            'stripe_customer_id' => 'cus_test_002',
-            'stripe_subscription_id' => 'sub_test_002',
+            'stripe_customer_id' => 'cus_123',
+            'stripe_subscription_id' => 'sub_123',
+            'status' => 'trialing',
             'cancel_at_period_end' => false,
         ]);
 
-        $payload = json_encode([
-            'id' => 'evt_sub_002',
-            'type' => 'customer.subscription.deleted',
+        $this->postEvent([
+            'id' => 'evt_sub_updated_001',
+            'type' => 'customer.subscription.updated',
             'data' => [
                 'object' => [
-                    'id' => 'sub_test_002',
-                    'customer' => 'cus_test_002',
-                    'status' => 'canceled',
-                    'cancel_at_period_end' => false,
-                    'current_period_end' => time() + 1,
+                    'id' => 'sub_123',
+                    'customer' => 'cus_123',
+                    'status' => 'past_due',
+                    'cancel_at_period_end' => true,
+                    'current_period_end' => 1_900_000_000,
                     'metadata' => [
                         'user_id' => (string) $user->id,
-                        'device_id' => $deviceId,
                     ],
                 ],
             ],
-        ], JSON_UNESCAPED_SLASHES);
-
-        $sigHeader = $this->signPayload((string) $payload, $secret);
-
-        $res = $this->call(
-            'POST',
-            '/api/billing/webhook',
-            [],
-            [],
-            [],
-            ['HTTP_Stripe-Signature' => $sigHeader, 'CONTENT_TYPE' => 'application/json'],
-            (string) $payload
-        );
-
-        $res->assertStatus(200);
-
-        $this->assertDatabaseHas('subscriptions', [
-            'user_id' => $user->id,
-            'stripe_subscription_id' => 'sub_test_002',
-            'status' => 'canceled',
         ]);
+
+        $sub = BillingSubscription::query()->where('stripe_subscription_id', 'sub_123')->first();
+        $this->assertNotNull($sub);
+        $this->assertSame($user->id, $sub->user_id);
+        $this->assertSame('past_due', $sub->status);
+        $this->assertTrue((bool) $sub->cancel_at_period_end);
+        $this->assertNotNull($sub->current_period_end);
+    }
+
+    public function test_subscription_deleted_updates_status(): void
+    {
+        $user = User::factory()->create([
+            'email' => 'billing-sub-deleted@example.com',
+        ]);
+
+        BillingSubscription::create([
+            'user_id' => $user->id,
+            'plan' => 'plus',
+            'stripe_customer_id' => 'cus_123',
+            'stripe_subscription_id' => 'sub_123',
+            'status' => 'active',
+            'cancel_at_period_end' => false,
+        ]);
+
+        $this->postEvent([
+            'id' => 'evt_sub_deleted_001',
+            'type' => 'customer.subscription.deleted',
+            'data' => [
+                'object' => [
+                    'id' => 'sub_123',
+                    'customer' => 'cus_123',
+                    'status' => 'canceled',
+                    'cancel_at_period_end' => false,
+                    'metadata' => [
+                        'user_id' => (string) $user->id,
+                    ],
+                ],
+            ],
+        ]);
+
+        $sub = BillingSubscription::query()->where('stripe_subscription_id', 'sub_123')->first();
+        $this->assertNotNull($sub);
+        $this->assertSame('canceled', $sub->status);
     }
 }
 
