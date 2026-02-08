@@ -51,3 +51,5 @@ curl.exe -i http://127.0.0.1:8000/api/circles/123/pins -H \"X-Device-Id: device-
 - 本実行を再実行（idempotent）
 - それでもNGなら、`circle_pins` の migration / APIログ / DB接続 を確認（機密は `_evidence/`）
 
+補足:
+- 移行の全体像は `docs/dev/pins-migration.md`
