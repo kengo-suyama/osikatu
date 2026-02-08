@@ -27,6 +27,7 @@ use App\Http\Controllers\Api\PostController;
 use App\Http\Controllers\Api\CircleSettlementExpenseController;
 use App\Http\Controllers\Api\CircleScheduleProposalController;
 use App\Http\Controllers\Api\SettlementController;
+use App\Http\Controllers\Api\BillingDebugController;
 use App\Http\Controllers\Api\StripeWebhookController;
 use Illuminate\Support\Facades\Route;
 
@@ -173,5 +174,6 @@ Route::post('/posts/{post}/like', [PostController::class, 'like']);
 Route::delete('/posts/{post}/like', [PostController::class, 'unlike']);
 Route::post('/posts/{post}/ack', [PostController::class, 'ack']);
 
-// Billing webhook
+// Billing
+Route::get('/billing/debug', [BillingDebugController::class, 'show']);
 Route::post('/billing/webhook', [StripeWebhookController::class, 'handle']);
