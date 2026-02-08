@@ -71,7 +71,12 @@ export default function LogScreen() {
   const dragTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const mergeDiariesById = (prev: DiaryDto[], incoming: DiaryDto[]) => {
+
     // Prevent overwriting freshly-created items when an older list response resolves later.
+
+    // Prevent overwriting freshly-created items when a slower initial list response resolves later.
+    // Prefer `incoming` values for the same `id` (server is source of truth).
+
     const out = [...prev];
     const indexById = new Map<number, number>();
     out.forEach((item, idx) => indexById.set(item.id, idx));
@@ -139,7 +144,11 @@ export default function LogScreen() {
     if (apiMode) {
       setSaving(true);
       try {
-        // Lazy-resolve primary oshi id as fallback when useEffect hasn't resolved yet.
+
+
+        // E2E (and fast users) can click before `oshiRepo.getOshis()` resolves.
+        // Resolve primary oshi id lazily to avoid flaky early-returns.
+
         let oshiId = primaryOshiId;
         if (!oshiId) {
           const list = await oshiRepo.getOshis().catch(() => []);

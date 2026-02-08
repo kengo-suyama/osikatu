@@ -402,6 +402,7 @@ npm run hooks:disable
   if (Test-Path .next) { Remove-Item .next -Recurse -Force }
   ```
 - 文字コードは **UTF-8 (BOMなし)** を厳守
+- Next.js起動の spawn EPERM / wait-on timeout 再発対応: ./docs/next-spawn-eperm-runbook.md
 
 ## AGENTS (Project rules)
 ````text
