@@ -11,6 +11,7 @@ use App\Models\CircleSchedule;
 use App\Models\CircleScheduleParticipant;
 use App\Models\CircleScheduleProposal;
 use App\Models\MeProfile;
+use App\Models\Notification;
 use App\Support\ApiResponse;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -179,6 +180,9 @@ class CircleScheduleProposalController extends Controller
             'approved_schedule_id' => $schedule->id,
         ]);
 
+        // Notify the proposer
+        $this->notifyProposer($proposalModel, $guard['circle'], 'approved', $reviewComment);
+
         return ApiResponse::success([
             'proposal' => self::mapProposal($proposalModel->fresh()),
             'schedule' => [
@@ -220,8 +224,46 @@ class CircleScheduleProposalController extends Controller
             'review_comment' => $reviewComment,
         ]);
 
+        // Notify the proposer
+        $this->notifyProposer($proposalModel, $guard['circle'], 'rejected', $reviewComment);
+
         return ApiResponse::success([
             'proposal' => self::mapProposal($proposalModel->fresh()),
+        ]);
+    }
+
+    // ── Notification helper ──────────────────────────────────────────
+
+    private function notifyProposer(
+        CircleScheduleProposal $proposal,
+        Circle $circle,
+        string $result,
+        ?string $comment,
+    ): void {
+        $proposerMember = CircleMember::query()
+            ->where('id', $proposal->created_by_member_id)
+            ->first();
+
+        if (!$proposerMember || !$proposerMember->user_id) {
+            return;
+        }
+
+        $resultLabel = $result === 'approved' ? '承認' : '却下';
+        $type = $result === 'approved' ? 'proposal.approved' : 'proposal.rejected';
+        $body = "「{$proposal->title}」が{$resultLabel}されました。";
+        if ($comment) {
+            $body .= " コメント: {$comment}";
+        }
+
+        Notification::create([
+            'user_id' => $proposerMember->user_id,
+            'me_profile_id' => $proposerMember->me_profile_id,
+            'source_type' => 'schedule_proposal',
+            'source_id' => $proposal->id,
+            'type' => $type,
+            'title' => "{$circle->name} — 予定提案が{$resultLabel}されました",
+            'body' => $body,
+            'link_url' => "/circles/{$circle->id}/calendar",
         ]);
     }
 

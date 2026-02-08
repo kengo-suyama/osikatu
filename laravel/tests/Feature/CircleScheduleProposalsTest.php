@@ -9,6 +9,7 @@ use App\Models\CircleMember;
 use App\Models\CircleSchedule;
 use App\Models\CircleScheduleProposal;
 use App\Models\MeProfile;
+use App\Models\Notification;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
@@ -381,5 +382,97 @@ class CircleScheduleProposalsTest extends TestCase
         $items = $response->json('success.data.items');
         $this->assertCount(1, $items);
         $this->assertEquals('rejected', $items[0]['status']);
+    }
+
+    // ═══════════════════════════════════════════════════════════════
+    // Notification tests
+    // ═══════════════════════════════════════════════════════════════
+
+    public function test_approve_creates_notification_for_proposer(): void
+    {
+        [$circle, $members, $profiles] = $this->createCircleWithMembers('plus', 2);
+
+        // Member creates proposal
+        $create = $this->withHeaders([
+            'X-Device-Id' => $profiles[1]->device_id,
+        ])->postJson("/api/circles/{$circle->id}/schedule-proposals", $this->proposalPayload());
+        $proposalId = $create->json('success.data.proposal.id');
+
+        // Owner approves with comment
+        $this->withHeaders([
+            'X-Device-Id' => $profiles[0]->device_id,
+        ])->postJson("/api/circles/{$circle->id}/schedule-proposals/{$proposalId}/approve", [
+            'comment' => '良い提案です',
+        ])->assertStatus(200);
+
+        // Proposer should have a notification
+        $notifications = Notification::where('user_id', $members[1]->user_id)
+            ->where('source_type', 'schedule_proposal')
+            ->where('source_id', $proposalId)
+            ->get();
+
+        $this->assertCount(1, $notifications);
+        $notification = $notifications->first();
+        $this->assertEquals('proposal.approved', $notification->type);
+        $this->assertStringContainsString('承認', $notification->title);
+        $this->assertStringContainsString('オフ会提案', $notification->body);
+        $this->assertStringContainsString('良い提案です', $notification->body);
+        $this->assertEquals("/circles/{$circle->id}/calendar", $notification->link_url);
+    }
+
+    public function test_reject_creates_notification_for_proposer(): void
+    {
+        [$circle, $members, $profiles] = $this->createCircleWithMembers('plus', 2);
+
+        $create = $this->withHeaders([
+            'X-Device-Id' => $profiles[1]->device_id,
+        ])->postJson("/api/circles/{$circle->id}/schedule-proposals", $this->proposalPayload());
+        $proposalId = $create->json('success.data.proposal.id');
+
+        // Owner rejects
+        $this->withHeaders([
+            'X-Device-Id' => $profiles[0]->device_id,
+        ])->postJson("/api/circles/{$circle->id}/schedule-proposals/{$proposalId}/reject", [
+            'comment' => '日程調整お願い',
+        ])->assertStatus(200);
+
+        $notifications = Notification::where('user_id', $members[1]->user_id)
+            ->where('source_type', 'schedule_proposal')
+            ->where('source_id', $proposalId)
+            ->get();
+
+        $this->assertCount(1, $notifications);
+        $notification = $notifications->first();
+        $this->assertEquals('proposal.rejected', $notification->type);
+        $this->assertStringContainsString('却下', $notification->title);
+        $this->assertStringContainsString('日程調整お願い', $notification->body);
+    }
+
+    public function test_notification_visible_in_me_notifications(): void
+    {
+        [$circle, $members, $profiles] = $this->createCircleWithMembers('plus', 2);
+
+        $create = $this->withHeaders([
+            'X-Device-Id' => $profiles[1]->device_id,
+        ])->postJson("/api/circles/{$circle->id}/schedule-proposals", $this->proposalPayload());
+        $proposalId = $create->json('success.data.proposal.id');
+
+        $this->withHeaders([
+            'X-Device-Id' => $profiles[0]->device_id,
+        ])->postJson("/api/circles/{$circle->id}/schedule-proposals/{$proposalId}/approve")
+            ->assertStatus(200);
+
+        // Proposer checks notifications via API
+        $response = $this->withHeaders([
+            'X-Device-Id' => $profiles[1]->device_id,
+        ])->getJson('/api/me/notifications');
+
+        $response->assertStatus(200);
+        $items = $response->json('success.data.items');
+        $this->assertGreaterThanOrEqual(1, count($items));
+
+        $found = collect($items)->first(fn ($n) => $n['sourceType'] === 'scheduleProposal');
+        $this->assertNotNull($found);
+        $this->assertEquals('proposal.approved', $found['type']);
     }
 }
