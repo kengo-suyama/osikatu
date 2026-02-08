@@ -185,7 +185,9 @@ class SettlementTest extends TestCase
         $this->withHeaders([
             'X-Device-Id' => 'device-settlement-005',
         ])->getJson("/api/circles/{$circle->id}/settlements")
-            ->assertStatus(403);
+            ->assertStatus(402)
+            ->assertJsonPath('error.code', 'PLAN_REQUIRED')
+            ->assertJsonPath('error.details.requiredPlan', 'plus');
 
         $this->withHeaders([
             'X-Device-Id' => 'device-settlement-005',
@@ -195,12 +197,16 @@ class SettlementTest extends TestCase
             'participantUserIds' => [$member->user_id],
             'splitMode' => 'equal',
             'settledAt' => '2026-02-01',
-        ])->assertStatus(403);
+        ])->assertStatus(402)
+            ->assertJsonPath('error.code', 'PLAN_REQUIRED')
+            ->assertJsonPath('error.details.requiredPlan', 'plus');
 
         $this->withHeaders([
             'X-Device-Id' => 'device-settlement-005',
         ])->getJson("/api/circles/{$circle->id}/settlements/{$settlement->id}")
-            ->assertStatus(403);
+            ->assertStatus(402)
+            ->assertJsonPath('error.code', 'PLAN_REQUIRED')
+            ->assertJsonPath('error.details.requiredPlan', 'plus');
     }
 
     public function test_plus_member_is_forbidden(): void

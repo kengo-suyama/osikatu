@@ -139,7 +139,7 @@ class CircleSettlementExpensesTest extends TestCase
             ->assertJsonPath('success.data.items', []);
     }
 
-    public function test_free_plan_returns_403(): void
+    public function test_free_plan_returns_402(): void
     {
         [$circle, $members, $profiles] = $this->createCircleWithMembers('free');
 
@@ -147,8 +147,9 @@ class CircleSettlementExpensesTest extends TestCase
             'X-Device-Id' => $profiles[0]->device_id,
         ])->getJson("/api/circles/{$circle->id}/settlements/expenses");
 
-        $response->assertStatus(403)
-            ->assertJsonPath('error.code', 'PLAN_REQUIRED');
+        $response->assertStatus(402)
+            ->assertJsonPath('error.code', 'PLAN_REQUIRED')
+            ->assertJsonPath('error.details.requiredPlan', 'plus');
     }
 
     public function test_non_member_returns_404(): void

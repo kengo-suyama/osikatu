@@ -133,7 +133,9 @@ class CircleJoinRequestController extends Controller
             return ApiResponse::error('NOT_FOUND', 'Circle not found.', null, 404);
         }
         if (!PlanGate::circleHasPlus($circleModel)) {
-            return ApiResponse::error('PLAN_REQUIRED', 'Plus plan required to manage join requests.', null, 403);
+            return ApiResponse::error('PLAN_REQUIRED', 'Plus plan required to manage join requests.', [
+                'requiredPlan' => 'plus',
+            ], 402);
         }
 
         $deviceId = $request->header('X-Device-Id');
@@ -191,7 +193,9 @@ class CircleJoinRequestController extends Controller
             return ApiResponse::error('NOT_FOUND', 'Circle not found.', null, 404);
         }
         if (!PlanGate::circleHasPlus($circleModel)) {
-            return ApiResponse::error('PLAN_REQUIRED', 'Plus plan required to manage join requests.', null, 403);
+            return ApiResponse::error('PLAN_REQUIRED', 'Plus plan required to manage join requests.', [
+                'requiredPlan' => 'plus',
+            ], 402);
         }
 
         $deviceId = $request->header('X-Device-Id');
@@ -282,7 +286,9 @@ class CircleJoinRequestController extends Controller
             return ApiResponse::error('NOT_FOUND', 'Circle not found.', null, 404);
         }
         if (!PlanGate::circleHasPlus($circleModel)) {
-            return ApiResponse::error('PLAN_REQUIRED', 'Plus plan required to manage join requests.', null, 403);
+            return ApiResponse::error('PLAN_REQUIRED', 'Plus plan required to manage join requests.', [
+                'requiredPlan' => 'plus',
+            ], 402);
         }
 
         $deviceId = $request->header('X-Device-Id');

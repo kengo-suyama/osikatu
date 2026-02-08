@@ -40,7 +40,9 @@ class InviteController extends Controller
         }
 
         if (!PlanGate::circleHasPlus($circleModel)) {
-            return ApiResponse::error('PLAN_REQUIRED', 'Plus plan required to manage invites.', null, 403);
+            return ApiResponse::error('PLAN_REQUIRED', 'Plus plan required to manage invites.', [
+                'requiredPlan' => 'plus',
+            ], 402);
         }
 
         $validator = Validator::make($request->all(), [
@@ -226,7 +228,9 @@ class InviteController extends Controller
         }
 
         if (!PlanGate::circleHasPlus($circleModel)) {
-            return ApiResponse::error('PLAN_REQUIRED', 'Plus plan required to manage invites.', null, 403);
+            return ApiResponse::error('PLAN_REQUIRED', 'Plus plan required to manage invites.', [
+                'requiredPlan' => 'plus',
+            ], 402);
         }
 
         $invite = CircleInvite::query()

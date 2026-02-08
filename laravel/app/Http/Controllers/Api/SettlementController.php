@@ -251,7 +251,9 @@ class SettlementController extends Controller
         }
 
         if (!PlanGate::circleHasPlus($circleModel)) {
-            return ApiResponse::error('PLAN_REQUIRED', 'Plus plan required for settlements.', null, 403);
+            return ApiResponse::error('PLAN_REQUIRED', 'Plus plan required for settlements.', [
+                'requiredPlan' => 'plus',
+            ], 402);
         }
 
         $meProfile = MeProfileResolver::resolve($deviceId);
