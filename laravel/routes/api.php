@@ -23,6 +23,7 @@ use App\Http\Controllers\Api\OperationLogController;
 use App\Http\Controllers\Api\OshiActionController;
 use App\Http\Controllers\Api\UserScheduleController;
 use App\Http\Controllers\Api\PostController;
+use App\Http\Controllers\Api\CircleSettlementExpenseController;
 use App\Http\Controllers\Api\SettlementController;
 use Illuminate\Support\Facades\Route;
 
@@ -110,6 +111,11 @@ Route::delete('/circles/{circle}/calendar/{schedule}', [CircleScheduleController
 // Settlements
 Route::get('/circles/{circle}/settlements', [SettlementController::class, 'index']);
 Route::post('/circles/{circle}/settlements', [SettlementController::class, 'store']);
+// Settlement expenses (台帳寄り割り勘 — read-only)
+Route::get('/circles/{circle}/settlements/expenses', [CircleSettlementExpenseController::class, 'index']);
+Route::get('/circles/{circle}/settlements/balances', [CircleSettlementExpenseController::class, 'balances']);
+Route::get('/circles/{circle}/settlements/suggestions', [CircleSettlementExpenseController::class, 'suggestions']);
+
 Route::get('/circles/{circle}/settlements/{settlement}', [SettlementController::class, 'show']);
 Route::patch('/circles/{circle}/settlements/{settlement}', [SettlementController::class, 'update']);
 
