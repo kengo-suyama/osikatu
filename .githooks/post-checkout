@@ -1,0 +1,17 @@
+#!/bin/sh
+set -eu
+
+# Log checkout activity to .git/guard.log (local-only).
+
+gitdir="$(git rev-parse --git-dir 2>/dev/null || echo .git)"
+logfile="$gitdir/guard.log"
+ts="$(date -u +"%Y-%m-%dT%H:%M:%SZ" 2>/dev/null || date)"
+
+old="${1-}"
+new="${2-}"
+flag="${3-}"
+branch="$(git symbolic-ref --quiet --short HEAD 2>/dev/null || echo DETACHED)"
+
+printf "%s post-checkout branch=%s old=%s new=%s flag=%s\n" "$ts" "$branch" "$old" "$new" "$flag" >>"$logfile" 2>/dev/null || true
+exit 0
+
