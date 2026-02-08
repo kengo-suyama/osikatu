@@ -34,7 +34,7 @@ use Illuminate\Support\Facades\Route;
 
 Route::get('/me', [MeController::class, 'show']);
 Route::post('/auth/session', [AuthController::class, 'session']);
-Route::post('/auth/link/start', [AuthController::class, 'linkStart']);
+Route::post('/auth/link/start', [AuthController::class, 'linkStart'])->middleware('throttle:5,1');
 Route::post('/auth/link/complete', [AuthController::class, 'linkComplete']);
 Route::put('/me/ui-settings', [MeController::class, 'updateUiSettings']);
 Route::put('/me/profile', [MeController::class, 'updateProfile']);
@@ -151,7 +151,7 @@ Route::post('/circles/{circle}/join-reject', [CircleJoinRequestController::class
 Route::post('/circles/{circle}/invites', [InviteController::class, 'store']);
 Route::get('/circles/{circle}/invites', [InviteController::class, 'index']);
 Route::post('/circles/{circle}/invites/{invite}/revoke', [InviteController::class, 'revoke']);
-Route::post('/invites/join', [InviteController::class, 'join']);
+Route::post('/invites/join', [InviteController::class, 'join'])->middleware('throttle:10,1');
 Route::post('/invites/accept', [InviteController::class, 'accept']);
 
 // Circle album / media
@@ -179,4 +179,4 @@ Route::post('/posts/{post}/ack', [PostController::class, 'ack']);
 // Billing
 Route::get('/billing/debug', [BillingDebugController::class, 'show']);
 Route::post('/billing/checkout', [BillingCheckoutController::class, 'create']);
-Route::post('/billing/webhook', [StripeWebhookController::class, 'handle']);
+Route::post('/billing/webhook', [StripeWebhookController::class, 'handle'])->middleware('throttle:30,1');
