@@ -81,10 +81,10 @@ This is the **only supported way** to run E2E tests. It automatically:
 6. Runs Playwright tests
 
 ### Prerequisites
-- **Ports 3103 and 8001 must be free.** Kill stale processes first:
+- **Ports 3103 and 8001 must be free.** Use the safe preflight (known-safe listeners only):
   ```powershell
-  Get-NetTCPConnection -LocalPort 8001 -EA 0 | % { Stop-Process -Id $_.OwningProcess -Force }
-  Get-NetTCPConnection -LocalPort 3103 -EA 0 | % { Stop-Process -Id $_.OwningProcess -Force }
+  cd frontend
+  npm run e2e:preflight
   ```
 - **PHP** must be on PATH (`php artisan` must work from `laravel/` dir).
 - **Node.js** 18+ and `npm ci` in `frontend/`.
@@ -94,7 +94,7 @@ This is the **only supported way** to run E2E tests. It automatically:
 | Symptom | Cause | Fix |
 |---------|-------|-----|
 | `ECONNREFUSED 127.0.0.1:8001` | Backend not running or MySQL not available | Always use `npm run e2e:ci` (uses SQLite). Never run `npx playwright test` directly. |
-| `Port 8001 already in use` | Stale artisan serve from previous run | Kill process on port 8001 (see above). |
+| `Port 8001 already in use` | Stale process from previous run or another app | Run `npm run e2e:preflight` (unknown processes are not killed). If unsure: `npm run e2e:doctor`. |
 | `git HEAD changed` exit code 2 | IDE switched branch during test run | Close IDE git auto-checkout or re-run. The wrapper creates HEAD.lock to prevent this. |
 | `ECONNRESET` mid-run | artisan serve crashed (Windows process stability) | Re-run. Usually passes on retry. |
 

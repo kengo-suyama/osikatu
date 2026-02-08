@@ -3,6 +3,15 @@
 This doc is a practical checklist for continuing development autonomously.
 Project rules live in `AGENTS.md` (DTO fixed, repo-layer only for data access, UTF-8 NO BOM).
 
+Codex long-running instructions:
+- `docs/CODEX_LONG_TASK_WINDOWS_E2E.md`
+
+GitHub Agents PR #43 instructions:
+- `docs/GITHUB_AGENTS_PR43_WINDOWS_E2E.md`
+
+Codex long task for PR #43:
+- `docs/CODEX_LONG_TASK_PR43_WINDOWS_E2E_STABILITY.md`
+
 ## Repo Snapshot (As Of 2026-02-06)
 
 - Default branch: `main`
@@ -86,6 +95,12 @@ Then inspect the process:
 ```powershell
 Get-Process -Id <PID>
 ```
+
+Preferred (safe) commands:
+- Preflight (known-safe listeners only): `npm run e2e:preflight`
+- One-shot diagnosis: `npm run e2e:doctor`
+
+Disable auto-kill (dev only): `E2E_KILL_KNOWN_LISTENERS=0`
 
 Known collision: XAMPP (or other local PHP) sometimes binds `127.0.0.1:8001`.
 

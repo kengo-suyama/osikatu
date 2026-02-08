@@ -8,7 +8,7 @@
 // - holds `.git/HEAD` open to block IDE auto-checkouts mid-run (Windows only)
 // - optional: `--repeat N` to run e2e:ci multiple times without dropping the locks
 
-const { execFileSync, spawn } = require("node:child_process");
+const { execFileSync, spawn, spawnSync } = require("node:child_process");
 const fs = require("node:fs");
 const path = require("node:path");
 
@@ -20,17 +20,43 @@ const LOCK_MARKER_RUNNER = "locked by run-e2e-ci";
 
 // Ports used by `npm run e2e:ci:raw` (Next dev + Laravel artisan serve).
 // On Windows, `concurrently -k` sometimes fails to terminate the actual server process tree, leaving ports busy.
-// We proactively clean up listeners on these ports to keep `--repeat` stable and avoid manual taskkill steps.
+// We proactively free these ports (known-safe listeners only) to keep `--repeat` stable.
 const E2E_PORTS = [3103, 8001];
 
-const sleepMs = (ms) => {
-  if (!Number.isFinite(ms) || ms <= 0) return;
-  // Synchronous sleep without spinning (Node >= 12).
+const PRELIGHT_SCRIPT_PATH = path.resolve(__dirname, "ensure-ports-free.cjs");
+
+const safeString = (value) => (typeof value === "string" ? value : "");
+
+const envTruthy = (value, defaultValue = false) => {
+  if (value == null) return defaultValue;
+  const raw = String(value).trim().toLowerCase();
+  if (raw === "") return defaultValue;
+  return raw !== "0" && raw !== "false" && raw !== "off" && raw !== "no";
+};
+
+const isCi = envTruthy(process.env.CI, false);
+
+const runPreflight = ({ label, bestEffort = false } = {}) => {
+  const ports = E2E_PORTS.map(String);
+  const env = {
+    ...process.env,
+    // CI must never auto-kill; we still want diagnostics.
+    ...(isCi ? { E2E_KILL_KNOWN_LISTENERS: "0" } : {}),
+  };
+
   try {
-    const i32 = new Int32Array(new SharedArrayBuffer(4));
-    Atomics.wait(i32, 0, 0, ms);
-  } catch {
-    // ignore
+    console.log(`[run-e2e-ci] preflight (${label || "check"}) ports=${ports.join(",")}`);
+    execFileSync(process.execPath, [PRELIGHT_SCRIPT_PATH, ...ports], {
+      cwd: frontendDir,
+      env,
+      stdio: "inherit",
+    });
+  } catch (err) {
+    if (bestEffort) {
+      console.warn("[run-e2e-ci] WARN: preflight failed during best-effort cleanup.");
+      return;
+    }
+    throw err;
   }
 };
 
@@ -154,99 +180,17 @@ const isPowershellPid = (pid) => {
   }
 };
 
-const killPid = (pid) => {
-  if (process.platform !== "win32") return;
-  try {
-    execFileSync("taskkill", ["/PID", String(pid), "/T", "/F"], {
-      stdio: "ignore",
-    });
-  } catch {
-    // ignore
-  }
-};
-
-const getListeningPidsForPort = (port) => {
-  if (process.platform !== "win32") return [];
-  try {
-    const out = execFileSync("netstat", ["-ano"], {
-      encoding: "utf8",
-      stdio: ["ignore", "pipe", "ignore"],
-    });
-    const pids = new Set();
-    for (const line of out.split(/\r?\n/)) {
-      const parts = line.trim().split(/\s+/);
-      if (parts.length < 5) continue;
-      // TCP <local> <foreign> LISTENING <pid>
-      if (parts[0].toUpperCase() !== "TCP") continue;
-      if (parts[3].toUpperCase() !== "LISTENING") continue;
-      const local = parts[1];
-      const localPort = Number(local.slice(local.lastIndexOf(":") + 1));
-      if (!Number.isFinite(localPort) || localPort !== port) continue;
-      const pid = Number(parts[4]);
-      if (Number.isFinite(pid) && pid > 0) pids.add(pid);
-    }
-    return Array.from(pids);
-  } catch {
-    return [];
-  }
-};
-
-const getImageName = (pid) => {
-  if (process.platform !== "win32") return null;
-  try {
-    const out = execFileSync("tasklist", ["/FI", `PID eq ${pid}`], {
-      encoding: "utf8",
-      stdio: ["ignore", "pipe", "ignore"],
-    });
-    // Find a line that contains the pid and begins with the image name.
-    for (const rawLine of out.split(/\r?\n/)) {
-      const line = rawLine.trim();
-      if (!line) continue;
-      if (!line.includes(String(pid))) continue;
-      const cols = line.split(/\s+/);
-      // The "Image Name" column is first.
-      if (cols.length >= 2 && cols[1] === String(pid)) return cols[0];
-    }
-    return null;
-  } catch {
-    return null;
-  }
-};
-
-const cleanupE2ePorts = ({ reason }) => {
-  if (process.platform !== "win32") return;
-
-  const killable = new Set(["php.exe", "node.exe", "cmd.exe"]);
-
-  for (const port of E2E_PORTS) {
-    const pids = getListeningPidsForPort(port);
-    if (pids.length === 0) continue;
-
-    for (const pid of pids) {
-      const image = (getImageName(pid) || "").toLowerCase();
-      if (!killable.has(image)) {
-        console.warn(`[run-e2e-ci] WARN: port ${port} is in use by pid=${pid} (${image || "unknown"}); not killing.`);
-        continue;
-      }
-      console.warn(`[run-e2e-ci] WARN: killing leftover listener on port ${port}: pid=${pid} (${image}) [${reason}]`);
-      killPid(pid);
-    }
-
-    // Give Windows a moment to release the port.
-    for (let i = 0; i < 12; i += 1) {
-      sleepMs(250);
-      if (getListeningPidsForPort(port).length === 0) break;
-    }
-  }
-};
-
 const cleanupHeadHold = () => {
   try {
     if (!fs.existsSync(pidFilePath)) return;
     const raw = fs.readFileSync(pidFilePath, "utf8").trim();
     const pid = Number(raw);
     if (Number.isFinite(pid) && pid > 0 && isPowershellPid(pid)) {
-      killPid(pid);
+      try {
+        execFileSync("taskkill", ["/PID", String(pid), "/T", "/F"], { stdio: "ignore" });
+      } catch {
+        // ignore
+      }
     }
   } catch {
     // ignore
@@ -341,33 +285,89 @@ const setupLaravelSqliteDb = (dbPath) => {
     MAIL_MAILER: "array",
   };
 
-  try {
-    execFileSync("php", ["artisan", "migrate:fresh", "--force"], {
+  const runArtisan = (args) => {
+    const res = spawnSync("php", ["artisan", ...args], {
       cwd: laravelDir,
       env,
+      encoding: "utf8",
       stdio: ["ignore", "pipe", "pipe"],
     });
-    execFileSync(
-      "php",
-      ["artisan", "db:seed", "--class", "Database\\Seeders\\OwnerDashboardDemoSeeder", "--force"],
-      {
-        cwd: laravelDir,
-        env,
-        stdio: ["ignore", "pipe", "pipe"],
+    return {
+      ok: res.status === 0,
+      status: res.status ?? 1,
+      stdout: safeString(res.stdout),
+      stderr: safeString(res.stderr),
+      error: res.error,
+    };
+  };
+
+  const looksLikeSqliteCorruption = (text) => {
+    const t = safeString(text).toLowerCase();
+    return t.includes("database disk image is malformed") || t.includes("file is not a database");
+  };
+
+  const printFailure = (label, res) => {
+    console.error(`[run-e2e-ci] ERROR: ${label} failed (exit=${res.status}).`);
+    const out = `${res.stdout}\n${res.stderr}`.trim();
+    if (out) {
+      const max = 2000;
+      const clipped = out.length > max ? `${out.slice(0, max)}\n...(clipped)` : out;
+      console.error(clipped);
+    }
+  };
+
+  const manualFix = () => {
+    console.error("[run-e2e-ci] Manual SQLite recovery (PowerShell):");
+    console.error(`cd ${repoDir}`);
+    console.error("Remove-Item laravel\\storage\\osikatu-e2e.sqlite -Force");
+    console.error("New-Item -ItemType File laravel\\storage\\osikatu-e2e.sqlite -Force");
+  };
+
+  const repairSqliteFile = () => {
+    try {
+      fs.unlinkSync(dbPath);
+    } catch {
+      // ignore
+    }
+    try {
+      fs.writeFileSync(dbPath, "");
+    } catch {
+      // ignore
+    }
+  };
+
+  const migrate = runArtisan(["migrate:fresh", "--force"]);
+  if (!migrate.ok) {
+    const combined = `${migrate.stdout}\n${migrate.stderr}\n${migrate.error ? String(migrate.error) : ""}`;
+    if (looksLikeSqliteCorruption(combined)) {
+      console.warn("[run-e2e-ci] WARN: sqlite appears corrupted. Deleting and retrying migrate:fresh once...");
+      repairSqliteFile();
+      const retry = runArtisan(["migrate:fresh", "--force"]);
+      if (!retry.ok) {
+        printFailure("migrate:fresh (after repair)", retry);
+        manualFix();
+        throw new Error("sqlite corruption recovery failed");
       }
-    );
-    console.log(`[run-e2e-ci] sqlite DB prepared: ${dbPath}`);
-  } catch (err) {
-    const message = err instanceof Error ? err.message : String(err);
-    console.warn(`[run-e2e-ci] WARN: failed to migrate/seed sqlite DB: ${message}`);
+    } else {
+      printFailure("migrate:fresh", migrate);
+      if (looksLikeSqliteCorruption(combined)) manualFix();
+      throw new Error("migrate:fresh failed");
+    }
   }
+
+  const seed = runArtisan(["db:seed", "--class", "Database\\Seeders\\OwnerDashboardDemoSeeder", "--force"]);
+  if (!seed.ok) {
+    printFailure("db:seed", seed);
+    throw new Error("db:seed failed");
+  }
+
+  console.log(`[run-e2e-ci] sqlite DB prepared: ${dbPath}`);
 };
 
 cleanupLocks({ allowUnknown: false });
 cleanupHeadHold();
 cleanupWeirdNulFile();
-// Best effort cleanup for previous crashed runs (keeps local `e2e:ci` repeatable).
-cleanupE2ePorts({ reason: "startup" });
+runPreflight({ label: "startup" });
 createLocks();
 const headHoldProc = startHeadHold();
 
@@ -389,10 +389,15 @@ const finalize = (exitCode) => {
   finalized = true;
 
   if (headHoldProc?.pid && isPowershellPid(headHoldProc.pid)) {
-    killPid(headHoldProc.pid);
+    try {
+      execFileSync("taskkill", ["/PID", String(headHoldProc.pid), "/T", "/F"], { stdio: "ignore" });
+    } catch {
+      // ignore
+    }
   }
   cleanupHeadHold();
-  cleanupE2ePorts({ reason: "finalize" });
+  // Best-effort cleanup for leftovers from crashed runs.
+  runPreflight({ label: "finalize", bestEffort: true });
 
   // Remove only locks we created (and any stale ones from guard).
   for (const lockPath of createdLockPaths) {
@@ -427,6 +432,7 @@ process.on("unhandledRejection", (err) => {
 const runOnce = (runIndex) =>
   new Promise((resolve) => {
     console.log(`[run-e2e-ci] run ${runIndex}/${repeat} (branch=${initialBranch})`);
+    runPreflight({ label: `before run ${runIndex}` });
     const sqliteDbPath = path.join(laravelDir, "storage", "osikatu-e2e.sqlite");
     setupLaravelSqliteDb(sqliteDbPath);
 
@@ -458,7 +464,6 @@ const runOnce = (runIndex) =>
     child.on("exit", (code, signal) => {
       currentChild = null;
       cleanupWeirdNulFile();
-      cleanupE2ePorts({ reason: `run ${runIndex} exit` });
 
       try {
         const branch = git(["rev-parse", "--abbrev-ref", "HEAD"]);
@@ -476,7 +481,11 @@ const runOnce = (runIndex) =>
       }
 
       if (signal) return resolve({ code: 1, signal });
-      return resolve({ code: code ?? 1, signal: null });
+      const exitCode = code ?? 1;
+      if (exitCode !== 0) {
+        console.error("[run-e2e-ci] Tip: run `npm run e2e:doctor` for diagnosis (ports, locks, sqlite).");
+      }
+      return resolve({ code: exitCode, signal: null });
     });
   });
 
