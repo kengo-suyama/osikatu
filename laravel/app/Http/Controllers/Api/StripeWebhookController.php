@@ -32,7 +32,10 @@ class StripeWebhookController extends Controller
 
         // Production MUST have webhook secret configured.
         if (app()->environment('production') && (!is_string($secret) || $secret === '')) {
-            Log::critical('billing_webhook_secret_missing_in_production');
+            Log::critical('billing_webhook_secret_missing_in_production', [
+                'result' => 'error',
+                'http_status' => 500,
+            ]);
 
             return ApiResponse::error(
                 'WEBHOOK_SECRET_MISSING',
@@ -50,6 +53,8 @@ class StripeWebhookController extends Controller
                 Log::warning('billing_webhook_invalid_signature', [
                     'signature' => substr($signature, 0, 30) . '...',
                     'ip' => $request->ip(),
+                    'result' => 'invalid_signature',
+                    'http_status' => 400,
                 ]);
 
                 return ApiResponse::error('INVALID_SIGNATURE', 'Webhook signature verification failed.', null, 400);
@@ -63,6 +68,8 @@ class StripeWebhookController extends Controller
             Log::warning('billing_webhook_no_signature_verification', [
                 'env' => app()->environment(),
                 'ip' => $request->ip(),
+                'result' => 'unsigned',
+                'http_status' => 200,
             ]);
             $data = $request->json()->all();
             $eventId = $data['id'] ?? null;
@@ -77,6 +84,8 @@ class StripeWebhookController extends Controller
         Log::info('billing_webhook_received', [
             'stripe_event_id' => $eventId,
             'event_type' => $eventType,
+            'result' => 'received',
+            'http_status' => 200,
         ]);
 
         // Idempotency: skip if already processed
@@ -87,6 +96,8 @@ class StripeWebhookController extends Controller
         if ($existing) {
             Log::info('billing_webhook_duplicate', [
                 'stripe_event_id' => $eventId,
+                'result' => 'duplicate',
+                'http_status' => 200,
             ]);
 
             return ApiResponse::success(['status' => 'already_processed']);
@@ -111,6 +122,13 @@ class StripeWebhookController extends Controller
                 $eventDataArray,
                 $request->header('X-Request-Id'),
             );
+
+            Log::info('billing_webhook_queued', [
+                'stripe_event_id' => $eventId,
+                'event_type' => $eventType,
+                'result' => 'queued',
+                'http_status' => 200,
+            ]);
         }
 
         return ApiResponse::success(['status' => 'processed']);
