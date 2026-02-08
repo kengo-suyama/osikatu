@@ -1,5 +1,6 @@
 import { API_BASE_URL } from "@/lib/config";
 import { getDeviceId } from "@/lib/device";
+import { getAuthToken } from "@/lib/auth";
 import type { ApiError, ApiSuccess } from "@/lib/types";
 
 export class ApiRequestError extends Error {
@@ -51,6 +52,21 @@ const withDeviceIdHeader = (headers?: HeadersInit) => {
   }
 };
 
+const withAuthHeader = (headers?: HeadersInit) => {
+  if (typeof window === "undefined") return headers;
+  const token = getAuthToken();
+  if (!token) return headers;
+  try {
+    const existing = new Headers(headers);
+    if (!existing.has("Authorization")) {
+      existing.set("Authorization", `Bearer ${token}`);
+    }
+    return existing;
+  } catch {
+    return headers;
+  }
+};
+
 const mergeHeaders = (base?: HeadersInit, extra?: HeadersInit) => {
   if (!base && !extra) return undefined;
   try {
@@ -68,7 +84,7 @@ export async function apiGet<T>(path: string, init?: RequestInit): Promise<T> {
   const res = await fetch(`${API_BASE_URL}${path}`, {
     cache: "no-store",
     ...init,
-    headers: withDeviceIdHeader(init?.headers),
+    headers: withAuthHeader(withDeviceIdHeader(init?.headers)),
   });
 
   const text = await res.text().catch(() => "");
@@ -104,7 +120,7 @@ export async function apiSend<T>(
   const mergedHeaders = mergeHeaders(baseHeaders, init?.headers);
   const res = await fetch(`${API_BASE_URL}${path}`, {
     method,
-    headers: withDeviceIdHeader(mergedHeaders),
+    headers: withAuthHeader(withDeviceIdHeader(mergedHeaders)),
     body: body instanceof FormData ? body : body ? JSON.stringify(body) : undefined,
     ...init,
   });

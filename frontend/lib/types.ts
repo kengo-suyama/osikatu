@@ -167,6 +167,9 @@ export type AuthResponse = {
 
 export type MeDto = {
   id: number;
+  userId: number | null;
+  deviceId: string | null;
+  role: "guest" | "user";
   name: string;
   email: string;
   plan: Plan;
