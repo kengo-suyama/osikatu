@@ -172,8 +172,20 @@ export default function CircleHomeScreen({ circleId }: { circleId: number }) {
       .list(circleId)
       .then((items) => {
         if (!mounted) return;
-        const pinned = items.filter((item) => item.isPinned).slice(0, pinLimit);
-        setPinnedPosts(pinned);
+        const pinned = items.filter((item) => item.isPinned);
+        const sorted = [...pinned].sort((a, b) => {
+          const aTime = new Date(a.createdAt).getTime();
+          const bTime = new Date(b.createdAt).getTime();
+          if (!Number.isNaN(aTime) && !Number.isNaN(bTime) && aTime !== bTime) return bTime - aTime;
+
+          const aId = typeof a.id === "number" ? a.id : Number.parseInt(String(a.id), 10);
+          const bId = typeof b.id === "number" ? b.id : Number.parseInt(String(b.id), 10);
+          if (!Number.isNaN(aId) && !Number.isNaN(bId) && aId !== bId) return bId - aId;
+
+          return String(b.id).localeCompare(String(a.id));
+        });
+
+        setPinnedPosts(sorted.slice(0, pinLimit));
       })
       .catch(() => {
         if (!mounted) return;
