@@ -28,6 +28,7 @@ import { cn } from "@/lib/utils";
 
 const STORAGE_KEY = "osikatu:logs";
 const LOG_IMAGE_LIMIT = 4;
+const SEARCH_DEBOUNCE_MS = 400;
 
 const readFileAsDataUrl = (file: File) =>
   new Promise<string>((resolve, reject) => {
