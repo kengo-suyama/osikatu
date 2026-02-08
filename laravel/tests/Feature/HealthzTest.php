@@ -26,17 +26,11 @@ class HealthzTest extends TestCase
 
     public function test_healthz_returns_500_when_db_fails(): void
     {
-        // Disconnect DB to simulate failure
-        DB::disconnect();
-        config(['database.default' => 'broken']);
-        config(['database.connections.broken' => [
-            'driver' => 'mysql',
-            'host' => '192.0.2.1',
-            'port' => '9999',
-            'database' => 'nonexistent',
-            'username' => 'nobody',
-            'password' => 'nothing',
-        ]]);
+        // Mock DB::select to simulate connection failure without breaking the connection
+        DB::shouldReceive('select')
+            ->once()
+            ->with('SELECT 1')
+            ->andThrow(new \PDOException('Connection refused'));
 
         $response = $this->getJson('/api/healthz');
 

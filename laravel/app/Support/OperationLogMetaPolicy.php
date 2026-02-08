@@ -63,7 +63,7 @@ final class OperationLogMetaPolicy
         'oshi_media.change_frame' => ['frameId'],
         'circle.ui.theme.update' => ['themeId'],
         'circle.ui.special_bg.update' => ['enabled', 'specialBg'],
-        'settlement.create' => ['circleId', 'settlementId', 'amountInt', 'participantCount', 'transferCount', 'splitMode'],
+        'settlement.create' => ['circleId', 'settlementId', 'amountInt', 'participantCount', 'transferCount', 'splitMode', 'request_id'],
         'settlement.update' => ['circleId', 'settlementId', 'transferCount'],
         'settlement_expense_created' => ['circleId', 'expenseId', 'amountInt', 'participantCount', 'splitMode', 'request_id'],
         'settlement_expense_voided' => ['circleId', 'expenseId', 'hasReplacement', 'request_id'],
