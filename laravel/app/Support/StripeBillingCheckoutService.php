@@ -10,7 +10,7 @@ use Stripe\StripeClient;
 
 class StripeBillingCheckoutService implements BillingCheckoutService
 {
-    public function createCheckoutUrl(User $user): string
+    public function createCheckoutUrl(User $user, string $deviceId): string
     {
         $secret = (string) config('billing.stripe_secret_key', '');
         $pricePlus = (string) config('billing.price_plus', '');
@@ -35,9 +35,14 @@ class StripeBillingCheckoutService implements BillingCheckoutService
             ],
             'success_url' => $successUrl,
             'cancel_url' => $cancelUrl,
+            'metadata' => [
+                'user_id' => (string) $user->id,
+                'device_id' => $deviceId,
+            ],
             'subscription_data' => [
                 'metadata' => [
                     'user_id' => (string) $user->id,
+                    'device_id' => $deviceId,
                 ],
             ],
             'client_reference_id' => (string) $user->id,
@@ -59,4 +64,3 @@ class StripeBillingCheckoutService implements BillingCheckoutService
         return $url;
     }
 }
-

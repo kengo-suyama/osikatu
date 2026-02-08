@@ -8,6 +8,5 @@ use App\Models\User;
 
 interface BillingCheckoutService
 {
-    public function createCheckoutUrl(User $user): string;
+    public function createCheckoutUrl(User $user, string $deviceId): string;
 }
-
