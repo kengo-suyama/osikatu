@@ -229,20 +229,6 @@ npm run dev
 5) 「招待」
 - 招待コード入力導線へ遷移すること
 
-## 運用チェックリスト（最短）
-### Onboarding / Profile
-- `/onboarding/profile` で「後で設定する」押下 → `/home` に遷移できる
-- Home で表示名が空にならない（仮名 or フォールバック）
-- Settings からプロフィール保存できる（displayName必須、avatar任意）
-- 以後リロードしてもオンボーディングに戻されない
-
-### Frame / SVG（推しメディア）
-- `/frames/sparkle.svg` が 200
-- `data-frame="festival_gold"` で角飾り＋粒が見える
-- `polaroid_elegant / polaroid_pop` でテープが見える
-- Freeでロック枠 → PlanLimitDialog
-- APIに許可外 frameId → FRAME_LOCKED
-
 ## テーマと特別背景
 - テーマは `シンプル/ナイト/ポップ/ナチュラル/サンセット` が Free で選択可能
 - Premium/Plus は `ロック/EDM/クラシック/シティポップ/ヒップホップ` を含む全10テーマ
@@ -389,6 +375,7 @@ npm run hooks:disable
 ```
 
 ## トラブルシューティング
+- E2E (Windows/Laragon) の復旧手順: `docs/next-spawn-eperm-runbook.md`
 - Radix の Module not found エラーが出る場合:
   ```powershell
   cd C:\laragon\www\osikatu\frontend
@@ -402,7 +389,6 @@ npm run hooks:disable
   if (Test-Path .next) { Remove-Item .next -Recurse -Force }
   ```
 - 文字コードは **UTF-8 (BOMなし)** を厳守
-- Next.js起動の spawn EPERM / wait-on timeout 再発対応: ./docs/next-spawn-eperm-runbook.md
 
 ## AGENTS (Project rules)
 ````text

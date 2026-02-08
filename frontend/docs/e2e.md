@@ -12,6 +12,21 @@
 npm run ci:gate
 ```
 
+## Windows 安定化コマンド
+
+- preflight（ポート診断 + known-safe のみ自動kill）:
+  ```bash
+  npm run e2e:preflight
+  ```
+- doctor（失敗時の自己診断: ポート/ロック/sqlite/バージョン）:
+  ```bash
+  npm run e2e:doctor
+  ```
+
+設定:
+- dev で auto-kill を無効化: `E2E_KILL_KNOWN_LISTENERS=0`
+- CI (`CI=true`) では auto-kill は常に無効（チェックのみ）
+
 ## Playwright アーティファクトの仕様
 
 - screenshot: `only-on-failure` → 失敗時のみ生成

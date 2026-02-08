@@ -87,6 +87,12 @@ Then inspect the process:
 Get-Process -Id <PID>
 ```
 
+Preferred (safe) commands:
+- Preflight (known-safe listeners only): `npm run e2e:preflight`
+- One-shot diagnosis: `npm run e2e:doctor`
+
+Disable auto-kill (dev only): `E2E_KILL_KNOWN_LISTENERS=0`
+
 Known collision: XAMPP (or other local PHP) sometimes binds `127.0.0.1:8001`.
 
 ## Test Commands (Backend)
