@@ -86,6 +86,9 @@ grep "pins_v1_write_called" storage/logs/laravel.log | grep '"result":"allow"'
 ### (B) delegate → deny に切り替え
 
 ```bash
+# 0. 現在の状態を確認
+php artisan pins:v1-status
+
 # 1. 環境変数を変更（.env または環境変数管理）
 PINS_V1_WRITE_MODE=deny
 
@@ -120,6 +123,9 @@ Content-Type: application/json
 問題が出たら即座に戻す:
 
 ```bash
+# 0. 現在の状態を確認
+php artisan pins:v1-status
+
 # 1. 環境変数を戻す
 PINS_V1_WRITE_MODE=delegate
 
