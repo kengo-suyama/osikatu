@@ -59,6 +59,8 @@ const setupMocks = async (page: Parameters<typeof test>[1]["page"]) => {
     DEVICE_ID,
   );
 
+  let pins: any[] = [];
+
   await page.route("**/api/me", (route) =>
     route.fulfill({ status: 200, contentType: "application/json", body: successBody(baseMe()) }),
   );
@@ -76,7 +78,12 @@ const setupMocks = async (page: Parameters<typeof test>[1]["page"]) => {
   );
 
   await page.route(new RegExp(`/api/circles/${CIRCLE_ID}/pins$`), async (route) => {
-    if (route.request().method() !== "POST") {
+    const method = route.request().method();
+    if (method === "GET") {
+      await route.fulfill({ status: 200, contentType: "application/json", body: successBody(pins) });
+      return;
+    }
+    if (method !== "POST") {
       await route.fallback();
       return;
     }
@@ -86,7 +93,7 @@ const setupMocks = async (page: Parameters<typeof test>[1]["page"]) => {
     const payload = req.postDataJSON?.() as { body?: string } | undefined;
     const body = payload?.body ?? "";
 
-    const created = {
+    const createdPost = {
       id: 456,
       circleId: CIRCLE_ID,
       author: { id: 1, name: "E2E User", avatarUrl: null },
@@ -101,10 +108,26 @@ const setupMocks = async (page: Parameters<typeof test>[1]["page"]) => {
       createdAt: now,
     };
 
+    const createdPin = {
+      id: 9001,
+      circleId: CIRCLE_ID,
+      createdByMemberId: 1,
+      title: body.split("\n")[0] ?? "(無題)",
+      url: null,
+      body,
+      checklistJson: null,
+      sortOrder: null,
+      pinnedAt: now,
+      updatedAt: now,
+      createdAt: now,
+      sourcePostId: 456,
+    };
+    pins = [createdPin, ...pins];
+
     await route.fulfill({
       status: 201,
       contentType: "application/json",
-      body: successBody(created),
+      body: successBody(createdPost),
     });
   });
 };

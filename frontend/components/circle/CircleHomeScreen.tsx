@@ -11,12 +11,14 @@ import { circleOwnerRepo } from "@/lib/repo/circleOwnerRepo";
 import { circleRepo } from "@/lib/repo/circleRepo";
 import { meRepo } from "@/lib/repo/meRepo";
 import { postRepo } from "@/lib/repo/postRepo";
+import { pinsRepo } from "@/lib/repo/pinsRepo";
 import { inviteRepo } from "@/lib/repo/inviteRepo";
 import { chatRepo } from "@/lib/repo/chatRepo";
 import { ApiRequestError } from "@/lib/repo/http";
 import { listCircleLogs } from "@/lib/repo/operationLogRepo";
 import type {
   CircleAnnouncementDto,
+  CirclePinDto,
   CircleDto,
   MeDto,
   OperationLogDto,
@@ -62,7 +64,7 @@ export default function CircleHomeScreen({ circleId }: { circleId: number }) {
   const [ownerDashboard, setOwnerDashboard] = useState<OwnerDashboardDto | null>(null);
   const [ownerLoading, setOwnerLoading] = useState(false);
   const [chatPreview, setChatPreview] = useState<PostDto[]>([]);
-  const [pinnedPosts, setPinnedPosts] = useState<PostDto[]>([]);
+  const [pinnedPosts, setPinnedPosts] = useState<CirclePinDto[]>([]);
   const [logPreview, setLogPreview] = useState<OperationLogDto[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -168,24 +170,11 @@ export default function CircleHomeScreen({ circleId }: { circleId: number }) {
 
   useEffect(() => {
     let mounted = true;
-    postRepo
+    pinsRepo
       .list(circleId)
       .then((items) => {
         if (!mounted) return;
-        const pinned = items.filter((item) => item.isPinned);
-        const sorted = [...pinned].sort((a, b) => {
-          const aTime = new Date(a.createdAt).getTime();
-          const bTime = new Date(b.createdAt).getTime();
-          if (!Number.isNaN(aTime) && !Number.isNaN(bTime) && aTime !== bTime) return bTime - aTime;
-
-          const aId = typeof a.id === "number" ? a.id : Number.parseInt(String(a.id), 10);
-          const bId = typeof b.id === "number" ? b.id : Number.parseInt(String(b.id), 10);
-          if (!Number.isNaN(aId) && !Number.isNaN(bId) && aId !== bId) return bId - aId;
-
-          return String(b.id).localeCompare(String(a.id));
-        });
-
-        setPinnedPosts(sorted.slice(0, pinLimit));
+        setPinnedPosts(items.slice(0, pinLimit));
       })
       .catch(() => {
         if (!mounted) return;
@@ -440,9 +429,9 @@ export default function CircleHomeScreen({ circleId }: { circleId: number }) {
         </div>
         <div className="mt-3 space-y-2">
           {pinnedPosts.length ? (
-            pinnedPosts.map((post) => (
-              <div key={post.id} className="rounded-xl border border-border/60 p-3 text-sm">
-                {post.body}
+            pinnedPosts.map((pin) => (
+              <div key={pin.id} className="rounded-xl border border-border/60 p-3 text-sm">
+                {pin.title || pin.body}
               </div>
             ))
           ) : (

@@ -64,6 +64,7 @@ const setupMocks = async (page: Parameters<typeof test>[1]["page"]) => {
 
   const circleUrl = new RegExp(`/api/circles/${CIRCLE_ID}$`);
   const postsUrl = new RegExp(`/api/circles/${CIRCLE_ID}/posts`);
+  const pinsUrl = new RegExp(`/api/circles/${CIRCLE_ID}/pins`);
   const chatUrl = new RegExp(`/api/circles/${CIRCLE_ID}/chat/messages`);
   const announcementUrl = new RegExp(`/api/circles/${CIRCLE_ID}/announcement`);
   const logsUrl = new RegExp(`/api/circles/${CIRCLE_ID}/logs`);
@@ -94,6 +95,14 @@ const setupMocks = async (page: Parameters<typeof test>[1]["page"]) => {
   );
 
   await page.route(postsUrl, (route) =>
+    route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: successBody([]),
+    }),
+  );
+
+  await page.route(pinsUrl, (route) =>
     route.fulfill({
       status: 200,
       contentType: "application/json",

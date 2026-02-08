@@ -76,6 +76,20 @@ const setupCircleMock = async (page: Parameters<typeof test>[1]["page"]) => {
       body: successBody([mockCircle()]),
     }),
   );
+
+  // Also intercept circle detail so navigation commits even when the circle doesn't exist on the real backend.
+  await page.route(new RegExp(`/api/circles/${CIRCLE_ID}$`), (route) =>
+    route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: successBody(mockCircle()),
+    }),
+  );
+
+  // Pins are now fetched from /pins for hub preview.
+  await page.route(new RegExp(`/api/circles/${CIRCLE_ID}/pins`), (route) =>
+    route.fulfill({ status: 200, contentType: "application/json", body: successBody([]) }),
+  );
 };
 
 /**
