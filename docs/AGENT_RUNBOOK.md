@@ -81,6 +81,12 @@ From `C:\laragon\www\osikatu\frontend`:
 - CI gate with logs:
   - `npm run ci:gate:log`
 
+## CI Policy (Lightweight)
+
+This repo intentionally keeps CI lightweight:
+- Frontend CI runs `npm ci`, `npm run tools:test`, and `npm run lint` on PRs and on `main`.
+- Full E2E (`npm run e2e:ci`) remains a local/manual workflow on Windows (Laragon), because it boots multiple servers and is sensitive to environment differences.
+
 ### E2E CI Ports
 
 `npm run e2e:ci` uses:

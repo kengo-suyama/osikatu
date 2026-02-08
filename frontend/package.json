@@ -24,7 +24,7 @@
     "e2e:ci": "node tools\\run-e2e-ci.cjs",
     "e2e:preflight": "node tools\\ensure-ports-free.cjs 3103 8001",
     "e2e:doctor": "node tools\\e2e-doctor.cjs",
-    "tools:test": "node --test tools\\ensure-ports-free.test.cjs",
+    "tools:test": "node --test tools/ensure-ports-free.test.cjs",
     "e2e:ci:raw": "concurrently --raw -k -s first -n GUARD,BACK,FRONT,TEST \"node tools\\\\guard-git-head.cjs ..\" \"cd ..\\laravel && php artisan serve --host=127.0.0.1 --port=8001\" \"set \\\"NEXT_PUBLIC_DATA_SOURCE=api\\\" && set \\\"NEXT_PUBLIC_API_BASE_URL=http://127.0.0.1:8001\\\" && set \\\"NEXT_DIST_DIR=.next-e2e\\\" && npm run dev -- -p 3103\" \"set \\\"E2E_BASE_URL=http://127.0.0.1:3103\\\" && set \\\"PLAYWRIGHT_API_BASE=http://127.0.0.1:8001\\\" && npx wait-on --interval 250 --timeout 90000 tcp:8001 tcp:3103 && echo WAIT-ON OK && (if defined E2E_SPEC (npx playwright test %E2E_SPEC% --reporter=line --workers=1) else (npx playwright test --reporter=line --workers=1))\""
   },
   "dependencies": {
