@@ -30,6 +30,7 @@ class InviteRegenerateTest extends TestCase
             'circle_id' => $circle->id,
             'user_id' => $user->id,
             'role' => 'owner',
+            'joined_at' => now(),
         ]);
 
         // Create existing invite
@@ -65,11 +66,13 @@ class InviteRegenerateTest extends TestCase
             'circle_id' => $circle->id,
             'user_id' => $owner->id,
             'role' => 'owner',
+            'joined_at' => now(),
         ]);
         CircleMember::create([
             'circle_id' => $circle->id,
             'user_id' => $member->id,
             'role' => 'member',
+            'joined_at' => now(),
         ]);
 
         $response = $this->withHeaders(['X-Device-Id' => 'dev-invite-member'])
