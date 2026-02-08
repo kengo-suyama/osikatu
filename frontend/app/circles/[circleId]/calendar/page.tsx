@@ -63,6 +63,8 @@ export default function CircleCalendarPage({
   const [actionLoading, setActionLoading] = useState(false);
   const [myProposals, setMyProposals] = useState<ScheduleProposalDto[]>([]);
   const [pendingProposals, setPendingProposals] = useState<ScheduleProposalDto[]>([]);
+  const [proposalStatusFilter, setProposalStatusFilter] = useState<"all" | "pending" | "approved" | "rejected">("all");
+  const [proposalDateFrom, setProposalDateFrom] = useState("");
 
   const [toastOpen, setToastOpen] = useState(false);
   const [toastTitle, setToastTitle] = useState("");
@@ -531,11 +533,37 @@ export default function CircleCalendarPage({
               </div>
             </Card>
             {/* My proposals (visible to all members) */}
-            {myProposals.length > 0 && (
+            {myProposals.length > 0 && (() => {
+              const filteredMyProposals = myProposals.filter((p) => {
+                if (proposalStatusFilter !== "all" && p.status !== proposalStatusFilter) return false;
+                if (proposalDateFrom && p.startAt && p.startAt.slice(0, 10) < proposalDateFrom) return false;
+                return true;
+              });
+              return (
               <Card className="rounded-2xl border p-4 shadow-sm" data-testid="schedule-proposal-mine">
                 <div className="text-sm font-semibold text-muted-foreground">自分の提案</div>
+                <div className="mt-2 flex flex-wrap items-center gap-2">
+                  {(["all", "pending", "approved", "rejected"] as const).map((s) => (
+                    <button
+                      key={s}
+                      type="button"
+                      onClick={() => setProposalStatusFilter(s)}
+                      className={`rounded-full border px-2 py-0.5 text-[10px] ${proposalStatusFilter === s ? "bg-emerald-500/15 text-emerald-600 border-emerald-500/50" : "border-border/60 text-muted-foreground"}`}
+                      data-testid={"proposal-filter-" + s}
+                    >
+                      {s === "all" ? "すべて" : s === "pending" ? "審査中" : s === "approved" ? "承認済" : "却下"}
+                    </button>
+                  ))}
+                  <input
+                    type="date"
+                    value={proposalDateFrom}
+                    onChange={(e) => setProposalDateFrom(e.target.value)}
+                    className="h-6 rounded border border-border/60 px-1 text-[10px]"
+                    data-testid="proposal-filter-date-from"
+                  />
+                </div>
                 <div className="mt-2 space-y-2">
-                  {myProposals.map((p) => (
+                  {filteredMyProposals.map((p) => (
                     <div key={p.id} className="rounded-xl border border-border/60 p-3" data-testid={`schedule-proposal-item-${p.id}`}>
                       <div data-testid="proposal-item">
                       <div className="flex items-start justify-between gap-2">
@@ -567,7 +595,8 @@ export default function CircleCalendarPage({
                   ))}
                 </div>
               </Card>
-            )}
+            );
+            })()}
 
             {/* Pending proposals (visible to owner/admin with plus) */}
             {canEdit && pendingProposals.length > 0 && (
