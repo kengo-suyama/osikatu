@@ -24,12 +24,12 @@ class OperationLogController extends Controller
             return ApiResponse::error('UNAUTHORIZED', 'Unauthorized.', null, 401);
         }
 
-        [$limit, $from, $to, $actionPrefix, $cursor] = $this->parseQuery($request);
+        [$limit, $from, $to, $actionPrefix, $cursor, $requestId] = $this->parseQuery($request);
 
         $query = OperationLog::query()
             ->where('user_id', $userId);
 
-        $this->applyFilters($query, $from, $to, $actionPrefix, $cursor);
+        $this->applyFilters($query, $from, $to, $actionPrefix, $cursor, $requestId);
 
         $items = $query
             ->orderByDesc('created_at')
@@ -70,12 +70,12 @@ class OperationLogController extends Controller
             return ApiResponse::error('FORBIDDEN', 'Owner/Admin only', null, 403);
         }
 
-        [$limit, $from, $to, $actionPrefix, $cursor] = $this->parseQuery($request);
+        [$limit, $from, $to, $actionPrefix, $cursor, $requestId] = $this->parseQuery($request);
 
         $query = OperationLog::query()
             ->where('circle_id', $circleModel->id);
 
-        $this->applyFilters($query, $from, $to, $actionPrefix, $cursor);
+        $this->applyFilters($query, $from, $to, $actionPrefix, $cursor, $requestId);
 
         $items = $query
             ->orderByDesc('created_at')
@@ -97,11 +97,16 @@ class OperationLogController extends Controller
             $request->query('to'),
             $request->query('actionPrefix'),
             $request->query('cursor'),
+            $request->query('request_id'),
         ];
     }
 
-    private function applyFilters($query, ?string $from, ?string $to, ?string $actionPrefix, ?string $cursor): void
+    private function applyFilters($query, ?string $from, ?string $to, ?string $actionPrefix, ?string $cursor, ?string $requestId = null): void
     {
+        if ($requestId) {
+            $query->where('meta->request_id', $requestId);
+        }
+
         if ($from) {
             try {
                 $query->where('created_at', '>=', Carbon::parse($from));

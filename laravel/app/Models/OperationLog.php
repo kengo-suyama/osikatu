@@ -19,6 +19,7 @@ class OperationLog extends Model
 
     protected $casts = [
         'meta' => 'array',
+        'created_at' => 'datetime',
     ];
 
     public $timestamps = false;
