@@ -174,4 +174,34 @@ test.describe("circle hub navigation", () => {
     await page.waitForURL(`**/circles/${CIRCLE_ID}/calendar`, { timeout: 15_000 });
     logPass("Navigated to calendar page via hub");
   });
+
+  test("clicking album navigates to album page", async ({ page }) => {
+    await setupMocks(page);
+
+    await page.goto(`/circles/${CIRCLE_ID}`, { waitUntil: "domcontentloaded" });
+
+    const hub = page.locator('[data-testid="circle-home"]');
+    await expect(hub).toBeVisible({ timeout: 30_000 });
+
+    const albumBtn = page.locator('[data-testid="circle-hub-album"]');
+    await albumBtn.click();
+
+    await page.waitForURL(`**/circles/${CIRCLE_ID}/album`, { timeout: 15_000 });
+    logPass("Navigated to album page via hub");
+  });
+
+  test("clicking members navigates to members page", async ({ page }) => {
+    await setupMocks(page);
+
+    await page.goto(`/circles/${CIRCLE_ID}`, { waitUntil: "domcontentloaded" });
+
+    const hub = page.locator('[data-testid="circle-home"]');
+    await expect(hub).toBeVisible({ timeout: 30_000 });
+
+    const membersBtn = page.locator('[data-testid="circle-hub-members"]');
+    await membersBtn.click();
+
+    await page.waitForURL(`**/circles/${CIRCLE_ID}/members`, { timeout: 15_000 });
+    logPass("Navigated to members page via hub");
+  });
 });
