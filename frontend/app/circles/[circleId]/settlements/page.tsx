@@ -112,6 +112,15 @@ export default function CircleSettlementsPage({
   const [ceParticipants, setCeParticipants] = useState<number[]>([]);
   const [ceLoading, setCeLoading] = useState(false);
 
+  const [showVoidReplaceDialog, setShowVoidReplaceDialog] = useState(false);
+  const [vrTargetExpenseId, setVrTargetExpenseId] = useState<number | null>(null);
+  const [vrTitle, setVrTitle] = useState("");
+  const [vrAmountYen, setVrAmountYen] = useState("");
+  const [vrSplitType, setVrSplitType] = useState<"equal" | "fixed">("equal");
+  const [vrPayerMemberId, setVrPayerMemberId] = useState<number | null>(null);
+  const [vrParticipants, setVrParticipants] = useState<number[]>([]);
+  const [vrLoading, setVrLoading] = useState(false);
+
   const canUseSettlements =
     plan === "plus" && (circleRole === "owner" || circleRole === "admin");
 
@@ -362,9 +371,60 @@ export default function CircleSettlementsPage({
       await circleSettlementExpenseRepo.voidExpense(circleId, expenseId);
       showToast("取消しました", "立替を取消しました。");
       await refreshExpenseLedger();
-    } catch {
-      showToast("取消失敗", "立替の取消に失敗しました。");
+    } catch (err) {
+      if (err instanceof ApiRequestError) {
+        if (err.status === 409) showToast("取消済み", "この立替は既に取消されています。");
+        else if (err.status === 403) showToast("権限不足", "この操作は許可されていません。");
+        else showToast("取消失敗", "立替の取消に失敗しました。");
+      } else {
+        showToast("取消失敗", "立替の取消に失敗しました。");
+      }
     }
+  };
+
+  const openVoidReplaceDialog = (expense: CircleSettlementExpenseDto) => {
+    setVrTargetExpenseId(expense.id);
+    setVrTitle(expense.title);
+    setVrAmountYen(String(expense.amountYen));
+    setVrSplitType(expense.splitType === "fixed" ? "fixed" : "equal");
+    setVrPayerMemberId(expense.payerMemberId);
+    setVrParticipants(expense.shares.map((s) => s.memberId));
+    setShowVoidReplaceDialog(true);
+  };
+
+  const handleVoidReplace = async () => {
+    if (!vrTargetExpenseId || !vrTitle.trim() || !vrAmountYen || !vrPayerMemberId) return;
+    setVrLoading(true);
+    try {
+      await circleSettlementExpenseRepo.voidExpense(circleId, vrTargetExpenseId, {
+        title: vrTitle.trim(),
+        amountYen: Number(vrAmountYen),
+        splitType: vrSplitType,
+        payerMemberId: vrPayerMemberId,
+        occurredOn: today,
+        participants: vrSplitType === "equal" ? vrParticipants : undefined,
+      });
+      setShowVoidReplaceDialog(false);
+      showToast("置換しました", "立替を取消して新しい立替に置換しました。");
+      await refreshExpenseLedger();
+    } catch (err) {
+      if (err instanceof ApiRequestError) {
+        if (err.status === 409) showToast("取消済み", "この立替は既に取消されています。");
+        else if (err.status === 422) showToast("入力エラー", err.message || "入力内容を確認してください。");
+        else if (err.status === 403) showToast("権限不足", "この操作は許可されていません。");
+        else showToast("置換失敗", "立替の置換に失敗しました。");
+      } else {
+        showToast("置換失敗", "立替の置換に失敗しました。");
+      }
+    } finally {
+      setVrLoading(false);
+    }
+  };
+
+  const toggleVrParticipant = (id: number) => {
+    setVrParticipants((prev) =>
+      prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]
+    );
   };
 
   const toggleCeParticipant = (id: number) => {
@@ -480,15 +540,26 @@ export default function CircleSettlementsPage({
                             {resolveLedgerPayerLabel(expense)}
                           </span>
                           {canUseSettlements && (
-                            <Button
-                              size="sm"
-                              variant="ghost"
-                              className="h-6 px-2 text-xs text-rose-500 hover:text-rose-600"
-                              data-testid="settlement-expense-void"
-                              onClick={() => handleVoidExpense(expense.id)}
-                            >
-                              取消
-                            </Button>
+                            <span className="flex gap-1">
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                className="h-6 px-2 text-xs text-rose-500 hover:text-rose-600"
+                                data-testid="settlement-expense-void"
+                                onClick={() => handleVoidExpense(expense.id)}
+                              >
+                                取消
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                className="h-6 px-2 text-xs text-amber-500 hover:text-amber-600"
+                                data-testid="settlement-expense-void-replace-open"
+                                onClick={() => openVoidReplaceDialog(expense)}
+                              >
+                                置換
+                              </Button>
+                            </span>
                           )}
                         </div>
                       </div>
@@ -889,6 +960,121 @@ export default function CircleSettlementsPage({
               data-testid="settlement-create-submit"
             >
               登録
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={showVoidReplaceDialog} onOpenChange={setShowVoidReplaceDialog}>
+        <DialogContent data-testid="settlement-void-replace-dialog">
+          <DialogHeader>
+            <DialogTitle>取消して置換</DialogTitle>
+            <DialogDescription>立替を取消し、修正内容で新しい立替を作成します。</DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-3">
+            <div className="grid gap-1">
+              <div className="text-xs text-muted-foreground">タイトル</div>
+              <Input
+                placeholder="例: 遠征交通費"
+                value={vrTitle}
+                onChange={(e) => setVrTitle(e.target.value)}
+              />
+            </div>
+            <div className="grid gap-1">
+              <div className="text-xs text-muted-foreground">金額（円）</div>
+              <Input
+                type="number"
+                min={0}
+                inputMode="numeric"
+                placeholder="例: 12000"
+                value={vrAmountYen}
+                onChange={(e) => setVrAmountYen(e.target.value)}
+                data-testid="settlement-void-replace-total"
+              />
+            </div>
+            <div className="grid gap-1">
+              <div className="text-xs text-muted-foreground">割り勘方法</div>
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  className={cn(
+                    "rounded-full border px-3 py-1 text-xs transition",
+                    vrSplitType === "equal"
+                      ? "border-emerald-500/50 bg-emerald-500/15 text-emerald-600"
+                      : "border-border/60 text-muted-foreground"
+                  )}
+                  data-testid="settlement-void-replace-method-equal"
+                  onClick={() => setVrSplitType("equal")}
+                >
+                  均等割
+                </button>
+                <button
+                  type="button"
+                  className={cn(
+                    "rounded-full border px-3 py-1 text-xs transition",
+                    vrSplitType === "fixed"
+                      ? "border-emerald-500/50 bg-emerald-500/15 text-emerald-600"
+                      : "border-border/60 text-muted-foreground"
+                  )}
+                  data-testid="settlement-void-replace-method-fixed"
+                  onClick={() => setVrSplitType("fixed")}
+                >
+                  個別指定
+                </button>
+              </div>
+            </div>
+            <div className="grid gap-1">
+              <div className="text-xs text-muted-foreground">支払者</div>
+              <div className="flex flex-wrap gap-2">
+                {members.map((m) => (
+                  <button
+                    key={m.id}
+                    type="button"
+                    onClick={() => setVrPayerMemberId(m.id)}
+                    className={cn(
+                      "rounded-full border px-3 py-1 text-xs transition",
+                      vrPayerMemberId === m.id
+                        ? "border-blue-500/50 bg-blue-500/15 text-blue-600"
+                        : "border-border/60 text-muted-foreground"
+                    )}
+                  >
+                    {m.nickname ?? m.initial ?? ("#" + m.id)}
+                  </button>
+                ))}
+              </div>
+            </div>
+            {vrSplitType === "equal" && (
+              <div className="grid gap-1">
+                <div className="text-xs text-muted-foreground">参加メンバー</div>
+                <div className="flex flex-wrap gap-2">
+                  {members.map((m) => {
+                    const selected = vrParticipants.includes(m.id);
+                    return (
+                      <button
+                        key={m.id}
+                        type="button"
+                        onClick={() => toggleVrParticipant(m.id)}
+                        className={cn(
+                          "rounded-full border px-3 py-1 text-xs transition",
+                          selected
+                            ? "border-emerald-500/50 bg-emerald-500/15 text-emerald-600"
+                            : "border-border/60 text-muted-foreground"
+                        )}
+                      >
+                        {m.nickname ?? m.initial ?? ("#" + m.id)}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+            <Button
+              size="sm"
+              onClick={handleVoidReplace}
+              disabled={vrLoading}
+              data-testid="settlement-void-replace-submit"
+            >
+              取消して置換
             </Button>
           </div>
         </DialogContent>
