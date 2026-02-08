@@ -521,6 +521,64 @@ export type SettlementListDto = {
   members: MemberBriefDto[];
 };
 
+/** ---- Settlement Expenses (Ledger-style) ---- */
+export type CircleSettlementExpenseShareDto = {
+  memberId: number;
+  memberSnapshotName: string;
+  shareYen: number;
+};
+
+export type CircleSettlementExpenseDto = {
+  id: number;
+  circleId: number;
+  createdBy: number;
+  payerMemberId: number;
+  title: string;
+  amountYen: number;
+  splitType: "equal" | "fixed" | string;
+  occurredOn: ISODate | null;
+  note: string | null;
+  status: "active" | "void" | string;
+  voidedAt: ISODateTime | null;
+  voidedByMemberId: number | null;
+  replacedByExpenseId: number | null;
+  replacesExpenseId: number | null;
+  shares: CircleSettlementExpenseShareDto[];
+  createdAt: ISODateTime | null;
+};
+
+export type CircleSettlementExpenseListDto = {
+  items: CircleSettlementExpenseDto[];
+  nextCursor: string | null;
+};
+
+export type CircleSettlementBalanceItemDto = {
+  memberId: number;
+  displayName: string;
+  paidYen: number;
+  owedYen: number;
+  netYen: number;
+};
+
+export type CircleSettlementBalancesDto = {
+  items: CircleSettlementBalanceItemDto[];
+  totals: {
+    totalExpensesYen: number;
+    expenseCount: number;
+  };
+};
+
+export type CircleSettlementSuggestionDto = {
+  fromMemberId: number;
+  toMemberId: number;
+  amountYen: number;
+};
+
+export type CircleSettlementSuggestionsDto = {
+  items: CircleSettlementSuggestionDto[];
+  generatedAt: ISODateTime;
+};
+
 /** ---- Billing ---- */
 export type PlanQuotas = {
   oshiMax: number | null;
