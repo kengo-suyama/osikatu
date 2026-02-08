@@ -38,17 +38,9 @@ class PinWriteService
 
     public function ensurePinLimit(int $circleId, int $maxPins): ?JsonResponse
     {
-        $postCount = Post::query()
-            ->where('circle_id', $circleId)
-            ->where('is_pinned', true)
-            ->count();
-
-        $pinCount = CirclePin::query()
+        $count = CirclePin::query()
             ->where('circle_id', $circleId)
             ->count();
-
-        // Use the larger count to avoid undercount during migration/backfill or if projection lags.
-        $count = max((int) $postCount, (int) $pinCount);
 
         if ($count >= $maxPins) {
             return ApiResponse::error('PIN_LIMIT_EXCEEDED', 'ピンの上限に達しています', [
@@ -123,6 +115,23 @@ class PinWriteService
         );
     }
 
+    public function createDirectCirclePin(
+        int $circleId,
+        CircleMember $member,
+        string $body,
+    ): CirclePin {
+        $parsed = $this->extractTitleAndUrl($body);
+
+        return CirclePin::create([
+            'circle_id' => $circleId,
+            'created_by_member_id' => $member->id,
+            'title' => $parsed['title'],
+            'url' => $parsed['url'],
+            'body' => $body,
+            'pinned_at' => now(),
+        ]);
+    }
+
     public function updateCirclePinBody(CirclePin $pin, int $circleId, string $body): CirclePin
     {
         $parsed = $this->extractTitleAndUrl($body);
@@ -133,30 +142,12 @@ class PinWriteService
             'url' => $parsed['url'],
         ]);
 
-        if ($pin->source_post_id) {
-            Post::query()
-                ->where('id', $pin->source_post_id)
-                ->where('circle_id', $circleId)
-                ->update([
-                    'body' => $body,
-                    'is_pinned' => true,
-                ]);
-        }
-
         return $pin->fresh();
     }
 
     public function unpinCirclePin(CirclePin $pin, int $circleId): void
     {
-        $sourcePostId = $pin->source_post_id;
         $pin->delete();
-
-        if ($sourcePostId) {
-            Post::query()
-                ->where('id', $sourcePostId)
-                ->where('circle_id', $circleId)
-                ->update(['is_pinned' => false]);
-        }
     }
 
     /**

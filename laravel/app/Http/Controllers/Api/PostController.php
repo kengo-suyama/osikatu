@@ -69,13 +69,12 @@ class PostController extends Controller
 
         $data = $validator->validated();
 
-        $post = $pinWrite->createPinnedPost($circle, $member, (string) $data['body'], []);
+        $pin = $pinWrite->createDirectCirclePin($circle, $member, (string) $data['body']);
 
         Circle::query()
             ->where('id', $circle)
             ->update(['last_activity_at' => now()]);
 
-        $pin = $pinWrite->projectFromPost($post, $member);
         return ApiResponse::success(new CirclePinResource($pin), null, 201);
     }
 
