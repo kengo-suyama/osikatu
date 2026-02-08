@@ -66,7 +66,7 @@ class PlanGatePolicyTest extends TestCase
         ]);
 
         $response = $this->withHeaders(['X-Device-Id' => 'dev-gate-test'])
-            ->getJson("/api/circles/{\$circle->id}/logs");
+            ->getJson("/api/circles/{$circle->id}/logs");
 
         $response->assertStatus(402);
         $response->assertJsonPath('error.code', 'PLAN_REQUIRED');

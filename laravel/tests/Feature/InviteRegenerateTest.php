@@ -42,7 +42,7 @@ class InviteRegenerateTest extends TestCase
         ]);
 
         $response = $this->withHeaders(['X-Device-Id' => 'dev-invite-regen'])
-            ->postJson("/api/circles/{\$circle->id}/invites/regenerate");
+            ->postJson("/api/circles/{$circle->id}/invites/regenerate");
 
         $response->assertStatus(200);
         $data = $response->json('success.data');
@@ -77,7 +77,7 @@ class InviteRegenerateTest extends TestCase
         ]);
 
         $response = $this->withHeaders(['X-Device-Id' => 'dev-invite-member'])
-            ->postJson("/api/circles/{\$circle->id}/invites/regenerate");
+            ->postJson("/api/circles/{$circle->id}/invites/regenerate");
 
         $response->assertStatus(403);
     }

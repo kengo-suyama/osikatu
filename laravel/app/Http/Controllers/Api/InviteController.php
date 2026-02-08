@@ -330,7 +330,7 @@ class InviteController extends Controller
         return ApiResponse::success(new InviteResource($inviteModel));
     }
 
-    public function regenerate(int $circleId)
+    public function regenerate(string $circleId)
     {
         $user = User::query()->find(CurrentUser::id());
         if (!$user) {
