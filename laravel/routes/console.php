@@ -2,6 +2,7 @@
 
 use App\Console\Commands\DispatchScheduleNotifications;
 use App\Console\Commands\BackfillCirclePins;
+use App\Console\Commands\PinsV1Status;
 use Illuminate\Foundation\Inspiring;
 use Illuminate\Support\Facades\Artisan;
 
@@ -28,3 +29,13 @@ Artisan::command('app:backfill-circle-pins {--dry-run}', function () {
 
     return 0;
 })->purpose('Backfill circle_pins from legacy pinned posts');
+
+Artisan::command('pins:v1-status', function () {
+    $result = app(PinsV1Status::class)->handle();
+
+    $this->line('pins.v1_write_mode=' . ($result['mode'] ?? 'delegate'));
+    $this->line('config_cached=' . ((bool) ($result['configCached'] ?? false) ? 'true' : 'false'));
+    $this->line('NOTE: env change may require: php artisan config:cache');
+
+    return 0;
+})->purpose('Show pins-v1 write mode and whether config is cached');
