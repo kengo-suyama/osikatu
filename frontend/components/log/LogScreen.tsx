@@ -564,6 +564,19 @@ export default function LogScreen() {
               />
             </div>
             {hasActiveFilter ? (
+              <div className="flex flex-wrap gap-2 text-xs text-muted-foreground" data-testid="log-filter-active">
+                {activeQuery ? (
+                  <span className="rounded-full bg-muted px-2 py-0.5">検索: {activeQuery}</span>
+                ) : null}
+                {activeTag ? (
+                  <span className="rounded-full bg-muted px-2 py-0.5">タグ: #{activeTag}</span>
+                ) : null}
+                {hasPhotoOnly ? (
+                  <span className="rounded-full bg-muted px-2 py-0.5">写真あり</span>
+                ) : null}
+              </div>
+            ) : null}
+            {hasActiveFilter ? (
               <button
                 type="button"
                 onClick={clearFilters}
