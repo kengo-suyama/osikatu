@@ -14,10 +14,19 @@ import {
   ToastViewport,
 } from "@/components/ui/toast";
 import { circleRepo } from "@/lib/repo/circleRepo";
+import { circleSettlementExpenseRepo } from "@/lib/repo/circleSettlementExpenseRepo";
 import { meRepo } from "@/lib/repo/meRepo";
+import { ApiRequestError } from "@/lib/repo/http";
 import { settlementRepo } from "@/lib/repo/settlementRepo";
-import type { MemberBriefDto, SettlementDto } from "@/lib/types";
+import type {
+  CircleSettlementBalancesDto,
+  CircleSettlementExpenseDto,
+  CircleSettlementSuggestionsDto,
+  MemberBriefDto,
+  SettlementDto,
+} from "@/lib/types";
 import { cn } from "@/lib/utils";
+import { isApiMode } from "@/lib/config";
 
 const formatAmountPlain = (amount: number) => String(Math.max(0, Math.round(amount)));
 const formatAmountYen = (amount: number) =>
@@ -64,6 +73,17 @@ export default function CircleSettlementsPage({
   const [activeSettlement, setActiveSettlement] = useState<SettlementDto | null>(null);
   const [selectedMembers, setSelectedMembers] = useState<number[]>([]);
 
+  const [expenseLedgerLoading, setExpenseLedgerLoading] = useState(false);
+  const [expenseLedgerForbidden, setExpenseLedgerForbidden] = useState<string | null>(null);
+  const [expenseLedgerError, setExpenseLedgerError] = useState<string | null>(null);
+  const [expenseLedgerItems, setExpenseLedgerItems] = useState<CircleSettlementExpenseDto[]>(
+    []
+  );
+  const [expenseLedgerBalances, setExpenseLedgerBalances] =
+    useState<CircleSettlementBalancesDto | null>(null);
+  const [expenseLedgerSuggestions, setExpenseLedgerSuggestions] =
+    useState<CircleSettlementSuggestionsDto | null>(null);
+
   const [title, setTitle] = useState("");
   const [settledAt, setSettledAt] = useState(today);
   const [amount, setAmount] = useState("");
@@ -92,6 +112,21 @@ export default function CircleSettlementsPage({
     const member = members.find((item) => resolveMemberUserId(item) === userId);
     return member?.nickname ?? member?.initial ?? `#${userId}`;
   };
+
+  const resolveLedgerMemberLabel = (memberId: number) => {
+    const balanceName = expenseLedgerBalances?.items.find((item) => item.memberId === memberId);
+    if (balanceName?.displayName) return balanceName.displayName;
+
+    for (const expense of expenseLedgerItems) {
+      const share = expense.shares?.find((item) => item.memberId === memberId);
+      if (share?.memberSnapshotName) return share.memberSnapshotName;
+    }
+
+    return `#${memberId}`;
+  };
+
+  const resolveLedgerPayerLabel = (expense: CircleSettlementExpenseDto) =>
+    resolveLedgerMemberLabel(expense.payerMemberId);
 
   useEffect(() => {
     let mounted = true;
@@ -143,6 +178,70 @@ export default function CircleSettlementsPage({
       .finally(() => {
         if (!mounted) return;
         setLoading(false);
+      });
+
+    return () => {
+      mounted = false;
+    };
+  }, [circleId]);
+
+  useEffect(() => {
+    let mounted = true;
+    if (!Number.isFinite(circleId)) return;
+
+    setExpenseLedgerForbidden(null);
+    setExpenseLedgerError(null);
+
+    if (!isApiMode()) {
+      setExpenseLedgerLoading(false);
+      setExpenseLedgerItems([]);
+      setExpenseLedgerBalances(null);
+      setExpenseLedgerSuggestions(null);
+      return;
+    }
+
+    setExpenseLedgerLoading(true);
+
+    Promise.allSettled([
+      circleSettlementExpenseRepo.list(circleId),
+      circleSettlementExpenseRepo.balances(circleId),
+      circleSettlementExpenseRepo.suggestions(circleId),
+    ])
+      .then((results) => {
+        if (!mounted) return;
+
+        const rejected = results.find(
+          (item): item is PromiseRejectedResult => item.status === "rejected"
+        );
+
+        if (rejected?.reason instanceof ApiRequestError) {
+          const apiErr = rejected.reason as ApiRequestError;
+          if (apiErr.status === 403) {
+            setExpenseLedgerForbidden(apiErr.message || "Plusが必要です。");
+            setExpenseLedgerItems([]);
+            setExpenseLedgerBalances(null);
+            setExpenseLedgerSuggestions(null);
+            return;
+          }
+          setExpenseLedgerError(apiErr.message || "割り勘データを取得できませんでした");
+          return;
+        }
+
+        const listRes = results[0].status === "fulfilled" ? results[0].value : null;
+        const balancesRes = results[1].status === "fulfilled" ? results[1].value : null;
+        const suggestionsRes = results[2].status === "fulfilled" ? results[2].value : null;
+
+        setExpenseLedgerItems(listRes?.items ?? []);
+        setExpenseLedgerBalances(balancesRes);
+        setExpenseLedgerSuggestions(suggestionsRes);
+      })
+      .catch(() => {
+        if (!mounted) return;
+        setExpenseLedgerError("割り勘データを取得できませんでした");
+      })
+      .finally(() => {
+        if (!mounted) return;
+        setExpenseLedgerLoading(false);
       });
 
     return () => {
@@ -243,13 +342,139 @@ export default function CircleSettlementsPage({
 
   return (
     <ToastProvider>
-      <div className="mx-auto max-w-xl space-y-4 px-4 py-6">
+      <div className="mx-auto max-w-xl space-y-4 px-4 py-6" data-testid="settlement-page">
         <div data-testid="settlement-page-header">
           <div className="text-lg font-semibold">割り勘（精算）</div>
           <div className="mt-1 text-xs text-muted-foreground">
             PayPay IDなどの個人情報は保存しません。
           </div>
         </div>
+
+        {expenseLedgerForbidden ? (
+          <Card
+            className="rounded-2xl border p-4 text-sm text-muted-foreground"
+            data-testid="settlement-forbidden"
+          >
+            {expenseLedgerForbidden}
+          </Card>
+        ) : (
+          <>
+            <Card className="rounded-2xl border p-4 shadow-sm" data-testid="settlement-expenses">
+              <div className="text-sm font-semibold text-muted-foreground">割り勘（台帳）</div>
+              <div className="mt-1 text-xs text-muted-foreground">
+                立替を記録して、残高とおすすめ送金を表示します。
+              </div>
+
+              {expenseLedgerLoading ? (
+                <div className="mt-3 text-sm text-muted-foreground">読み込み中…</div>
+              ) : expenseLedgerError ? (
+                <div className="mt-3 text-sm text-muted-foreground">{expenseLedgerError}</div>
+              ) : (
+                <div className="mt-3 space-y-2">
+                  {expenseLedgerItems.length ? (
+                    expenseLedgerItems.slice(0, 10).map((expense) => (
+                      <div
+                        key={expense.id}
+                        className="rounded-xl border border-border/60 bg-background/90 px-3 py-2 text-sm"
+                        data-testid={`settlement-expense-${expense.id}`}
+                      >
+                        <div className="flex flex-wrap items-center justify-between gap-2">
+                          <div className="font-medium">{expense.title || "(無題)"}</div>
+                          <div className="font-semibold">
+                            {formatAmountYen(expense.amountYen)}
+                          </div>
+                        </div>
+                        <div className="mt-1 text-xs text-muted-foreground">
+                          {expense.occurredOn ?? "日付未設定"} · 支払:{" "}
+                          {resolveLedgerPayerLabel(expense)}
+                        </div>
+                      </div>
+                    ))
+                  ) : (
+                    <div className="rounded-xl border border-dashed border-border/60 p-4 text-sm text-muted-foreground">
+                      立替がまだありません。
+                    </div>
+                  )}
+                </div>
+              )}
+            </Card>
+
+            <Card className="rounded-2xl border p-4 shadow-sm" data-testid="settlement-balances">
+              <div className="text-sm font-semibold text-muted-foreground">残高</div>
+              {!expenseLedgerBalances?.items?.length ? (
+                <div className="mt-3 text-sm text-muted-foreground">データがありません。</div>
+              ) : (
+                <div className="mt-3 space-y-2">
+                  {expenseLedgerBalances.items.map((item) => (
+                    <div
+                      key={item.memberId}
+                      className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-border/60 px-3 py-2 text-sm"
+                      data-testid={`settlement-balance-${item.memberId}`}
+                    >
+                      <div className="font-medium">{item.displayName}</div>
+                      <div className="text-xs text-muted-foreground">
+                        立替 {formatAmountYen(item.paidYen)} / 負担{" "}
+                        {formatAmountYen(item.owedYen)}
+                      </div>
+                      <div
+                        className={cn(
+                          "font-semibold",
+                          item.netYen > 0 && "text-emerald-600",
+                          item.netYen < 0 && "text-rose-600"
+                        )}
+                      >
+                        {item.netYen >= 0 ? "+" : "-"}
+                        {formatAmountYen(Math.abs(item.netYen))}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+              {expenseLedgerBalances?.totals ? (
+                <div className="mt-3 text-xs text-muted-foreground">
+                  合計 {formatAmountYen(expenseLedgerBalances.totals.totalExpensesYen)} ·{" "}
+                  {expenseLedgerBalances.totals.expenseCount}件
+                </div>
+              ) : null}
+            </Card>
+
+            <Card
+              className="rounded-2xl border p-4 shadow-sm"
+              data-testid="settlement-suggestions"
+            >
+              <div className="text-sm font-semibold text-muted-foreground">おすすめ送金</div>
+              {!expenseLedgerSuggestions?.items?.length ? (
+                <div className="mt-3 text-sm text-muted-foreground">提案がありません。</div>
+              ) : (
+                <div className="mt-3 space-y-2">
+                  {expenseLedgerSuggestions.items.map((s, index) => (
+                    <div
+                      key={`${s.fromMemberId}-${s.toMemberId}-${index}`}
+                      className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-border/60 bg-background/90 px-3 py-2 text-sm"
+                      data-testid={`settlement-suggestion-${index}`}
+                    >
+                      <div>
+                        <span className="font-semibold">
+                          {resolveLedgerMemberLabel(s.fromMemberId)}
+                        </span>
+                        <span className="px-1 text-muted-foreground">→</span>
+                        <span className="font-semibold">
+                          {resolveLedgerMemberLabel(s.toMemberId)}
+                        </span>
+                      </div>
+                      <div className="font-semibold">{formatAmountYen(s.amountYen)}</div>
+                    </div>
+                  ))}
+                </div>
+              )}
+              {expenseLedgerSuggestions?.generatedAt ? (
+                <div className="mt-3 text-xs text-muted-foreground">
+                  生成: {expenseLedgerSuggestions.generatedAt}
+                </div>
+              ) : null}
+            </Card>
+          </>
+        )}
 
         {loading ? (
           <Card className="rounded-2xl border p-4 text-sm text-muted-foreground">
@@ -453,4 +678,3 @@ export default function CircleSettlementsPage({
     </ToastProvider>
   );
 }
-
