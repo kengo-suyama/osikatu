@@ -491,7 +491,7 @@ class CircleScheduleProposalsTest extends TestCase
         // openPath + sourceMeta in DTO
         $this->assertNotNull($found['openPath']);
         $this->assertStringContainsString("/circles/{$circle->id}/calendar", $found['openPath']);
-        $this->assertStringContainsString("focusProposalId=", $found['openPath']);
+        $this->assertStringContainsString("tab=mine", $found['openPath']);
         $this->assertNotNull($found['sourceMeta']);
         $this->assertEquals($circle->id, $found['sourceMeta']['circleId']);
     }
