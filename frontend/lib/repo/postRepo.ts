@@ -124,4 +124,40 @@ export const postRepo = {
       },
     });
   },
+
+  async createPin(circleId: number, body: string): Promise<PostDto> {
+    return apiSend<PostDto>(`/api/circles/${circleId}/pins`, "POST", { body }, {
+      headers: {
+        "Content-Type": "application/json",
+        "X-Device-Id": getDeviceId(),
+      },
+    });
+  },
+
+  async updatePin(circleId: number, postId: string | number, body: string): Promise<PostDto> {
+    return apiSend<PostDto>(
+      `/api/circles/${circleId}/pins/${encodeURIComponent(String(postId))}`,
+      "PATCH",
+      { body },
+      {
+        headers: {
+          "Content-Type": "application/json",
+          "X-Device-Id": getDeviceId(),
+        },
+      }
+    );
+  },
+
+  async unpin(circleId: number, postId: string | number): Promise<{ unpinned: boolean }> {
+    return apiSend<{ unpinned: boolean }>(
+      `/api/circles/${circleId}/pins/${encodeURIComponent(String(postId))}/unpin`,
+      "POST",
+      undefined,
+      {
+        headers: {
+          "X-Device-Id": getDeviceId(),
+        },
+      }
+    );
+  },
 };
