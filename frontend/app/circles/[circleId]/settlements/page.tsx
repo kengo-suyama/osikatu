@@ -563,7 +563,15 @@ export default function CircleSettlementsPage({
                         data-testid={`settlement-expense-${expense.id}`}
                       >
                         <div className="flex flex-wrap items-center justify-between gap-2">
+                          <div className="flex items-center gap-2">
                           <div className="font-medium">{expense.title || "(無題)"}</div>
+                          {expense.voidedAt && (
+                            <span className="rounded-full bg-red-100 px-1.5 py-0.5 text-[9px] font-medium text-red-700 dark:bg-red-900/30 dark:text-red-400" data-testid="settlement-expense-status">取消済</span>
+                          )}
+                          {expense.replacedByExpenseId && (
+                            <span className="rounded-full bg-amber-100 px-1.5 py-0.5 text-[9px] font-medium text-amber-700 dark:bg-amber-900/30 dark:text-amber-400" data-testid="settlement-expense-replaced">置換済</span>
+                          )}
+                        </div>
                           <div className="font-semibold">
                             {formatAmountYen(expense.amountYen)}
                           </div>
