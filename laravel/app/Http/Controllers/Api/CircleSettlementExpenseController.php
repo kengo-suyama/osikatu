@@ -11,12 +11,21 @@ use App\Models\CircleSettlementExpense;
 use App\Models\CircleSettlementExpenseShare;
 use App\Support\ApiResponse;
 use App\Support\MeProfileResolver;
+use App\Support\OperationLogService;
 use App\Support\PlanGate;
 use App\Support\SettlementBalanceService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Validator;
+
+final class ReplacePayloadValidationException extends \RuntimeException
+{
+    public function __construct(public readonly JsonResponse $response)
+    {
+        parent::__construct('Replace payload validation failed.');
+    }
+}
 
 class CircleSettlementExpenseController extends Controller
 {
@@ -81,7 +90,29 @@ class CircleSettlementExpenseController extends Controller
             return $guard;
         }
 
-        $validator = Validator::make($request->all(), [
+        // Support request aliases (client-side / docs) without breaking existing payloads.
+        $payload = $request->all();
+        if (array_key_exists('totalYen', $payload) && !array_key_exists('amountYen', $payload)) {
+            $payload['amountYen'] = $payload['totalYen'];
+        }
+        if (array_key_exists('splitMethod', $payload) && !array_key_exists('splitType', $payload)) {
+            $payload['splitType'] = $payload['splitMethod'];
+        }
+        if (array_key_exists('memberIds', $payload) && !array_key_exists('participants', $payload)) {
+            $payload['participants'] = $payload['memberIds'];
+        }
+        if (isset($payload['shares']) && is_array($payload['shares'])) {
+            foreach ($payload['shares'] as $index => $share) {
+                if (!is_array($share)) {
+                    continue;
+                }
+                if (array_key_exists('amountYen', $share) && !array_key_exists('shareYen', $share)) {
+                    $payload['shares'][$index]['shareYen'] = $share['amountYen'];
+                }
+            }
+        }
+
+        $validator = Validator::make($payload, [
             'title' => ['required', 'string', 'max:255'],
             'amountYen' => ['required', 'integer', 'min:1'],
             'splitType' => ['required', 'in:equal,fixed'],
@@ -121,10 +152,10 @@ class CircleSettlementExpenseController extends Controller
         $occurredOn = $data['occurredOn'] ?? now()->toDateString();
 
         if ($splitType === 'equal') {
-            return $this->createEqualExpense($circleId, $member, $payerMember, $data, $amountYen, $occurredOn);
+            return $this->createEqualExpense($request, $circleId, $member, $payerMember, $data, $amountYen, $occurredOn);
         }
 
-        return $this->createFixedExpense($circleId, $member, $payerMember, $data, $amountYen, $occurredOn);
+        return $this->createFixedExpense($request, $circleId, $member, $payerMember, $data, $amountYen, $occurredOn);
     }
 
     public function voidExpense(Request $request, int $circle, int $expense): JsonResponse
@@ -150,39 +181,41 @@ class CircleSettlementExpenseController extends Controller
         }
 
         $replaceData = $request->input('replace');
+        if (!$replaceData && $request->has('replacePayload')) {
+            $replaceData = $request->input('replacePayload');
+        }
 
-        $result = DB::transaction(function () use ($expenseModel, $member, $circle, $replaceData, $request) {
-            // Void the expense
-            $expenseModel->update([
-                'status' => 'void',
-                'voided_at' => now(),
-                'voided_by_member_id' => $member->id,
-            ]);
+        try {
+            $result = DB::transaction(function () use ($expenseModel, $member, $circle, $replaceData) {
+                // Void the expense
+                $expenseModel->update([
+                    'status' => 'void',
+                    'voided_at' => now(),
+                    'voided_by_member_id' => $member->id,
+                ]);
 
-            $newExpense = null;
+                $newExpense = null;
 
-            if ($replaceData && is_array($replaceData)) {
-                // Create replacement expense via a nested store-like flow
-                $newExpense = $this->createReplacementExpense($circle, $member, $replaceData, $expenseModel->id);
+                if ($replaceData && is_array($replaceData)) {
+                    // Create replacement expense via a nested store-like flow
+                    $newExpense = $this->createReplacementExpense($circle, $member, $replaceData, $expenseModel->id);
 
-                if ($newExpense instanceof JsonResponse) {
-                    // Validation error in replacement — abort transaction
-                    throw new \RuntimeException('REPLACE_VALIDATION:' . $newExpense->getContent());
+                    if ($newExpense instanceof JsonResponse) {
+                        // Validation error in replacement — abort transaction
+                        throw new ReplacePayloadValidationException($newExpense);
+                    }
+
+                    // Set linkage
+                    $expenseModel->update(['replaced_by_expense_id' => $newExpense->id]);
                 }
 
-                // Set linkage
-                $expenseModel->update(['replaced_by_expense_id' => $newExpense->id]);
-            }
-
-            return [
-                'voided' => $expenseModel->fresh()->load('shares'),
-                'replacement' => $newExpense?->load('shares'),
-            ];
-        });
-
-        // Check if transaction threw a validation error
-        if ($result instanceof JsonResponse) {
-            return $result;
+                return [
+                    'voided' => $expenseModel->fresh()->load('shares'),
+                    'replacement' => $newExpense?->load('shares'),
+                ];
+            });
+        } catch (ReplacePayloadValidationException $e) {
+            return $e->response;
         }
 
         $response = [
@@ -193,12 +226,29 @@ class CircleSettlementExpenseController extends Controller
             $response['replacement'] = self::mapExpense($result['replacement']);
         }
 
+        OperationLogService::log($request, 'settlement_expense_voided', $circle, [
+            'circleId' => $circle,
+            'expenseId' => $expense,
+            'hasReplacement' => (bool) $result['replacement'],
+            'request_id' => (string) ($request->header('X-Request-Id') ?? ''),
+        ]);
+
+        if ($result['replacement']) {
+            OperationLogService::log($request, 'settlement_expense_replaced', $circle, [
+                'circleId' => $circle,
+                'expenseId' => $expense,
+                'replacementExpenseId' => $result['replacement']->id,
+                'request_id' => (string) ($request->header('X-Request-Id') ?? ''),
+            ]);
+        }
+
         return ApiResponse::success($response);
     }
 
     // ── Equal split logic ───────────────────────────────────────────
 
     private function createEqualExpense(
+        Request $request,
         int $circleId,
         CircleMember $creator,
         CircleMember $payer,
@@ -271,6 +321,15 @@ class CircleSettlementExpenseController extends Controller
 
         $expense->load('shares');
 
+        OperationLogService::log($request, 'settlement_expense_created', $circleId, [
+            'circleId' => $circleId,
+            'expenseId' => $expense->id,
+            'amountInt' => $amountYen,
+            'participantCount' => $expense->shares->count(),
+            'splitMode' => 'equal',
+            'request_id' => (string) ($request->header('X-Request-Id') ?? ''),
+        ]);
+
         return ApiResponse::success([
             'expense' => self::mapExpense($expense),
         ], null, 201);
@@ -279,6 +338,7 @@ class CircleSettlementExpenseController extends Controller
     // ── Fixed split logic ───────────────────────────────────────────
 
     private function createFixedExpense(
+        Request $request,
         int $circleId,
         CircleMember $creator,
         CircleMember $payer,
@@ -349,6 +409,15 @@ class CircleSettlementExpenseController extends Controller
         });
 
         $expense->load('shares');
+
+        OperationLogService::log($request, 'settlement_expense_created', $circleId, [
+            'circleId' => $circleId,
+            'expenseId' => $expense->id,
+            'amountInt' => $amountYen,
+            'participantCount' => $expense->shares->count(),
+            'splitMode' => 'fixed',
+            'request_id' => (string) ($request->header('X-Request-Id') ?? ''),
+        ]);
 
         return ApiResponse::success([
             'expense' => self::mapExpense($expense),
