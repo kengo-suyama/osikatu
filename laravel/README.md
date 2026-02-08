@@ -48,6 +48,15 @@ php artisan serve --port=8000
 
 Note: `vendor/` is not committed. Always run `composer install` locally.
 
+## Development Guidelines
+
+See [docs/BACKEND_CONVENTIONS.md](docs/BACKEND_CONVENTIONS.md) for:
+- API response envelope standards
+- Database migration requirements
+- E2E testing with SQLite
+- Code quality standards
+- Required checks before committing
+
 ## About Laravel
 
 Laravel is a web application framework with expressive, elegant syntax. We believe development must be an enjoyable and creative experience to be truly fulfilling. Laravel takes the pain out of development by easing common tasks used in many web projects, such as:
