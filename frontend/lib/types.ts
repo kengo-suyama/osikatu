@@ -379,6 +379,7 @@ export type Role = "owner" | "admin" | "member";
 
 export type MemberBriefDto = {
   id: number;
+  userId?: number;
   nickname: string | null;
   avatarUrl: string | null;
   initial: string | null;
@@ -481,6 +482,43 @@ export type CircleAnnouncementDto = {
   text: string | null;
   updatedAt: ISODateTime | null;
   updatedBy?: MemberBriefDto | null;
+};
+
+/** ---- Settlement ---- */
+export type SettlementParticipantDto = {
+  id: number;
+  userId: number;
+  shareAmount: number;
+  isPayer: boolean;
+};
+
+export type SettlementTransferDto = {
+  id: number;
+  fromUserId: number;
+  toUserId: number;
+  amount: number;
+  status: string;
+};
+
+export type SettlementDto = {
+  id: number;
+  circleId: number;
+  title: string;
+  amount: number;
+  currency: string;
+  settledAt: string | null;
+  splitMode: string;
+  participantCount: number;
+  transferCount: number;
+  createdByUserId: number;
+  participants: SettlementParticipantDto[];
+  transfers: SettlementTransferDto[];
+  createdAt: string;
+};
+
+export type SettlementListDto = {
+  items: SettlementDto[];
+  members: MemberBriefDto[];
 };
 
 /** ---- Billing ---- */
