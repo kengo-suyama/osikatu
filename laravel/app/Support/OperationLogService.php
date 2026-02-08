@@ -14,6 +14,11 @@ class OperationLogService
 {
     public static function log(Request $request, string $action, ?int $circleId = null, array $meta = []): void
     {
+        $requestId = $request->header('X-Request-Id');
+        if ($requestId) {
+            $meta['request_id'] = $requestId;
+        }
+
         $meta = OperationLogMetaPolicy::sanitize($action, $meta);
         if (!empty($meta)) {
             $encoded = json_encode($meta, JSON_UNESCAPED_UNICODE);

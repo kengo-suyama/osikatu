@@ -49,6 +49,7 @@ final class OperationLogMetaPolicy
         'hasImage',
         'messageId',
         'mode',
+        'request_id',
     ];
 
     private const ACTION_ALLOWED = [
@@ -62,8 +63,8 @@ final class OperationLogMetaPolicy
         'circle.ui.special_bg.update' => ['enabled', 'specialBg'],
         'settlement.create' => ['circleId', 'settlementId', 'amountInt', 'participantCount', 'transferCount', 'splitMode'],
         'settlement.update' => ['circleId', 'settlementId', 'transferCount'],
-        'proposal.approve' => ['proposalId', 'result'],
-        'proposal.reject' => ['proposalId', 'result'],
+        'proposal.approve' => ['proposalId', 'result', 'request_id'],
+        'proposal.reject' => ['proposalId', 'result', 'request_id'],
     ];
 
     public static function sanitize(string $action, array $meta): array
@@ -133,6 +134,7 @@ final class OperationLogMetaPolicy
                     'source' => 32,
                     'reasonCode' => 32,
                     'splitMode' => 16,
+                    'request_id' => 36,
                     default => 64,
                 };
 
