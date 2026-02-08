@@ -60,13 +60,12 @@ class Entitlements
         ],
     ];
 
+    /**
+     * Resolve effective plan via SubscriptionResolver (single source of truth).
+     */
     public static function effectivePlan(User $user): string
     {
-        if (PlanGate::isTrialActive($user) && $user->plan === self::PLAN_FREE) {
-            return self::PLAN_PREMIUM;
-        }
-
-        return $user->plan ?? self::PLAN_FREE;
+        return SubscriptionResolver::resolve($user);
     }
 
     public static function quotas(User $user): array
