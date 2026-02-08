@@ -34,7 +34,7 @@ class MeController extends Controller
             $trialRemainingDays = max(0, $trialRemainingDays);
         }
 
-        $plan = SubscriptionResolver::planForApi($user);
+        $plan = SubscriptionResolver::resolve($user);
 
         return ApiResponse::success([
             'id' => $user->id,
