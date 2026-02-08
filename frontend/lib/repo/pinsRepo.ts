@@ -1,7 +1,6 @@
 import type { CirclePinDto } from "@/lib/types";
-import { apiGet } from "@/lib/repo/http";
+import { apiGet, apiSend } from "@/lib/repo/http";
 import { getDeviceId } from "@/lib/device";
-import { postRepo } from "@/lib/repo/postRepo";
 
 export const pinsRepo = {
   async list(circleId: number): Promise<CirclePinDto[]> {
@@ -12,17 +11,39 @@ export const pinsRepo = {
     });
   },
 
-  // Phase2: mutations are still post-backed; API projects into circle_pins.
-  async create(circleId: number, body: string): Promise<void> {
-    await postRepo.createPin(circleId, body);
+  async create(circleId: number, body: string): Promise<CirclePinDto> {
+    return apiSend<CirclePinDto>(`/api/circles/${circleId}/pins-v2`, "POST", { body }, {
+      headers: {
+        "Content-Type": "application/json",
+        "X-Device-Id": getDeviceId(),
+      },
+    });
   },
 
-  async update(circleId: number, sourcePostId: string | number, body: string): Promise<void> {
-    await postRepo.updatePin(circleId, sourcePostId, body);
+  async update(circleId: number, pinId: string | number, body: string): Promise<CirclePinDto> {
+    return apiSend<CirclePinDto>(
+      `/api/circles/${circleId}/pins-v2/${encodeURIComponent(String(pinId))}`,
+      "PATCH",
+      { body },
+      {
+        headers: {
+          "Content-Type": "application/json",
+          "X-Device-Id": getDeviceId(),
+        },
+      }
+    );
   },
 
-  async unpin(circleId: number, sourcePostId: string | number): Promise<void> {
-    await postRepo.unpin(circleId, sourcePostId);
+  async unpin(circleId: number, pinId: string | number): Promise<{ unpinned: boolean }> {
+    return apiSend<{ unpinned: boolean }>(
+      `/api/circles/${circleId}/pins-v2/${encodeURIComponent(String(pinId))}/unpin`,
+      "POST",
+      undefined,
+      {
+        headers: {
+          "X-Device-Id": getDeviceId(),
+        },
+      }
+    );
   },
 };
-
