@@ -522,6 +522,7 @@ export default function CircleCalendarPage({
                 <div className="mt-2 space-y-2">
                   {myProposals.map((p) => (
                     <div key={p.id} className="rounded-xl border border-border/60 p-3" data-testid={`schedule-proposal-item-${p.id}`}>
+                      <div data-testid="proposal-item">
                       <div className="flex items-start justify-between gap-2">
                         <div>
                           <div className="text-sm font-medium">{p.title}</div>
@@ -529,7 +530,9 @@ export default function CircleCalendarPage({
                             {p.startAt?.replace("T", " ").slice(0, 16)}
                           </div>
                         </div>
-                        <div className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${
+                        <div
+                          data-testid="proposal-status"
+                          className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${
                           p.status === "pending"
                             ? "bg-yellow-100 text-yellow-700"
                             : p.status === "approved"
@@ -539,9 +542,12 @@ export default function CircleCalendarPage({
                           {p.status === "pending" ? "審査中" : p.status === "approved" ? "承認済" : "却下"}
                         </div>
                       </div>
-                      {p.reviewComment && (
-                        <div className="mt-1 text-xs text-muted-foreground">コメント: {p.reviewComment}</div>
+                      {p.status === "rejected" && p.reviewComment && (
+                        <div className="mt-1 text-xs text-muted-foreground" data-testid="proposal-rejected-reason">
+                          理由: {p.reviewComment}
+                        </div>
                       )}
+                      </div>
                     </div>
                   ))}
                 </div>
