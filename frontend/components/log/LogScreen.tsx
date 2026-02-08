@@ -240,10 +240,10 @@ export default function LogScreen() {
         });
         setDiaries((prev) => [created, ...prev]);
         // Add any new tags to the tag list
-        if (created.tags && created.tags.length > 0) {
+        if (parsedTags.length > 0) {
           setAllTags((prev) => {
             const s = new Set(prev);
-            created.tags.forEach((t) => s.add(t));
+            parsedTags.forEach((t) => s.add(t));
             return Array.from(s).sort();
           });
         }
