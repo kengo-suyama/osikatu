@@ -139,6 +139,9 @@ Route::delete('/circles/{circle}/media/{media}', [CircleMediaController::class, 
 // Posts
 Route::get('/circles/{circle}/posts', [PostController::class, 'index']);
 Route::post('/circles/{circle}/posts', [PostController::class, 'store']);
+Route::post('/circles/{circle}/pins', [PostController::class, 'storePin']);
+Route::patch('/circles/{circle}/pins/{post}', [PostController::class, 'updatePin']);
+Route::post('/circles/{circle}/pins/{post}/unpin', [PostController::class, 'unpinPin']);
 Route::post('/posts/{post}/media', [PostController::class, 'storeMedia']);
 Route::post('/posts/{post}/like', [PostController::class, 'like']);
 Route::delete('/posts/{post}/like', [PostController::class, 'unlike']);
