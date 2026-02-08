@@ -329,4 +329,57 @@ class InviteController extends Controller
 
         return ApiResponse::success(new InviteResource($inviteModel));
     }
+
+    public function regenerate(int $circleId)
+    {
+        $user = User::query()->find(CurrentUser::id());
+        if (!$user) {
+            return ApiResponse::error('UNAUTHORIZED', 'Unauthorized.', null, 401);
+        }
+
+        $circleModel = Circle::query()->find($circleId);
+        if (!$circleModel) {
+            return ApiResponse::error('CIRCLE_NOT_FOUND', 'Circle not found.', null, 404);
+        }
+
+        if ($deny = PlanGate::requireCirclePlus($circleModel, 'Plus plan required to manage invites.')) {
+            return $deny;
+        }
+
+        $member = CircleMember::query()
+            ->where('circle_id', $circleId)
+            ->where('user_id', $user->id)
+            ->first();
+
+        if (!$member || !in_array($member->role, ['owner', 'admin'], true)) {
+            return ApiResponse::error('FORBIDDEN', 'Only owner or admin can regenerate invite codes.', null, 403);
+        }
+
+        // Revoke all existing active invites
+        CircleInvite::query()
+            ->where('circle_id', $circleId)
+            ->whereNull('revoked_at')
+            ->update(['revoked_at' => now()]);
+
+        // Create new invite
+        $code = strtoupper(substr(md5(uniqid((string) random_int(0, PHP_INT_MAX), true)), 0, 8));
+        $newInvite = CircleInvite::create([
+            'circle_id' => $circleId,
+            'creator_user_id' => $user->id,
+            'code' => $code,
+            'max_uses' => null,
+            'expires_at' => null,
+        ]);
+
+        OperationLog::logAction($circleId, $user->id, 'invite.regenerate', [
+            'circleId' => $circleId,
+        ]);
+
+        return ApiResponse::success([
+            'id' => $newInvite->id,
+            'code' => $newInvite->code,
+            'circleId' => $circleId,
+        ]);
+    }
+
 }
