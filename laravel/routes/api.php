@@ -14,6 +14,7 @@ use App\Http\Controllers\Api\ExpenseController;
 use App\Http\Controllers\Api\EventController;
 use App\Http\Controllers\Api\FortuneController;
 use App\Http\Controllers\Api\GoodController;
+use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\InviteController;
 use App\Http\Controllers\Api\MePlanController;
 use App\Http\Controllers\Api\MeController;
@@ -26,9 +27,13 @@ use App\Http\Controllers\Api\PostController;
 use App\Http\Controllers\Api\CircleSettlementExpenseController;
 use App\Http\Controllers\Api\CircleScheduleProposalController;
 use App\Http\Controllers\Api\SettlementController;
+use App\Http\Controllers\Api\StripeWebhookController;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/me', [MeController::class, 'show']);
+Route::post('/auth/session', [AuthController::class, 'session']);
+Route::post('/auth/link/start', [AuthController::class, 'linkStart']);
+Route::post('/auth/link/complete', [AuthController::class, 'linkComplete']);
 Route::put('/me/ui-settings', [MeController::class, 'updateUiSettings']);
 Route::put('/me/profile', [MeController::class, 'updateProfile']);
 Route::post('/me/onboarding/skip', [MeController::class, 'skipOnboarding']);
@@ -167,3 +172,6 @@ Route::post('/posts/{post}/media', [PostController::class, 'storeMedia']);
 Route::post('/posts/{post}/like', [PostController::class, 'like']);
 Route::delete('/posts/{post}/like', [PostController::class, 'unlike']);
 Route::post('/posts/{post}/ack', [PostController::class, 'ack']);
+
+// Billing webhook
+Route::post('/billing/webhook', [StripeWebhookController::class, 'handle']);

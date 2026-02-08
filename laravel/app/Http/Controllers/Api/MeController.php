@@ -23,6 +23,9 @@ class MeController extends Controller
             return ApiResponse::error('USER_NOT_FOUND', 'User not found.', null, 404);
         }
 
+        $deviceId = request()?->header('X-Device-Id');
+        $isGuest = str_starts_with($user->email, 'device-') && str_ends_with($user->email, '@osikatu.local');
+
         $trialActive = PlanGate::isTrialActive($user);
         $trialRemainingDays = 0;
         if ($trialActive && $user->trial_ends_at) {
@@ -32,6 +35,9 @@ class MeController extends Controller
 
         return ApiResponse::success([
             'id' => $user->id,
+            'userId' => $isGuest ? null : $user->id,
+            'deviceId' => $deviceId ?: null,
+            'role' => $isGuest ? 'guest' : 'user',
             'name' => $user->name,
             'email' => $user->email,
             'plan' => $user->plan ?? 'free',
