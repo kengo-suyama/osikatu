@@ -270,7 +270,10 @@ class CircleScheduleProposalController extends Controller
 
         $resultLabel = $result === 'approved' ? '承認' : '却下';
         $type = $result === 'approved' ? 'proposal.approved' : 'proposal.rejected';
-        $body = "「{$proposal->title}」が{$resultLabel}されました。";
+        $dateStr = $proposal->start_at
+            ? $proposal->start_at->timezone('Asia/Tokyo')->format('n/j')
+            : null;
+        $body = "「{$proposal->title}」" . ($dateStr ? "({$dateStr})" : '') . "が{$resultLabel}されました。";
         if ($comment) {
             $body .= " コメント: {$comment}";
         }
