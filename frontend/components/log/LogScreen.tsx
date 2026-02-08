@@ -1,12 +1,13 @@
 "use client";
 
-import { useEffect, useRef, useState, type ChangeEvent } from "react";
-import { Trash2 } from "lucide-react";
+import { useCallback, useEffect, useRef, useState, type ChangeEvent } from "react";
+import { Search, X, Trash2 } from "lucide-react";
 
 import MotionCard from "@/components/feed/MotionCard";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import {
   Toast,
@@ -70,6 +71,13 @@ export default function LogScreen() {
   const [hydrated, setHydrated] = useState(false);
   const dragTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  // --- Search / Filter state ---
+  const [searchInput, setSearchInput] = useState("");
+  const [activeQuery, setActiveQuery] = useState("");
+  const [activeTag, setActiveTag] = useState<string | null>(null);
+  const [hasPhotoOnly, setHasPhotoOnly] = useState(false);
+  const [allTags, setAllTags] = useState<string[]>([]);
+  const searchTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const mergeDiariesById = (prev: DiaryDto[], incoming: DiaryDto[]) => {
 
     // Prevent overwriting freshly-created items when an older list response resolves later.
@@ -93,18 +101,46 @@ export default function LogScreen() {
 
     return out;
   };
+  const collectTags = (items: DiaryDto[]) => {
+    const tagSet = new Set<string>();
+    for (const d of items) {
+      if (d.tags) d.tags.forEach((t) => tagSet.add(t));
+    }
+    return Array.from(tagSet).sort();
+  };
 
+  const fetchDiaries = useCallback(
+    async (q?: string, tag?: string, hasPhoto?: boolean) => {
+      setLoadingDiaries(true);
+      try {
+        const filters =
+          q || tag || hasPhoto !== undefined
+            ? { q: q || undefined, tag: tag || undefined, hasPhoto }
+            : undefined;
+        const items = await listDiaries(filters);
+        if (!q && !tag && hasPhoto === undefined) {
+          // Full load: replace & rebuild tag list
+          setDiaries(items);
+          setAllTags(collectTags(items));
+        } else {
+          // Filtered: just show results, keep tag list
+          setDiaries(items);
+        }
+      } catch {
+        setDiaries([]);
+      } finally {
+        setLoadingDiaries(false);
+      }
+    },
+    [],
+  );
   useEffect(() => {
     setHydrated(true);
   }, []);
 
   useEffect(() => {
     if (apiMode) {
-      setLoadingDiaries(true);
-      listDiaries()
-        .then((items) => setDiaries((prev) => mergeDiariesById(prev, items)))
-        .catch(() => setDiaries([]))
-        .finally(() => setLoadingDiaries(false));
+      fetchDiaries();
 
       oshiRepo.getOshis().then((list) => {
         const primary = list.find((o) => o.is_primary) ?? list[0];
@@ -120,7 +156,34 @@ export default function LogScreen() {
       setUserPosts(stored);
       setPosts([...stored, ...logPosts]);
     }
-  }, [apiMode]);
+  }, [apiMode, fetchDiaries]);
+
+  // Debounced search
+  useEffect(() => {
+    if (!apiMode) return;
+    if (searchTimerRef.current) clearTimeout(searchTimerRef.current);
+    searchTimerRef.current = setTimeout(() => {
+      setActiveQuery(searchInput.trim());
+    }, SEARCH_DEBOUNCE_MS);
+    return () => {
+      if (searchTimerRef.current) clearTimeout(searchTimerRef.current);
+    };
+  }, [searchInput, apiMode]);
+
+  // Re-fetch when active filters change
+  useEffect(() => {
+    if (!apiMode) return;
+    fetchDiaries(activeQuery || undefined, activeTag || undefined, hasPhotoOnly ? true : undefined);
+  }, [activeQuery, activeTag, hasPhotoOnly, apiMode, fetchDiaries]);
+
+  const clearFilters = () => {
+    setSearchInput("");
+    setActiveQuery("");
+    setActiveTag(null);
+    setHasPhotoOnly(false);
+  };
+
+  const hasActiveFilter = activeQuery !== "" || activeTag !== null || hasPhotoOnly;
 
   const showToast = (titleValue: string, descriptionValue?: string) => {
     setToastTitle(titleValue);
@@ -354,6 +417,7 @@ export default function LogScreen() {
                     accept="image/*"
                     multiple
                     onChange={handleLogImagesChange}
+                    data-testid="diary-photo-upload"
                     className="hidden"
                   />
                 </label>
@@ -408,12 +472,14 @@ export default function LogScreen() {
                   </div>
                 ) : null}
               </div>
-              <Input
-                placeholder="#現場 #開封 #配信"
-                value={tags}
-                onChange={(event) => setTags(event.target.value)}
-                data-testid="log-create-tags"
-              />
+              <div data-testid="diary-tag-input">
+                <Input
+                  placeholder="#現場 #開封 #配信"
+                  value={tags}
+                  onChange={(event) => setTags(event.target.value)}
+                  data-testid="log-create-tags"
+                />
+              </div>
               <label className="flex items-center gap-2 text-xs text-muted-foreground">
                 <input
                   type="checkbox"
@@ -435,6 +501,71 @@ export default function LogScreen() {
           </div>
         </Card>
 
+        {/* Search & Filter bar (API mode only) */}
+        {hydrated && apiMode ? (
+          <div className="space-y-2" data-testid="log-filter-bar">
+            <div className="relative">
+              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+              <Input
+                placeholder="タイトル・本文で検索…"
+                value={searchInput}
+                onChange={(event) => setSearchInput(event.target.value)}
+                className="pl-9 pr-8"
+                data-testid="log-search-input"
+              />
+              {searchInput ? (
+                <button
+                  type="button"
+                  onClick={() => { setSearchInput(""); setActiveQuery(""); }}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                  aria-label="検索をクリア"
+                  data-testid="log-search-clear"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              ) : null}
+            </div>
+            {allTags.length > 0 ? (
+              <div className="flex flex-wrap gap-1.5" data-testid="log-tag-filters">
+                {allTags.map((tag) => (
+                  <button
+                    key={tag}
+                    type="button"
+                    onClick={() => setActiveTag((prev) => (prev === tag ? null : tag))}
+                    className={cn(
+                      "rounded-full px-2.5 py-0.5 text-xs transition-colors",
+                      activeTag === tag
+                        ? "bg-primary text-primary-foreground"
+                        : "bg-muted text-muted-foreground hover:bg-muted/80"
+                    )}
+                    data-testid="log-tag-filter-chip"
+                    data-tag={tag}
+                  >
+                    #{tag}
+                  </button>
+                ))}
+              </div>
+            ) : null}
+            <div className="flex items-center justify-between rounded-xl border bg-white/5 px-3 py-2">
+              <div className="text-xs text-muted-foreground">写真ありのみ</div>
+              <Switch
+                checked={hasPhotoOnly}
+                onCheckedChange={setHasPhotoOnly}
+                data-testid="log-filter-hasphoto"
+              />
+            </div>
+            {hasActiveFilter ? (
+              <button
+                type="button"
+                onClick={clearFilters}
+                className="text-xs text-muted-foreground underline hover:text-foreground"
+                data-testid="log-filter-clear-all"
+              >
+                フィルタをクリア
+              </button>
+            ) : null}
+          </div>
+        ) : null}
         <div className="space-y-3">
           {!hydrated ? (
             <div className="py-4 text-center text-sm opacity-70">読み込み中…</div>

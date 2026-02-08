@@ -3,12 +3,25 @@ import { apiGet, apiSend, ApiRequestError } from "@/lib/repo/http";
 import { getDeviceId } from "@/lib/device";
 import type { DiaryDto } from "@/lib/types";
 
-export async function listDiaries(): Promise<DiaryDto[]> {
+export interface DiaryFilters {
+  q?: string;
+  tag?: string;
+  hasPhoto?: boolean;
+}
+
+export async function listDiaries(filters?: DiaryFilters): Promise<DiaryDto[]> {
   if (!isApiMode()) {
     return [];
   }
 
-  return apiGet<DiaryDto[]>("/api/me/diaries", {
+  const params = new URLSearchParams();
+  if (filters?.q) params.set("q", filters.q);
+  if (filters?.tag) params.set("tag", filters.tag);
+  if (filters?.hasPhoto !== undefined) params.set("hasPhoto", String(filters.hasPhoto));
+  const qs = params.toString();
+  const apiPath = `/api/me/diaries${qs ? `?${qs}` : ""}`;
+
+  return apiGet<DiaryDto[]>(apiPath, {
     headers: { "X-Device-Id": getDeviceId() },
   });
 }

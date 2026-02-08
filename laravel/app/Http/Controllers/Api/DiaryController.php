@@ -41,6 +41,20 @@ class DiaryController extends Controller
             }
         }
 
+        $hasPhotoRaw = $request->query('hasPhoto');
+        if ($hasPhotoRaw !== null && $hasPhotoRaw !== '') {
+            $hasPhoto = filter_var($hasPhotoRaw, FILTER_VALIDATE_BOOLEAN, FILTER_NULL_ON_FAILURE);
+            if ($hasPhoto === true) {
+                $query->whereHas('attachments', function ($sub) {
+                    $sub->where('file_type', 'image');
+                });
+            } elseif ($hasPhoto === false) {
+                $query->whereDoesntHave('attachments', function ($sub) {
+                    $sub->where('file_type', 'image');
+                });
+            }
+        }
+
         $q = $request->query('q');
         if (!empty($q)) {
             $query->where(function ($sub) use ($q) {
