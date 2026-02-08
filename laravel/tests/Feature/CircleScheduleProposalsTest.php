@@ -417,6 +417,7 @@ class CircleScheduleProposalsTest extends TestCase
         $this->assertEquals('proposal.approved', $notification->type);
         $this->assertStringContainsString('承認', $notification->title);
         $this->assertStringContainsString('オフ会提案', $notification->body);
+        $this->assertStringContainsString('3/1', $notification->body);
         $this->assertStringContainsString('良い提案です', $notification->body);
         $this->assertStringContainsString("/circles/{$circle->id}/calendar", $notification->link_url);
         $this->assertStringContainsString("focusProposalId={$proposalId}", $notification->link_url);
@@ -451,6 +452,7 @@ class CircleScheduleProposalsTest extends TestCase
         $notification = $notifications->first();
         $this->assertEquals('proposal.rejected', $notification->type);
         $this->assertStringContainsString('却下', $notification->title);
+        $this->assertStringContainsString('3/1', $notification->body);
         $this->assertStringContainsString('日程調整お願い', $notification->body);
 
         // source_meta + link_url
