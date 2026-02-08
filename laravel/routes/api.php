@@ -159,6 +159,10 @@ Route::get('/circles/{circle}/pins', [PostController::class, 'indexPins']);
 Route::post('/circles/{circle}/pins', [PostController::class, 'storePin']);
 Route::patch('/circles/{circle}/pins/{post}', [PostController::class, 'updatePin']);
 Route::post('/circles/{circle}/pins/{post}/unpin', [PostController::class, 'unpinPin']);
+// Pins v2 (circle_pins is the primary store; keep v1 for backward compatibility)
+Route::post('/circles/{circle}/pins-v2', [PostController::class, 'storePinV2']);
+Route::patch('/circles/{circle}/pins-v2/{pin}', [PostController::class, 'updatePinV2']);
+Route::post('/circles/{circle}/pins-v2/{pin}/unpin', [PostController::class, 'unpinPinV2']);
 Route::post('/posts/{post}/media', [PostController::class, 'storeMedia']);
 Route::post('/posts/{post}/like', [PostController::class, 'like']);
 Route::delete('/posts/{post}/like', [PostController::class, 'unlike']);
