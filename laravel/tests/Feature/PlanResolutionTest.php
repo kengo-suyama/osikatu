@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Tests\Feature;
 
 use App\Models\BillingSubscription;
+use App\Models\MeProfile;
 use App\Models\User;
 use App\Support\Entitlements;
 use App\Support\SubscriptionResolver;
@@ -63,6 +64,12 @@ class PlanResolutionTest extends TestCase
     public function test_me_api_returns_resolved_plan(): void
     {
         $user = User::factory()->create(['plan' => 'free']);
+        MeProfile::create([
+            'device_id' => 'dev-test-plan',
+            'nickname' => 'Test',
+            'initial' => 'T',
+            'user_id' => $user->id,
+        ]);
         BillingSubscription::create([
             'user_id' => $user->id,
             'stripe_subscription_id' => 'sub_test_003',

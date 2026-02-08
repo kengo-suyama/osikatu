@@ -6,6 +6,7 @@ namespace Tests\Feature;
 
 use App\Models\Circle;
 use App\Models\CircleMember;
+use App\Models\MeProfile;
 use App\Models\User;
 use App\Support\PlanGate;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -50,6 +51,12 @@ class PlanGatePolicyTest extends TestCase
     public function test_operation_log_returns_402_for_free_circle(): void
     {
         $user = User::factory()->create(['plan' => 'free']);
+        MeProfile::create([
+            'device_id' => 'dev-gate-test',
+            'nickname' => 'Gate',
+            'initial' => 'G',
+            'user_id' => $user->id,
+        ]);
         $circle = Circle::factory()->create(['plan' => 'free']);
         CircleMember::create([
             'circle_id' => $circle->id,
@@ -58,7 +65,7 @@ class PlanGatePolicyTest extends TestCase
         ]);
 
         $response = $this->withHeaders(['X-Device-Id' => 'dev-gate-test'])
-            ->getJson("/api/circles/{$circle->id}/logs");
+            ->getJson("/api/circles/{\$circle->id}/logs");
 
         $response->assertStatus(402);
         $response->assertJsonPath('error.code', 'PLAN_REQUIRED');
