@@ -2,145 +2,62 @@
 
 declare(strict_types=1);
 
-namespace App\Http\Controllers\Api;
+namespace App\Jobs;
 
-use App\Http\Controllers\Controller;
 use App\Models\BillingSubscription;
 use App\Models\MeProfile;
-use App\Models\WebhookEventReceipt;
-use App\Jobs\ProcessStripeWebhookJob;
-use App\Support\ApiResponse;
-use App\Support\StripeWebhookVerifier;
 use Carbon\Carbon;
-use Illuminate\Http\Request;
+use Illuminate\Bus\Queueable;
+use Illuminate\Contracts\Queue\ShouldQueue;
+use Illuminate\Foundation\Bus\Dispatchable;
+use Illuminate\Queue\InteractsWithQueue;
+use Illuminate\Queue\SerializesModels;
 use Illuminate\Support\Facades\Log;
-use Stripe\Exception\SignatureVerificationException;
-use Stripe\StripeObject;
 
-class StripeWebhookController extends Controller
+class ProcessStripeWebhookJob implements ShouldQueue
 {
-    public function handle(Request $request, StripeWebhookVerifier $verifier)
+    use Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
+
+    public int $tries = 3;
+
+    public function __construct(
+        public readonly string $eventId,
+        public readonly string $eventType,
+        public readonly array $eventData,
+        public readonly ?string $requestId = null,
+    ) {}
+
+    public function handle(): void
     {
-        $secret = config('services.stripe.webhook_secret');
-
-        $payload = $request->getContent();
-        $signature = $request->header('Stripe-Signature', '');
-
-        $eventId = null;
-        $eventType = null;
-        $eventData = null;
-
-        // Production MUST have webhook secret configured.
-        if (app()->environment('production') && (!is_string($secret) || $secret === '')) {
-            Log::critical('billing_webhook_secret_missing_in_production');
-
-            return ApiResponse::error(
-                'WEBHOOK_SECRET_MISSING',
-                'Stripe webhook secret is not configured. This is required in production.',
-                null,
-                500
-            );
-        }
-
-        // Signature verification (when secret is configured).
-        if (is_string($secret) && $secret !== '') {
-            try {
-                $event = $verifier->constructEvent($payload, $signature, $secret);
-            } catch (SignatureVerificationException|\UnexpectedValueException $e) {
-                Log::warning('billing_webhook_invalid_signature', [
-                    'signature' => substr($signature, 0, 30) . '...',
-                    'ip' => $request->ip(),
-                ]);
-
-                return ApiResponse::error('INVALID_SIGNATURE', 'Webhook signature verification failed.', null, 400);
-            }
-
-            $eventId = $event->id ?? null;
-            $eventType = $event->type ?? null;
-            $eventData = $event->data?->object ?? null;
-        } else {
-            // Local/dev: accept unsigned payload but keep idempotency & processing consistent.
-            Log::warning('billing_webhook_no_signature_verification', [
-                'env' => app()->environment(),
-                'ip' => $request->ip(),
-            ]);
-            $data = $request->json()->all();
-            $eventId = $data['id'] ?? null;
-            $eventType = $data['type'] ?? null;
-            $eventData = $data['data']['object'] ?? null;
-        }
-
-        if (!$eventId) {
-            return ApiResponse::error('MISSING_EVENT_ID', 'Event ID is required.', null, 400);
-        }
-
-        Log::info('billing_webhook_received', [
-            'stripe_event_id' => $eventId,
-            'event_type' => $eventType,
+        Log::info('stripe_webhook_job_processing', [
+            'stripe_event_id' => $this->eventId,
+            'event_type' => $this->eventType,
+            'request_id' => $this->requestId,
         ]);
 
-        // Idempotency: skip if already processed
-        $existing = WebhookEventReceipt::query()
-            ->where('stripe_event_id', $eventId)
-            ->first();
-
-        if ($existing) {
-            Log::info('billing_webhook_duplicate', [
-                'stripe_event_id' => $eventId,
-            ]);
-
-            return ApiResponse::success(['status' => 'already_processed']);
-        }
-
-        // Record receipt
-        WebhookEventReceipt::create([
-            'stripe_event_id' => $eventId,
-            'event_type' => $eventType,
-            'status' => 'processed',
-        ]);
-
-        // Dispatch to queue for async processing
-        $eventDataArray = $eventData;
-        if ($eventDataArray instanceof StripeObject) {
-            $eventDataArray = $eventDataArray->toArray();
-        }
-        if (is_array($eventDataArray)) {
-            ProcessStripeWebhookJob::dispatch(
-                $eventId,
-                (string) $eventType,
-                $eventDataArray,
-                $request->header('X-Request-Id'),
-            );
-        }
-
-        return ApiResponse::success(['status' => 'processed']);
-    }
-
-    private function processEvent(string $eventType, mixed $eventData): void
-    {
-        if ($eventData instanceof StripeObject) {
-            $eventData = $eventData->toArray();
-        }
-
-        if (!is_array($eventData)) {
-            Log::warning('billing_webhook_unexpected_payload', [
-                'event_type' => $eventType,
-            ]);
-            return;
-        }
-
-        if (in_array($eventType, [
+        if (in_array($this->eventType, [
             'customer.subscription.created',
             'customer.subscription.updated',
             'customer.subscription.deleted',
         ], true)) {
-            $this->upsertSubscriptionFromStripe($eventData);
-        } elseif ($eventType === 'checkout.session.completed') {
-            $this->upsertSubscriptionFromCheckoutSession($eventData);
+            $this->upsertSubscriptionFromStripe($this->eventData);
+        } elseif ($this->eventType === 'checkout.session.completed') {
+            $this->upsertSubscriptionFromCheckoutSession($this->eventData);
         }
 
-        Log::info('billing_webhook_processed', [
-            'event_type' => $eventType,
+        Log::info('stripe_webhook_job_completed', [
+            'stripe_event_id' => $this->eventId,
+            'event_type' => $this->eventType,
+        ]);
+    }
+
+    public function failed(\Throwable $exception): void
+    {
+        Log::error('stripe_webhook_job_failed', [
+            'stripe_event_id' => $this->eventId,
+            'event_type' => $this->eventType,
+            'request_id' => $this->requestId,
+            'error' => $exception->getMessage(),
         ]);
     }
 
@@ -183,7 +100,7 @@ class StripeWebhookController extends Controller
         }
 
         if (!$userId) {
-            Log::warning('billing_webhook_subscription_user_unknown', [
+            Log::warning('stripe_webhook_job_user_unknown', [
                 'stripe_subscription_id' => $stripeSubId,
                 'stripe_customer_id' => $customerId,
             ]);
