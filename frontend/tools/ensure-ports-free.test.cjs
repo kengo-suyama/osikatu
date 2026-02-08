@@ -53,6 +53,26 @@ test("getKnownKillableReason: Laravel framework server.php inside this repo is k
   assert.equal(reason, "laravel-artisan-serve-in-repo");
 });
 
+test("getKnownKillableReason: Laravel server.php via Console/../resources inside this repo is killable on 8001", () => {
+  const serverPhpWeird =
+    path.join(
+      laravelRoot,
+      "vendor",
+      "laravel",
+      "framework",
+      "src",
+      "Illuminate",
+      "Foundation",
+      "Console"
+    ) + "\\..\\resources\\server.php";
+  const reason = getKnownKillableReason({
+    port: 8001,
+    name: "php.exe",
+    commandLine: `C:\\xampp\\php\\php.exe -S 127.0.0.1:8001 "${serverPhpWeird}"`,
+  });
+  assert.equal(reason, "laravel-artisan-serve-in-repo");
+});
+
 test("getKnownKillableReason: php artisan serve without repo paths is NOT killable on 8001", () => {
   const reason = getKnownKillableReason({
     port: 8001,
@@ -61,4 +81,3 @@ test("getKnownKillableReason: php artisan serve without repo paths is NOT killab
   });
   assert.equal(reason, null);
 });
-
