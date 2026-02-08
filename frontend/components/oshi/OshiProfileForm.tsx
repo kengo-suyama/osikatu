@@ -303,13 +303,14 @@ export default function OshiProfileForm({
           <Textarea
             placeholder="メモ"
             rows={4}
+            data-testid="oshi-edit-memo"
             value={form.memo ?? ""}
             onChange={(event) => updateField("memo", event.target.value)}
           />
         </div>
       </Card>
 
-      <Button className="w-full" onClick={handleSave} disabled={saving}>
+      <Button className="w-full" onClick={handleSave} disabled={saving} data-testid="oshi-edit-save">
         <Save className="mr-2 h-4 w-4" />
         {saving ? "保存中..." : "保存する"}
       </Button>
