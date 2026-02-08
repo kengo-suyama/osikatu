@@ -3,6 +3,9 @@
 This doc is a practical checklist for continuing development autonomously.
 Project rules live in `AGENTS.md` (DTO fixed, repo-layer only for data access, UTF-8 NO BOM).
 
+Codex long-running instructions:
+- `docs/CODEX_LONG_TASK_WINDOWS_E2E.md`
+
 ## Repo Snapshot (As Of 2026-02-06)
 
 - Default branch: `main`
