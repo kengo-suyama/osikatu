@@ -1,8 +1,9 @@
 import { isApiMode } from "@/lib/config";
 import { getDeviceId } from "@/lib/device";
-import { apiGet } from "@/lib/repo/http";
+import { apiGet, apiSend } from "@/lib/repo/http";
 import type {
   CircleSettlementBalancesDto,
+  CircleSettlementExpenseDto,
   CircleSettlementExpenseListDto,
   CircleSettlementSuggestionsDto,
 } from "@/lib/types";
@@ -45,6 +46,37 @@ export const circleSettlementExpenseRepo = {
           "X-Device-Id": getDeviceId(),
         },
       }
+    );
+  },
+  async create(
+    circleId: number,
+    params: {
+      title: string;
+      amountYen: number;
+      splitType: "equal" | "fixed";
+      payerMemberId: number;
+      occurredOn?: string;
+      participants?: number[];
+      shares?: { memberId: number; shareYen: number }[];
+    }
+  ): Promise<{ expense: CircleSettlementExpenseDto }> {
+    return apiSend<{ expense: CircleSettlementExpenseDto }>(
+      `/api/circles/${circleId}/settlements/expenses`,
+      "POST",
+      params,
+      { headers: { "X-Device-Id": getDeviceId() } }
+    );
+  },
+
+  async voidExpense(
+    circleId: number,
+    expenseId: number
+  ): Promise<{ voided: CircleSettlementExpenseDto }> {
+    return apiSend<{ voided: CircleSettlementExpenseDto }>(
+      `/api/circles/${circleId}/settlements/expenses/${expenseId}/void`,
+      "POST",
+      {},
+      { headers: { "X-Device-Id": getDeviceId() } }
     );
   },
 };
