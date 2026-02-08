@@ -172,6 +172,24 @@ export default function LogsPage() {
                   {log.targetType ? ` · ${log.targetType}` : ""}
                 </div>
                 <div className="mt-1 text-xs opacity-60">{formatLogTime(log.createdAt)}</div>
+                  {typeof log.meta?.request_id === "string" && (
+                    <div className="mt-1 flex items-center gap-1 text-xs opacity-50" data-testid="oplog-request-id">
+                      <span className="font-mono">{String(log.meta.request_id)}</span>
+                      <button
+                        type="button"
+                        className="rounded px-1 underline hover:opacity-80"
+                        data-testid="oplog-request-id-copy"
+                        onClick={() => {
+                          if (navigator.clipboard?.writeText) {
+                            navigator.clipboard.writeText(String(log.meta.request_id));
+                            showToast("コピーしました", "request_idをクリップボードにコピーしました。");
+                          }
+                        }}
+                      >
+                        コピー
+                      </button>
+                    </div>
+                  )}
               </div>
             ))}
 
