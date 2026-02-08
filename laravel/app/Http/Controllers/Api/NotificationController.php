@@ -10,6 +10,7 @@ use App\Models\MeProfile;
 use App\Models\Notification;
 use App\Models\User;
 use App\Support\ApiResponse;
+use App\Support\PlanGate;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Validator;
@@ -118,6 +119,7 @@ class NotificationController extends Controller
             'user_schedule' => 'userSchedule',
             'circle_schedule' => 'circleSchedule',
             'schedule_proposal' => 'scheduleProposal',
+            'join_request' => 'joinRequest',
             default => $value,
         };
     }
@@ -127,12 +129,20 @@ class NotificationController extends Controller
         $meta = is_array($notification->source_meta) ? $notification->source_meta : [];
         $circleId = $meta['circleId'] ?? null;
 
-        return match ($notification->source_type) {
+        $path = match ($notification->source_type) {
             'schedule_proposal' => $this->buildScheduleProposalPath($notification, $meta, $userId),
-            'pins' => $circleId ? "/circles/{$circleId}/pins" : $notification->link_url,
-            'settlement' => $circleId ? "/circles/{$circleId}/settlements" : $notification->link_url,
+            'pins' => $circleId ? "/circles/{$circleId}/pins" : null,
+            'settlement' => $circleId ? "/circles/{$circleId}/settlements" : null,
+            'user_schedule' => '/schedules',
+            'circle_schedule' => $circleId ? "/circles/{$circleId}/calendar" : null,
+            'chat' => $circleId ? "/circles/{$circleId}/chat" : null,
+            'announcement' => $circleId ? "/circles/{$circleId}" : null,
+            'join_request' => $circleId ? "/circles/{$circleId}" : null,
             default => $notification->link_url,
         };
+
+        // Fallback: if path is null or empty, go to notifications list
+        return $path ?: '/notifications';
     }
 
     private function buildScheduleProposalPath(Notification $notification, array $meta, ?int $userId): ?string
@@ -166,7 +176,7 @@ class NotificationController extends Controller
 
         $user = User::find($userId);
 
-        return $user && $user->plan === 'plus';
+        return $user && PlanGate::hasPlus($user);
     }
 
     public function readAll(Request $request)
