@@ -114,6 +114,34 @@ const setupMocks = async (
   });
 
   await page.route(calendarUrl, (route) => {
+    if (route.request().method() === "POST") {
+      // Member submit => 403
+      if (role === "member" || plan === "free") {
+        route.fulfill({
+          status: 403,
+          contentType: "application/json",
+          body: JSON.stringify({ error: { code: "FORBIDDEN", message: "Premium owner/admin only." } }),
+        });
+      } else {
+        route.fulfill({
+          status: 201,
+          contentType: "application/json",
+          body: successBody({
+            id: "cs_999",
+            circleId: CIRCLE_ID,
+            title: "Test",
+            startAt: new Date().toISOString(),
+            endAt: new Date().toISOString(),
+            isAllDay: false,
+            note: null,
+            location: null,
+            participants: [],
+            updatedAt: new Date().toISOString(),
+          }),
+        });
+      }
+      return;
+    }
     route.fulfill({
       status: 200,
       contentType: "application/json",
@@ -163,5 +191,60 @@ test.describe("circle schedule member create navigation", () => {
 
     const createBtn = page.locator('[data-testid="schedule-create"]');
     await expect(createBtn).toBeVisible({ timeout: 30_000 });
+  });
+
+  test("member sees permission hint in create dialog", async ({ page, request }) => {
+    await assertFrontendUp(request);
+    await seedLocalStorage(page);
+    await setupMocks(page, { plan: "free", role: "member" });
+
+    await page.goto(`/circles/${CIRCLE_ID}/calendar`, { waitUntil: "domcontentloaded" });
+
+    const createBtn = page.locator('[data-testid="schedule-create"]');
+    await expect(createBtn).toBeVisible({ timeout: 30_000 });
+    await createBtn.click();
+
+    const hint = page.locator('[data-testid="schedule-create-hint"]');
+    await expect(hint).toBeVisible({ timeout: 10_000 });
+    await expect(hint).toContainText("オーナー/管理者");
+  });
+
+  test("member submit gets 403 toast, dialog stays open with input preserved", async ({ page, request }) => {
+    await assertFrontendUp(request);
+    await seedLocalStorage(page);
+    await setupMocks(page, { plan: "free", role: "member" });
+
+    await page.goto(`/circles/${CIRCLE_ID}/calendar`, { waitUntil: "domcontentloaded" });
+
+    // Open dialog
+    const createBtn = page.locator('[data-testid="schedule-create"]');
+    await expect(createBtn).toBeVisible({ timeout: 30_000 });
+    await createBtn.click();
+
+    // Fill in form
+    const titleInput = page.locator('[data-testid="schedule-create-title"]');
+    await expect(titleInput).toBeVisible({ timeout: 10_000 });
+    await titleInput.fill("テスト予定");
+
+    // Set start datetime
+    const startInput = page.locator('input[type="datetime-local"]').first();
+    await startInput.fill("2026-03-01T10:00");
+
+    // Submit
+    const submitBtn = page.locator('[data-testid="schedule-create-submit"]');
+    await submitBtn.click();
+
+    // Wait for 403 toast
+    await expect(page.locator("text=権限がありません")).toBeVisible({ timeout: 10_000 });
+    await expect(page.locator("text=オーナー/管理者（Plusプラン）")).toBeVisible({ timeout: 5_000 });
+
+    // Dialog is still open
+    await expect(titleInput).toBeVisible({ timeout: 5_000 });
+
+    // Input is preserved
+    await expect(titleInput).toHaveValue("テスト予定");
+
+    // Submit button is re-enabled (not stuck in loading)
+    await expect(submitBtn).toBeEnabled({ timeout: 5_000 });
   });
 });

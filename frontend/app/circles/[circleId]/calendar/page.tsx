@@ -242,7 +242,7 @@ export default function CircleCalendarPage({
     } catch (errorValue: any) {
       const status = errorValue?.status ?? errorValue?.statusCode;
       if (status === 403) {
-        showToast("権限がありません", "編集権限が不足しています");
+        showToast("権限がありません", "予定の作成はオーナー/管理者（Plusプラン）が行えます");
       } else if (status === 422) {
         showToast("入力エラー", "入力内容を確認してください");
       } else {
@@ -362,6 +362,11 @@ export default function CircleCalendarPage({
                       <DialogTitle>{editingId ? "予定を編集" : "予定を追加"}</DialogTitle>
                     </DialogHeader>
                     <div className="grid gap-3">
+                      {!canEdit && (
+                        <div className="rounded-lg bg-muted/50 px-3 py-2 text-xs text-muted-foreground" data-testid="schedule-create-hint">
+                          予定の追加はオーナー/管理者（Plusプラン）の権限が必要です。送信すると権限エラーになる場合があります。
+                        </div>
+                      )}
                       <div className="grid gap-2">
                         <div className="text-xs text-muted-foreground">タイトル</div>
                         <Input
