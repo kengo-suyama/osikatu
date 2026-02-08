@@ -104,6 +104,7 @@ export default function CirclePinsScreen({ circleId }: { circleId: number }) {
   const [formTitle, setFormTitle] = useState("");
   const [formUrl, setFormUrl] = useState("");
   const [formBody, setFormBody] = useState("");
+  const [formChecklist, setFormChecklist] = useState<{ checked: boolean; text: string }[]>([]);
 
   const role = circle?.myRole ?? "member";
   const canManage = role === "owner" || role === "admin";
@@ -162,6 +163,7 @@ export default function CirclePinsScreen({ circleId }: { circleId: number }) {
     setFormTitle("");
     setFormUrl("");
     setFormBody("");
+    setFormChecklist([]);
     setError(null);
     setDialogOpen(true);
   };
@@ -172,6 +174,7 @@ export default function CirclePinsScreen({ circleId }: { circleId: number }) {
     setFormTitle(parts.title === "(無題)" ? "" : parts.title);
     setFormUrl(parts.url ?? "");
     setFormBody(parts.body);
+    setFormChecklist(parts.checklist.map((c) => ({ ...c })));
     setError(null);
     setDialogOpen(true);
   };
@@ -193,7 +196,9 @@ export default function CirclePinsScreen({ circleId }: { circleId: number }) {
     setSaving(true);
     setError(null);
     try {
-      const body = buildPinBody(formTitle, formUrl, formBody);
+      const checklistLines = formChecklist.map((c) => `- [${c.checked ? "x" : " "}] ${c.text}`).join("\n");
+      const fullBody = checklistLines ? (formBody ? formBody + "\n" + checklistLines : checklistLines) : formBody;
+      const body = buildPinBody(formTitle, formUrl, fullBody);
       if (editing) {
         await pinsRepo.update(circleId, editing.id, body);
         await reloadPins();
@@ -434,6 +439,48 @@ export default function CirclePinsScreen({ circleId }: { circleId: number }) {
                 placeholder="https://..."
                 data-testid="pin-url"
               />
+            </div>
+
+            <div className="space-y-1">
+              <div className="text-xs text-muted-foreground">チェックリスト</div>
+              <div className="space-y-1" data-testid="pin-checklist-editor">
+                {formChecklist.map((item, idx) => (
+                  <div key={idx} className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      className="text-xs"
+                      onClick={() => setFormChecklist((prev) => prev.map((c, i) => i === idx ? { ...c, checked: !c.checked } : c))}
+                      data-testid={`pin-checklist-toggle-${idx}`}
+                    >
+                      {item.checked ? "✓" : "□"}
+                    </button>
+                    <Input
+                      value={item.text}
+                      onChange={(e) => setFormChecklist((prev) => prev.map((c, i) => i === idx ? { ...c, text: e.target.value } : c))}
+                      className="h-7 text-xs"
+                      data-testid={`pin-checklist-text-${idx}`}
+                    />
+                    <button
+                      type="button"
+                      className="text-xs text-rose-500 hover:text-rose-600"
+                      onClick={() => setFormChecklist((prev) => prev.filter((_, i) => i !== idx))}
+                      data-testid={`pin-checklist-remove-${idx}`}
+                    >
+                      ✕
+                    </button>
+                  </div>
+                ))}
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className="h-7 text-xs"
+                  onClick={() => setFormChecklist((prev) => [...prev, { checked: false, text: "" }])}
+                  data-testid="pin-checklist-add"
+                >
+                  + 項目を追加
+                </Button>
+              </div>
             </div>
 
             <div className="space-y-1">
