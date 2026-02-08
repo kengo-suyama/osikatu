@@ -554,7 +554,7 @@ export default function CircleSettlementsPage({
               ) : expenseLedgerError ? (
                 <div className="mt-3 text-sm text-muted-foreground">{expenseLedgerError}</div>
               ) : (
-                <div className="mt-3 space-y-2">
+                <div className="mt-3 space-y-2" data-testid="settlement-expenses-loaded" data-count={expenseLedgerItems.length}>
                   {expenseLedgerItems.length ? (
                     expenseLedgerItems.slice(0, 10).map((expense) => (
                       <div

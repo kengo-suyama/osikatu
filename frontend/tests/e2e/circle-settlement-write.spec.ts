@@ -99,6 +99,10 @@ const setupBase = async (page: Parameters<typeof test>[1]["page"]) => {
         body: successBody({ items: [], members: baseMembers }),
       })
   );
+  // Prevent oshi fallback data
+  await page.route("**/api/oshis**", (route) =>
+    route.fulfill({ status: 200, contentType: "application/json", body: successBody([]) })
+  );
 };
 
 test.describe("settlement expense write UI", () => {
@@ -182,6 +186,9 @@ test.describe("settlement expense write UI", () => {
     await expect(page.locator('[data-testid="settlement-page"]')).toBeVisible({
       timeout: 30_000,
     });
+    await expect(page.locator('[data-testid="settlement-expenses-loaded"]')).toBeVisible({
+      timeout: 10_000,
+    });
 
     // Click open create button
     const openBtn = page.locator('[data-testid="settlement-create-open"]');
@@ -208,6 +215,9 @@ test.describe("settlement expense write UI", () => {
     await expect(dialog).toBeHidden({ timeout: 10_000 });
 
     // Expense should appear in list after refresh
+    await expect(page.locator('[data-testid="settlement-expenses-loaded"]')).toHaveAttribute(
+      "data-count", "1", { timeout: 10_000 }
+    );
     await expect(
       page.locator('[data-testid="settlement-expense-7001"]')
     ).toContainText("テスト立替", { timeout: 10_000 });
@@ -296,6 +306,9 @@ test.describe("settlement expense write UI", () => {
     await expect(page.locator('[data-testid="settlement-page"]')).toBeVisible({
       timeout: 30_000,
     });
+    await expect(page.locator('[data-testid="settlement-expenses-loaded"]')).toBeVisible({
+      timeout: 10_000,
+    });
 
     // The expense should be visible initially
     await expect(
@@ -308,6 +321,9 @@ test.describe("settlement expense write UI", () => {
     await voidBtn.click();
 
     // After void + refresh, the expense should disappear
+    await expect(page.locator('[data-testid="settlement-expenses-loaded"]')).toHaveAttribute(
+      "data-count", "0", { timeout: 10_000 }
+    );
     await expect(
       page.locator('[data-testid="settlement-expense-8001"]')
     ).toHaveCount(0, { timeout: 10_000 });

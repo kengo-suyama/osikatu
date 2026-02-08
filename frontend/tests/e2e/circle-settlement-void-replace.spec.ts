@@ -134,6 +134,10 @@ const setupBase = async (page: Parameters<typeof test>[1]["page"]) => {
         body: successBody({ items: [], members: baseMembers }),
       })
   );
+  // Prevent oshi fallback data
+  await page.route("**/api/oshis**", (route) =>
+    route.fulfill({ status: 200, contentType: "application/json", body: successBody([]) })
+  );
 };
 
 test.describe("settlement void+replace", () => {
@@ -185,6 +189,7 @@ test.describe("settlement void+replace", () => {
     await page.goto(`/circles/${CIRCLE_ID}/settlements`, { waitUntil: "domcontentloaded" });
 
     await expect(page.locator('[data-testid="settlement-page"]')).toBeVisible({ timeout: 30_000 });
+    await expect(page.locator('[data-testid="settlement-expenses-loaded"]')).toBeVisible({ timeout: 10_000 });
 
     // Old expense should be visible
     await expect(page.locator('[data-testid="settlement-expense-9001"]')).toContainText("旧立替", { timeout: 10_000 });
@@ -210,6 +215,9 @@ test.describe("settlement void+replace", () => {
     await expect(dialog).toBeHidden({ timeout: 10_000 });
 
     // New expense should appear after refresh
+    await expect(page.locator('[data-testid="settlement-expenses-loaded"]')).toHaveAttribute(
+      "data-count", "1", { timeout: 10_000 }
+    );
     await expect(page.locator('[data-testid="settlement-expense-9002"]')).toBeVisible({ timeout: 10_000 });
 
     // Old expense should be gone (voided = removed from active list)
