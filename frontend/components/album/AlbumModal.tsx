@@ -23,10 +23,21 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { isApiMode } from "@/lib/config";
 import { albumRepo } from "@/lib/repo/albumRepo";
+import { ApiRequestError } from "@/lib/repo/http";
 import type { AlbumEntry, LogMedia } from "@/lib/uiTypes";
 import { cn } from "@/lib/utils";
+import {
+  Toast,
+  ToastClose,
+  ToastDescription,
+  ToastProvider,
+  ToastTitle,
+  ToastViewport,
+} from "@/components/ui/toast";
 
 const ALBUM_MEDIA_LIMIT = 8;
+const ALBUM_MEDIA_HELP =
+  "対応形式: jpg/jpeg/png/webp/mp4 / 上限: 10MB / 最大8件（動画はPlus/Premiumのみ）";
 
 const makeId = (prefix: string) =>
   `${prefix}-${Math.random().toString(36).slice(2, 8)}-${Date.now()}`;
@@ -79,6 +90,10 @@ export default function AlbumModal({
   const [savedIndex, setSavedIndex] = useState(0);
   const [savedFullView, setSavedFullView] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [toastOpen, setToastOpen] = useState(false);
+  const [toastTitle, setToastTitle] = useState("");
+  const [toastDescription, setToastDescription] = useState("");
+  const [toastKind, setToastKind] = useState<"success" | "error" | null>(null);
   const [dragEntryId, setDragEntryId] = useState<string | null>(null);
   const [dragReadyEntryId, setDragReadyEntryId] = useState<string | null>(null);
   const [dragOverEntryId, setDragOverEntryId] = useState<string | null>(null);
@@ -108,6 +123,13 @@ export default function AlbumModal({
     setMedia((prev) => [...prev, ...items]);
     setPendingFiles((prev) => ({ ...prev, ...filesById }));
     event.target.value = "";
+  };
+
+  const showToast = (kind: "success" | "error", title: string, description?: string) => {
+    setToastKind(kind);
+    setToastTitle(title);
+    setToastDescription(description ?? "");
+    setToastOpen(true);
   };
 
   const removeMedia = (id: string) => {
@@ -155,6 +177,20 @@ export default function AlbumModal({
       setPendingFiles({});
       setIndex(0);
       setFullView(false);
+
+      showToast("success", "保存しました");
+    } catch (e) {
+      const message =
+        e instanceof ApiRequestError && e.status === 413
+          ? "ファイルサイズが大きすぎます。"
+          : e instanceof ApiRequestError && e.status === 415
+            ? "この形式は対応していません。"
+            : e instanceof ApiRequestError && e.code === "FEATURE_NOT_AVAILABLE"
+              ? "動画アップロードはPlus/Premium限定です。"
+              : e instanceof ApiRequestError && e.code === "QUOTA_EXCEEDED"
+                ? "アルバムの上限に達しました。"
+                : "保存に失敗しました。通信状況を確認して再度お試しください。";
+      showToast("error", "保存に失敗しました", message);
     } finally {
       setSaving(false);
     }
@@ -239,17 +275,18 @@ export default function AlbumModal({
   }, [index, media.length]);
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent
-        className="max-h-[92vh] w-[94vw] max-w-[430px] overflow-y-auto rounded-2xl p-4"
-        data-testid="album-modal"
-      >
-        <DialogHeader className="items-center">
-          <DialogTitle className="flex items-center gap-2 text-base">
-            <Images className="h-4 w-4" />
-            アルバムに追加
-          </DialogTitle>
-        </DialogHeader>
+    <ToastProvider>
+      <Dialog open={open} onOpenChange={onOpenChange}>
+        <DialogContent
+          className="max-h-[92vh] w-[94vw] max-w-[430px] overflow-y-auto rounded-2xl p-4"
+          data-testid="album-modal"
+        >
+          <DialogHeader className="items-center">
+            <DialogTitle className="flex items-center gap-2 text-base">
+              <Images className="h-4 w-4" />
+              アルバムに追加
+            </DialogTitle>
+          </DialogHeader>
 
         <div className="space-y-3">
           <Input type="date" value={date} onChange={(event) => setDate(event.target.value)} />
@@ -263,13 +300,16 @@ export default function AlbumModal({
             画像/動画を追加（最大{ALBUM_MEDIA_LIMIT}件）
             <input
               type="file"
-              accept="image/*,video/*"
+              accept="image/jpeg,image/png,image/webp,video/mp4"
               multiple
               onChange={handleMediaChange}
               className="hidden"
               data-testid="album-upload-input"
             />
           </label>
+          <div className="text-[11px] text-muted-foreground" data-testid="upload-help">
+            {ALBUM_MEDIA_HELP}
+          </div>
 
           {media.length > 0 ? (
             <div className="space-y-2">
@@ -665,7 +705,19 @@ export default function AlbumModal({
             </div>
           )}
         </div>
-      </DialogContent>
-    </Dialog>
+        </DialogContent>
+      </Dialog>
+
+      <Toast
+        open={toastOpen}
+        onOpenChange={setToastOpen}
+        data-testid={toastKind === "error" ? "upload-error" : undefined}
+      >
+        <ToastTitle>{toastTitle}</ToastTitle>
+        {toastDescription ? <ToastDescription>{toastDescription}</ToastDescription> : null}
+        <ToastClose />
+      </Toast>
+      <ToastViewport />
+    </ToastProvider>
   );
 }
