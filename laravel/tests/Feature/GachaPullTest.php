@@ -94,5 +94,59 @@ class GachaPullTest extends TestCase
 
         $this->assertSame(0, (int) UserUnlock::query()->where('user_id', $user->id)->count());
     }
-}
 
+    public function test_pull_idempotent_with_request_id(): void
+    {
+        config([
+            'gacha.cost' => 100,
+            'gacha.pools.default' => [
+                ['itemType' => 'frame', 'itemKey' => 'frame_test', 'rarity' => 'R', 'weight' => 1],
+            ],
+        ]);
+
+        $user = User::factory()->create();
+        MeProfile::create([
+            'device_id' => 'dev-gacha-003',
+            'nickname' => 'Gacha',
+            'initial' => 'G',
+            'user_id' => $user->id,
+        ]);
+
+        PointsService::add($user->id, null, 300, 'seed', ['source' => 'test'], 'req-seed', 'seed:300');
+
+        // First pull with request_id
+        $res1 = $this->withHeaders([
+            'X-Device-Id' => 'dev-gacha-003',
+            'X-Request-Id' => 'req-idem-001',
+        ])->postJson('/api/me/gacha/pull');
+
+        $res1->assertStatus(200)
+            ->assertJsonPath('success.data.cost', 100)
+            ->assertJsonPath('success.data.balance', 200);
+
+        $prize1 = $res1->json('success.data.prize');
+
+        // Second pull with SAME request_id (idempotent: no extra deduction)
+        $res2 = $this->withHeaders([
+            'X-Device-Id' => 'dev-gacha-003',
+            'X-Request-Id' => 'req-idem-001',
+        ])->postJson('/api/me/gacha/pull');
+
+        $res2->assertStatus(200)
+            ->assertJsonPath('success.data.prize.itemType', $prize1['itemType'])
+            ->assertJsonPath('success.data.prize.itemKey', $prize1['itemKey'])
+            ->assertJsonPath('success.data.prize.rarity', $prize1['rarity']);
+
+        // Balance should still be 200 (only charged once)
+        $res2->assertJsonPath('success.data.balance', 200);
+
+        // Only 1 gacha cost transaction exists
+        $this->assertSame(
+            1,
+            PointsTransaction::query()
+                ->where('user_id', $user->id)
+                ->where('reason', 'gacha_pull_cost')
+                ->count()
+        );
+    }
+}
