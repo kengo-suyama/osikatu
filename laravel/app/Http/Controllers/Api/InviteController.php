@@ -215,7 +215,7 @@ class InviteController extends Controller
                 PointsService::add(
                     $userId,
                     null,
-                    20,
+                    50,
                     'invite_reward_invitee',
                     [
                         'source' => 'invite',
