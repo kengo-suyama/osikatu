@@ -373,8 +373,12 @@ class InviteController extends Controller
             'expires_at' => null,
         ]);
 
-        OperationLog::logAction($circleId, $user->id, 'invite.regenerate', [
-            'circleId' => $circleId,
+        OperationLog::create([
+            'circle_id' => (int) $circleId,
+            'user_id' => $user->id,
+            'action' => 'invite.regenerate',
+            'meta' => ['circleId' => (int) $circleId],
+            'created_at' => now(),
         ]);
 
         return ApiResponse::success([
