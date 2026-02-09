@@ -123,3 +123,14 @@ export function playGachaPaperRip(): void {
   src.stop(now + duration);
 }
 
+export function playGachaReveal(): void {
+  if (!canPlay()) return;
+  markPlayed();
+  try {
+    const audio = new Audio("/sfx/gacha/reveal.mp3");
+    audio.volume = 0.5;
+    audio.play().catch(() => {});
+  } catch {
+    // ignore - sfx is non-critical
+  }
+}
