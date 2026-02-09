@@ -1,0 +1,37 @@
+import type { Dictionary } from "./types";
+
+const en: Dictionary = {
+  "app.name": "Osikatu",
+  "nav.home": "Home",
+  "nav.log": "Log",
+  "nav.money": "Money",
+  "nav.schedule": "Schedule",
+  "nav.album": "Album",
+  "nav.settings": "Settings",
+  "nav.gacha": "Gacha",
+  "nav.share": "Share",
+  "action.save": "Save",
+  "action.cancel": "Cancel",
+  "action.delete": "Delete",
+  "action.edit": "Edit",
+  "action.create": "Create",
+  "action.close": "Close",
+  "action.copy": "Copy",
+  "action.search": "Search",
+  "action.filter": "Filter",
+  "action.clear": "Clear",
+  "action.upload": "Upload",
+  "common.loading": "Loading...",
+  "common.noData": "No data",
+  "common.error": "An error occurred",
+  "common.confirm": "Confirm",
+  "common.yes": "Yes",
+  "common.no": "No",
+  "points.balance": "Points balance",
+  "points.insufficient": "Insufficient points",
+  "theme.select": "Select theme",
+  "language.select": "Select language",
+  "language.title": "Language",
+};
+
+export default en;

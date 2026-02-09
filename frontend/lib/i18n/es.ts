@@ -1,0 +1,37 @@
+import type { Dictionary } from "./types";
+
+const es: Dictionary = {
+  "app.name": "Osikatu",
+  "nav.home": "Inicio",
+  "nav.log": "Registro",
+  "nav.money": "Dinero",
+  "nav.schedule": "Agenda",
+  "nav.album": "Álbum",
+  "nav.settings": "Ajustes",
+  "nav.gacha": "Gacha",
+  "nav.share": "Compartir",
+  "action.save": "Guardar",
+  "action.cancel": "Cancelar",
+  "action.delete": "Eliminar",
+  "action.edit": "Editar",
+  "action.create": "Crear",
+  "action.close": "Cerrar",
+  "action.copy": "Copiar",
+  "action.search": "Buscar",
+  "action.filter": "Filtrar",
+  "action.clear": "Limpiar",
+  "action.upload": "Subir",
+  "common.loading": "Cargando...",
+  "common.noData": "Sin datos",
+  "common.error": "Ocurrió un error",
+  "common.confirm": "Confirmar",
+  "common.yes": "Sí",
+  "common.no": "No",
+  "points.balance": "Saldo de puntos",
+  "points.insufficient": "Puntos insuficientes",
+  "theme.select": "Seleccionar tema",
+  "language.select": "Seleccionar idioma",
+  "language.title": "Idioma",
+};
+
+export default es;
