@@ -516,6 +516,21 @@ export type InventoryApplyResponseDto = {
   };
 };
 
+/** ---- Home Media ---- */
+export type HomeMediaItemDto = {
+  type: "image" | "video";
+  url: string;
+  mime?: string | null;
+  sizeBytes?: number | null;
+  width?: number | null;
+  height?: number | null;
+  updatedAt?: ISODateTime | null;
+};
+
+export type MeHomeMediaResponseDto = {
+  item: HomeMediaItemDto | null;
+};
+
 /** ---- Circle Media / Album ---- */
 export type CircleMediaDto = {
   id: number;
