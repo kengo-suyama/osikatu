@@ -28,13 +28,26 @@ class SettlementController extends Controller
             return $guard;
         }
 
-        $items = Settlement::query()
+        $limit = min(50, max(1, (int) ($request->query('limit') ?? 30)));
+        $cursor = $request->query('cursor');
+
+        $query = Settlement::query()
             ->where('circle_id', $circle)
             ->withCount(['participants', 'transfers'])
             ->orderByDesc('settled_at')
-            ->orderByDesc('id')
-            ->limit(30)
-            ->get();
+            ->orderByDesc('id');
+
+        if ($cursor && is_string($cursor) && ctype_digit($cursor)) {
+            $query->where('id', '<', (int) $cursor);
+        }
+
+        $items = $query->limit($limit + 1)->get();
+        $hasMore = $items->count() > $limit;
+        $slice = $items->take($limit);
+        $nextCursor = null;
+        if ($hasMore && $slice->count() > 0) {
+            $nextCursor = (string) $slice->last()->id;
+        }
 
         $members = CircleMember::query()
             ->where('circle_id', $circle)
@@ -42,8 +55,9 @@ class SettlementController extends Controller
             ->get();
 
         return ApiResponse::success([
-            'items' => $items->map(fn(Settlement $settlement) => $this->mapSettlementSummary($settlement))->values(),
+            'items' => $slice->map(fn(Settlement $settlement) => $this->mapSettlementSummary($settlement))->values(),
             'members' => $members->map(fn(CircleMember $member) => $this->buildMemberBrief($member))->values(),
+            'nextCursor' => $nextCursor,
         ]);
     }
 
