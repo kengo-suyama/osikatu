@@ -18,6 +18,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
 import type { ScheduleDto } from "@/lib/types";
 import { createMySchedule, deleteMySchedule, fetchMySchedules, updateMySchedule } from "@/lib/repo/scheduleRepo";
+import { ApiRequestError } from "@/lib/repo/http";
 
 type FormState = {
   title: string;
@@ -79,6 +80,9 @@ export default function SchedulePage() {
   const [mode, setMode] = useState<"create" | "edit">("create");
   const [editingId, setEditingId] = useState<string | null>(null);
   const [form, setForm] = useState<FormState>(DEFAULT_FORM);
+  const [titleError, setTitleError] = useState<string | null>(null);
+  const [datetimeError, setDatetimeError] = useState<string | null>(null);
+  const [formError, setFormError] = useState<string | null>(null);
 
   const openedFromQueryRef = useRef(false);
 
@@ -121,6 +125,9 @@ export default function SchedulePage() {
     setMode("create");
     setEditingId(null);
     setForm(DEFAULT_FORM);
+    setTitleError(null);
+    setDatetimeError(null);
+    setFormError(null);
     setOpen(true);
   };
 
@@ -136,18 +143,39 @@ export default function SchedulePage() {
       location: item.location ?? "",
       remindAt: isoToLocalInput(item.remindAt),
     });
+    setTitleError(null);
+    setDatetimeError(null);
+    setFormError(null);
     setOpen(true);
   };
 
   const onSubmit = async () => {
-    setError(null);
+    setTitleError(null);
+    setDatetimeError(null);
+    setFormError(null);
     if (!form.title.trim()) {
-      setError("タイトルを入力してください");
+      setTitleError("タイトルを入力してください");
       return;
     }
     if (!form.startAt) {
-      setError("開始日時を入力してください");
+      setDatetimeError("開始日時を入力してください");
       return;
+    }
+    if (form.endAt) {
+      const startMs = new Date(form.startAt).getTime();
+      const endMs = new Date(form.endAt).getTime();
+      if (!Number.isNaN(startMs) && !Number.isNaN(endMs) && endMs < startMs) {
+        setDatetimeError("終了日時は開始日時以降にしてください");
+        return;
+      }
+    }
+    if (form.remindAt) {
+      const startMs = new Date(form.startAt).getTime();
+      const remindMs = new Date(form.remindAt).getTime();
+      if (!Number.isNaN(startMs) && !Number.isNaN(remindMs) && remindMs < startMs) {
+        setDatetimeError("リマインド日時は開始日時以降にしてください");
+        return;
+      }
     }
 
     const payload = {
@@ -159,6 +187,18 @@ export default function SchedulePage() {
       location: form.location.trim() ? form.location.trim() : null,
       remindAt: form.remindAt ? localInputToIso(form.remindAt) : null,
     };
+    if (!payload.startAt) {
+      setDatetimeError("開始日時の形式が不正です");
+      return;
+    }
+    if (form.endAt && !payload.endAt) {
+      setDatetimeError("終了日時の形式が不正です");
+      return;
+    }
+    if (form.remindAt && !payload.remindAt) {
+      setDatetimeError("リマインド日時の形式が不正です");
+      return;
+    }
 
     setSaving(true);
     try {
@@ -170,8 +210,28 @@ export default function SchedulePage() {
         setItems((prev) => prev.map((x) => (String(x.id) === String(editingId) ? updated : x)));
       }
       setOpen(false);
-    } catch (e: any) {
-      setError(e?.message ?? "保存に失敗しました");
+    } catch (e: unknown) {
+      if (e instanceof ApiRequestError && e.status === 422) {
+        setFormError("入力内容を確認してください");
+        const details = e.details;
+        if (details && typeof details === "object") {
+          const mapFirst = (value: unknown) => {
+            if (Array.isArray(value) && typeof value[0] === "string") return value[0];
+            if (typeof value === "string") return value;
+            return null;
+          };
+          const d = details as Record<string, unknown>;
+          const t = mapFirst(d.title);
+          const s = mapFirst(d.startAt);
+          const en = mapFirst(d.endAt);
+          const r = mapFirst(d.remindAt);
+          if (t) setTitleError(t);
+          const dt = s ?? en ?? r;
+          if (dt) setDatetimeError(dt);
+        }
+        return;
+      }
+      setFormError(e instanceof Error ? e.message : "保存に失敗しました");
     } finally {
       setSaving(false);
     }
@@ -296,9 +356,18 @@ export default function SchedulePage() {
               <Input
                 placeholder="例: 配信を見る"
                 value={form.title}
-                onChange={(e) => setForm((p) => ({ ...p, title: e.target.value }))}
+                onChange={(e) => {
+                  setForm((p) => ({ ...p, title: e.target.value }));
+                  if (titleError) setTitleError(null);
+                  if (formError) setFormError(null);
+                }}
                 data-testid="schedule-form-title"
               />
+              {titleError ? (
+                <div className="text-xs text-red-600" data-testid="schedule-title-error">
+                  {titleError}
+                </div>
+              ) : null}
             </div>
 
             <div className="grid gap-2">
@@ -306,7 +375,11 @@ export default function SchedulePage() {
               <Input
                 type="datetime-local"
                 value={form.startAt}
-                onChange={(e) => setForm((p) => ({ ...p, startAt: e.target.value }))}
+                onChange={(e) => {
+                  setForm((p) => ({ ...p, startAt: e.target.value }));
+                  if (datetimeError) setDatetimeError(null);
+                  if (formError) setFormError(null);
+                }}
                 data-testid="schedule-form-start"
               />
             </div>
@@ -316,17 +389,30 @@ export default function SchedulePage() {
               <Input
                 type="datetime-local"
                 value={form.endAt}
-                onChange={(e) => setForm((p) => ({ ...p, endAt: e.target.value }))}
+                onChange={(e) => {
+                  setForm((p) => ({ ...p, endAt: e.target.value }));
+                  if (datetimeError) setDatetimeError(null);
+                  if (formError) setFormError(null);
+                }}
                 disabled={form.isAllDay}
                 data-testid="schedule-form-end"
               />
+              {datetimeError ? (
+                <div className="text-xs text-red-600" data-testid="schedule-datetime-error">
+                  {datetimeError}
+                </div>
+              ) : null}
             </div>
 
             <label className="flex items-center justify-between rounded-xl border border-border/60 px-3 py-2 text-xs">
               終日
               <Switch
                 checked={form.isAllDay}
-                onCheckedChange={(checked) => setForm((p) => ({ ...p, isAllDay: checked }))}
+                onCheckedChange={(checked) => {
+                  setForm((p) => ({ ...p, isAllDay: checked, endAt: checked ? "" : p.endAt }));
+                  if (datetimeError) setDatetimeError(null);
+                  if (formError) setFormError(null);
+                }}
                 data-testid="schedule-form-allday"
               />
             </label>
@@ -346,7 +432,11 @@ export default function SchedulePage() {
               <Input
                 type="datetime-local"
                 value={form.remindAt}
-                onChange={(e) => setForm((p) => ({ ...p, remindAt: e.target.value }))}
+                onChange={(e) => {
+                  setForm((p) => ({ ...p, remindAt: e.target.value }));
+                  if (datetimeError) setDatetimeError(null);
+                  if (formError) setFormError(null);
+                }}
                 data-testid="schedule-form-remind"
               />
             </div>
@@ -366,6 +456,11 @@ export default function SchedulePage() {
                 "sticky bottom-0 -mx-4 mt-2 border-t bg-background px-4 pt-3"
               )}
             >
+              {formError ? (
+                <div className="mb-2 rounded-xl border border-red-500/30 bg-red-500/5 p-2 text-xs text-red-600">
+                  {formError}
+                </div>
+              ) : null}
               <div className="flex items-center justify-end gap-2 pb-1">
                 <Button
                   type="button"
@@ -383,7 +478,9 @@ export default function SchedulePage() {
                   disabled={saving}
                   data-testid="schedule-create-submit"
                 >
-                  {saving ? "保存中..." : mode === "create" ? "追加する" : "更新する"}
+                  <span data-testid="schedule-save">
+                    {saving ? "保存中..." : mode === "create" ? "追加する" : "更新する"}
+                  </span>
                 </Button>
               </div>
             </div>
@@ -393,4 +490,3 @@ export default function SchedulePage() {
     </div>
   );
 }
-
