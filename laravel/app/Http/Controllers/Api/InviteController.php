@@ -12,6 +12,7 @@ use App\Models\CircleInvite;
 use App\Models\CircleMember;
 use App\Models\OperationLog;
 use App\Models\User;
+use App\Services\PointsService;
 use App\Support\ApiResponse;
 use App\Support\CurrentUser;
 use App\Support\MeProfileResolver;
@@ -169,7 +170,7 @@ class InviteController extends Controller
             return ApiResponse::error('INVITE_USED_UP', 'Invite usage limit reached', null, 410);
         }
 
-        CircleMember::firstOrCreate(
+        $circleMember = CircleMember::firstOrCreate(
             [
                 'circle_id' => $invite->circle_id,
                 'user_id' => $userId,
@@ -181,11 +182,50 @@ class InviteController extends Controller
             ]
         );
 
-        if (!$alreadyMember) {
+        $joinedNow = (bool) $circleMember->wasRecentlyCreated;
+
+        if ($joinedNow) {
             $invite->increment('used_count');
             Circle::query()
                 ->where('id', $invite->circle_id)
                 ->update(['last_activity_at' => now()]);
+
+            $inviterUserId = $invite->created_by ? (int) $invite->created_by : null;
+            if ($inviterUserId && $inviterUserId !== $userId) {
+                $requestId = (string) ($request->header('X-Request-Id') ?? '');
+                $requestId = trim($requestId) !== '' ? $requestId : null;
+
+                // Reward both inviter and invitee once per pair.
+                $idempotencyKey = "invite_reward:pair:{$inviterUserId}:{$userId}";
+
+                PointsService::add(
+                    $inviterUserId,
+                    null,
+                    50,
+                    'invite_reward_inviter',
+                    [
+                        'source' => 'invite',
+                        'circleId' => (int) $invite->circle_id,
+                        'inviteeUserId' => (int) $userId,
+                    ],
+                    $requestId,
+                    $idempotencyKey
+                );
+
+                PointsService::add(
+                    $userId,
+                    null,
+                    20,
+                    'invite_reward_invitee',
+                    [
+                        'source' => 'invite',
+                        'circleId' => (int) $invite->circle_id,
+                        'inviterUserId' => (int) $inviterUserId,
+                    ],
+                    $requestId,
+                    $idempotencyKey
+                );
+            }
         }
 
         if ($circleCount === 0 && !$user->trial_ends_at) {
