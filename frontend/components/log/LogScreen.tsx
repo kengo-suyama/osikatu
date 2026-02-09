@@ -71,6 +71,7 @@ export default function LogScreen() {
   const [dragOverLogIndex, setDragOverLogIndex] = useState<number | null>(null);
   const [hydrated, setHydrated] = useState(false);
   const dragTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const saveGuardRef = useRef(false);
 
   // --- Search / Filter state ---
   const [searchInput, setSearchInput] = useState("");
@@ -200,16 +201,16 @@ export default function LogScreen() {
 
   const handleSave = async () => {
     if (!title.trim() && !body.trim() && logImages.length === 0) return;
+    if (saveGuardRef.current) return;
+    saveGuardRef.current = true;
+    setSaving(true);
     const parsedTags = tags
       .split(/[\s,]+/)
       .map((tag) => tag.replace(/^#/, ""))
       .filter(Boolean);
 
-    if (apiMode) {
-      setSaving(true);
-      try {
-
-
+    try {
+      if (apiMode) {
         // E2E (and fast users) can click before `oshiRepo.getOshis()` resolves.
         // Resolve primary oshi id lazily to avoid flaky early-returns.
 
@@ -248,35 +249,39 @@ export default function LogScreen() {
           });
         }
         showToast("保存しました");
-      } catch {
-        showToast("保存に失敗しました");
-      } finally {
-        setSaving(false);
+      } else {
+        const newPost: LogPost = {
+          id: `log-${Date.now()}`,
+          title: title || "メモ",
+          body,
+          tags: parsedTags,
+          time: "たった今",
+          date: logDate || new Date().toISOString().slice(0, 10),
+          images: logImages.length > 0 ? logImages : undefined,
+          isPrivate,
+        };
+
+        const nextUser = [newPost, ...userPosts];
+        setUserPosts(nextUser);
+        setPosts([...nextUser, ...logPosts]);
+        saveJson(STORAGE_KEY, nextUser);
+
+        // Block rapid double-clicks in local mode too (no network delay).
+        await new Promise((resolve) => setTimeout(resolve, 0));
       }
-    } else {
-      const newPost: LogPost = {
-        id: `log-${Date.now()}`,
-        title: title || "メモ",
-        body,
-        tags: parsedTags,
-        time: "たった今",
-        date: logDate || new Date().toISOString().slice(0, 10),
-        images: logImages.length > 0 ? logImages : undefined,
-        isPrivate,
-      };
 
-      const nextUser = [newPost, ...userPosts];
-      setUserPosts(nextUser);
-      setPosts([...nextUser, ...logPosts]);
-      saveJson(STORAGE_KEY, nextUser);
+      setTitle("");
+      setBody("");
+      setTags("");
+      setLogImages([]);
+      setImageFiles([]);
+      setIsPrivate(false);
+    } catch {
+      showToast("保存に失敗しました");
+    } finally {
+      setSaving(false);
+      saveGuardRef.current = false;
     }
-
-    setTitle("");
-    setBody("");
-    setTags("");
-    setLogImages([]);
-    setImageFiles([]);
-    setIsPrivate(false);
   };
 
   const handleLogImagesChange = async (event: ChangeEvent<HTMLInputElement>) => {

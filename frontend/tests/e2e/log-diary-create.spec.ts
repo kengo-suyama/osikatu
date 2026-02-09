@@ -109,6 +109,63 @@ test.describe("log diary create", () => {
     }
   });
 
+  test("double submit creates only one diary (guards rapid clicks)", async ({ page, request }) => {
+    const deviceId = `device-e2e-diary-double-submit-${Date.now()}`;
+    await ensureOnboardingDone(request, deviceId);
+    await ensureOshi(request, deviceId);
+
+    await page.addInitScript((did: string) => {
+      localStorage.setItem("osikatu:device:id", did);
+      localStorage.setItem("osikatu:data-source", "api");
+    }, deviceId);
+
+    let postCount = 0;
+    page.on("request", (req) => {
+      if (req.method() === "POST" && req.url().includes("/api/me/diaries")) postCount += 1;
+    });
+
+    try {
+      await page.goto("/log", { waitUntil: "domcontentloaded" });
+
+      const form = page.locator('[data-testid="log-create-form"]');
+      await expect(form).toBeVisible({ timeout: 45_000 });
+
+      const submitBtn = page.locator('[data-testid="log-create-submit"]');
+      await expect(submitBtn).toBeEnabled({ timeout: 30_000 });
+
+      await page.locator('[data-testid="log-create-title"]').fill("E2E Double Submit Diary");
+      await page.locator('[data-testid="log-create-body"]').fill("Rapid clicks should not create twice");
+
+      // Trigger two click events synchronously (more aggressive than a normal dblclick).
+      await page.evaluate(() => {
+        const btn = document.querySelector('[data-testid="log-create-submit"]') as HTMLButtonElement | null;
+        if (!btn) throw new Error("submit button not found");
+        btn.click();
+        btn.click();
+      });
+
+      await page.waitForResponse(
+        (res) =>
+          res.request().method() === "POST" &&
+          res.url().includes("/api/me/diaries") &&
+          res.ok(),
+        { timeout: 30_000 },
+      );
+
+      const card = page.locator('[data-testid="log-diary-card"]').first();
+      await expect(card).toBeVisible({ timeout: 15_000 });
+      await expect(card).toContainText("E2E Double Submit Diary");
+
+      // Give a short window for a second POST to appear if the guard regressed.
+      await page.waitForTimeout(500);
+      expect(postCount).toBe(1);
+
+      logPass("Double submit guarded (only one POST)");
+    } catch (e) {
+      logFail("Double submit guard", e);
+    }
+  });
+
   test("create diary with tags shows tag chips", async ({ page, request }) => {
     const deviceId = `device-e2e-diary-tags-${Date.now()}`;
     await ensureOnboardingDone(request, deviceId);

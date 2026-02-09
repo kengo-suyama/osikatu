@@ -20,7 +20,6 @@ import OshiAvatarCard from "@/components/oshi/OshiAvatarCard";
 import OshiImageUpload from "@/components/oshi/OshiImageUpload";
 import OshiFabPanel from "@/components/oshi/OshiFabPanel";
 import QuickModeSwitch from "@/components/home/QuickModeSwitch";
-import HomeMainMediaCard from "@/components/home/HomeMainMediaCard";
 import NextDeadlines from "@/components/widgets/NextDeadlines";
 import { DailyLucky } from "@/components/widgets/DailyLucky";
 import { AdBanner } from "@/components/ads/AdBanner";
@@ -647,7 +646,6 @@ export default function HomeScreen() {
 
       <AdBanner />
 
-      <HomeMainMediaCard frameId={selectedOshi?.profile.image_frame_id ?? null} />
 
       {selectedOshi ? (
         <OshiAvatarCard
