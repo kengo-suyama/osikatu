@@ -12,6 +12,7 @@ import {
 } from "@/lib/titles/titleState";
 import { TITLES_JA_1000_UNIVERSAL } from "@/lib/titles/titles_ja_1000_universal";
 import type { TitleAwardDto } from "@/lib/types";
+import { TitleBadge, type TitleBadgeRarity } from "@/components/titles/TitleBadge";
 
 const formatDate = (dateKey: string) => dateKey;
 
@@ -20,6 +21,13 @@ const rarityLabel: Record<string, string> = {
   rare: "Rare",
   epic: "Epic",
   legendary: "Legendary",
+};
+
+const rarityToBadge = (rarity: string): TitleBadgeRarity => {
+  if (rarity === "rare") return "R";
+  if (rarity === "epic") return "SR";
+  if (rarity === "legendary") return "SSR";
+  return "N";
 };
 
 export default function TitlesPage() {
@@ -86,7 +94,7 @@ export default function TitlesPage() {
   const viewHistory = isApiMode() ? apiHistory : history;
 
   return (
-    <main className="px-4 pb-6 pt-4">
+    <main className="px-4 pb-6 pt-4" data-testid="titles-page">
       <div className="space-y-3">
         <div className="flex items-center justify-between">
           <h1 className="text-sm font-semibold text-muted-foreground">称号履歴</h1>
@@ -125,7 +133,9 @@ export default function TitlesPage() {
                 className="rounded-2xl border bg-card p-4 text-sm"
               >
                 <div className="flex items-center justify-between">
-                  <div className="font-semibold">{item.titleText}</div>
+                  <div className="flex items-center gap-2">
+                    <TitleBadge title={item.titleText} rarity={rarityToBadge(item.rarity)} />
+                  </div>
                   <div className="text-xs text-muted-foreground">
                     {rarityLabel[item.rarity] ?? item.rarity}
                   </div>
