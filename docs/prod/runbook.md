@@ -49,6 +49,7 @@
 | `REDIS_HOST` | Redisホスト | `127.0.0.1` |
 | `REDIS_PORT` | Redisポート | `6379` |
 | `PINS_V1_WRITE_MODE` | Pins書き込みモード | `delegate` |
+| `BILLING_DEBUG_ENABLED` | Debug API (`/api/billing/debug`) を有効化 | `false` (本番は false 推奨) |
 
 ## 3. デプロイ手順
 
