@@ -16,9 +16,10 @@ class BillingDebugController extends Controller
 {
     public function show(Request $request)
     {
-        // Only allow in local/testing environments
-        if (!in_array(app()->environment(), ['local', 'testing'], true)) {
-            return ApiResponse::error('FORBIDDEN', 'Debug endpoint is only available in local environment.', null, 403);
+        // Default: local/testing only. Explicit override via BILLING_DEBUG_ENABLED=true (for controlled environments).
+        $enabled = (bool) config('billing.debug_enabled', false);
+        if (!app()->environment('local') && !app()->environment('testing') && !$enabled) {
+            return ApiResponse::error('FORBIDDEN', 'Debug endpoint is disabled.', null, 403);
         }
 
         $user = User::query()->find(CurrentUser::id());

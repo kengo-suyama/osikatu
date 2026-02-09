@@ -42,4 +42,26 @@ class BillingDebugTest extends TestCase
         $response->assertStatus(403);
         $response->assertJsonPath('error.code', 'FORBIDDEN');
     }
+
+    public function test_debug_can_be_enabled_in_production_via_env_flag(): void
+    {
+        app()->detectEnvironment(fn () => 'production');
+        config(['billing.debug_enabled' => true]);
+
+        $user = User::factory()->create(['plan' => 'plus']);
+        MeProfile::create([
+            'device_id' => 'device-billing-debug-prod-001',
+            'nickname' => 'Debug User',
+            'initial' => 'D',
+            'user_id' => $user->id,
+        ]);
+
+        $response = $this->withHeaders([
+            'X-Device-Id' => 'device-billing-debug-prod-001',
+        ])->getJson('/api/billing/debug');
+
+        $response->assertStatus(200);
+        $response->assertJsonPath('success.data.plan', 'plus');
+        $response->assertJsonPath('success.data.hasPlus', true);
+    }
 }

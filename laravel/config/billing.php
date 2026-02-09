@@ -6,5 +6,5 @@ return [
     'success_url' => env('BILLING_SUCCESS_URL'),
     'cancel_url' => env('BILLING_CANCEL_URL'),
     'portal_return_url' => env('BILLING_PORTAL_RETURN_URL'),
+    'debug_enabled' => env('BILLING_DEBUG_ENABLED', false),
 ];
-
