@@ -34,6 +34,8 @@ import { postRepo } from "@/lib/repo/postRepo";
 import type { CircleAnnouncementDto, CircleDto, MeDto, PostDto } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import { ALL_THEMES } from "@/src/theme/themes";
+import { Nameplate } from "@/components/chat/Nameplate";
+import type { TitleBadgeRarity } from "@/components/titles/TitleBadge";
 
 const formatTime = (value?: string | null) => {
   if (!value) return "";
@@ -52,6 +54,16 @@ const STAMPS = [
   { id: "light", label: "🪄" },
   { id: "star", label: "🌟" },
 ];
+
+const rarityFromAuthorId = (id: number): TitleBadgeRarity => {
+  // Deterministic fallback until author/title rarity is available in the DTO.
+  const mod = Math.abs(id) % 5;
+  if (mod === 1) return "R";
+  if (mod === 2) return "SR";
+  if (mod === 3) return "SSR";
+  if (mod === 4) return "UR";
+  return "N";
+};
 
 export default function CircleChatScreen({ circleId }: { circleId: number }) {
   const router = useRouter();
@@ -367,9 +379,12 @@ export default function CircleChatScreen({ circleId }: { circleId: number }) {
                     <div className="h-7 w-7" />
                   )}
                   <div className={cn("max-w-[75%] space-y-1", isMine && "text-right")}>
-                    {!isMine && !isSameAuthor ? (
-                      <div className="text-[11px] text-muted-foreground">
-                        {author?.name ?? "?"}
+                    {!isSameAuthor ? (
+                      <div className={cn(isMine ? "flex justify-end" : "flex justify-start")}>
+                        <Nameplate
+                          name={author?.name ?? "?"}
+                          rarity={rarityFromAuthorId(author?.id ?? 0)}
+                        />
                       </div>
                     ) : null}
                     <div
