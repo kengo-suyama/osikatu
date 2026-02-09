@@ -23,6 +23,7 @@ import { DEFAULT_ACCENT_COLOR, hexToHslString, hslStringToHex } from "@/lib/colo
 import { EVENTS } from "@/lib/events";
 import { getStoredThemeId, setStoredThemeId } from "@/lib/theme/uiTheme";
 import { meRepo } from "@/lib/repo/meRepo";
+import { inventoryRepo } from "@/lib/repo/inventoryRepo";
 import { oshiRepo } from "@/lib/repo/oshiRepo";
 import { loadString, saveString } from "@/lib/storage";
 import type { MeDto } from "@/lib/types";
@@ -34,6 +35,7 @@ import {
   isThemeLocked,
   type ThemeId,
 } from "@/src/theme/themes";
+import { getFrameById } from "@/src/ui/frames";
 
 const OSHI_KEY = "osikatu:oshi:selected";
 const COMPACT_KEY = "osikatu:home:compact";
@@ -49,6 +51,10 @@ export default function SettingsScreen() {
   const [themeId, setThemeId] = useState<ThemeId>(() => getStoredThemeId());
   const [themeLimitOpen, setThemeLimitOpen] = useState(false);
   const [gachaSfxEnabled, setGachaSfxEnabledState] = useState(true);
+  const [inventory, setInventory] = useState<
+    { balance: number; items: { id: number; itemType: string; itemKey: string; rarity: string }[] } | null
+  >(null);
+  const [inventoryApplying, setInventoryApplying] = useState<string | null>(null);
   const [hydrated, setHydrated] = useState(false);
 
   useEffect(() => {
@@ -86,6 +92,11 @@ export default function SettingsScreen() {
     if (storedCompact) setCompactHome(storedCompact === "true");
 
     setGachaSfxEnabledState(getGachaSfxEnabled());
+
+    inventoryRepo.getMeInventory().then((data) => {
+      if (!data) return;
+      setInventory({ balance: data.balance, items: data.items });
+    });
 
     const handleOshiChange = async (event: Event) => {
       const next = (event as CustomEvent<string>).detail;
@@ -148,6 +159,44 @@ export default function SettingsScreen() {
     [me?.effectivePlan, me?.plan]
   );
   const visibleThemes = useMemo(() => getVisibleThemes(planForThemes), [planForThemes]);
+
+  const unlockedThemes = useMemo(() => {
+    const list = inventory?.items?.filter((i) => i.itemType === "theme") ?? [];
+    return list;
+  }, [inventory?.items]);
+
+  const unlockedFrames = useMemo(() => {
+    const list = inventory?.items?.filter((i) => i.itemType === "frame") ?? [];
+    return list;
+  }, [inventory?.items]);
+
+  const applyInventoryItem = async (itemType: "theme" | "frame", itemKey: string) => {
+    setInventoryApplying(`${itemType}:${itemKey}`);
+    try {
+      const res = await inventoryRepo.apply({ itemType, itemKey });
+      if (!res) return;
+      if (itemType === "theme" && typeof res.applied.themeId === "string") {
+        const next = res.applied.themeId as ThemeId;
+        setThemeId(next);
+        setStoredThemeId(next);
+        // Keep server state consistent for other clients (best-effort).
+        void meRepo.updateUiSettings({ themeId: next });
+        setMe(await meRepo.refreshMe().catch(() => null));
+      }
+      if (itemType === "frame" && typeof res.applied.oshiId === "number") {
+        if (typeof window !== "undefined") {
+          window.dispatchEvent(
+            new CustomEvent(EVENTS.OSHI_PROFILE_CHANGE, { detail: { oshiId: res.applied.oshiId } })
+          );
+        }
+        // Refresh local list for immediate reflect in Settings.
+        const list = await oshiRepo.getOshis().catch(() => [] as Oshi[]);
+        setOshis(list);
+      }
+    } finally {
+      setInventoryApplying(null);
+    }
+  };
 
   const handleOshiSelect = (value: string) => {
     saveString(OSHI_KEY, value);
@@ -270,6 +319,108 @@ export default function SettingsScreen() {
       </Card>
 
       <CelebrationSettingsCard />
+
+      <Card className="rounded-2xl border p-4 shadow-sm" data-testid="inventory-card">
+        <CardHeader className="p-0 pb-3">
+          <CardTitle className="text-sm font-semibold text-muted-foreground">
+            カスタマイズ（獲得一覧）
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-3 p-0">
+          <div className="text-xs text-muted-foreground">
+            ガチャなどで獲得したテーマやフレームを適用できます。
+          </div>
+          <div className="rounded-xl border border-border/60 p-3 text-xs">
+            <div className="text-muted-foreground">現在のポイント</div>
+            <div className="mt-1 text-base font-semibold" data-testid="inventory-balance">
+              {typeof inventory?.balance === "number" ? inventory.balance : "—"}
+            </div>
+          </div>
+
+          <div className="space-y-2">
+            <div className="text-xs font-semibold text-muted-foreground">獲得テーマ</div>
+            {unlockedThemes.length === 0 ? (
+              <div className="rounded-xl border border-border/60 p-3 text-xs text-muted-foreground">
+                まだありません。
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                {unlockedThemes.map((item) => {
+                  const active = themeId === (item.itemKey as ThemeId);
+                  const applying = inventoryApplying === `theme:${item.itemKey}`;
+                  return (
+                    <div
+                      key={item.id}
+                      className={cn(
+                        "flex items-center justify-between rounded-xl border px-3 py-2",
+                        active ? "border-primary bg-primary/10" : "border-border/60"
+                      )}
+                      data-testid="inventory-item"
+                    >
+                      <div className="min-w-0">
+                        <div className="truncate text-sm font-medium">{item.itemKey}</div>
+                        <div className="text-[11px] text-muted-foreground">
+                          rarity: {item.rarity}
+                        </div>
+                      </div>
+                      <Button
+                        size="sm"
+                        variant={active ? "secondary" : "default"}
+                        onClick={() => applyInventoryItem("theme", item.itemKey)}
+                        disabled={applying}
+                        data-testid="inventory-apply"
+                      >
+                        {active ? "適用中" : applying ? "適用中..." : "適用"}
+                      </Button>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+
+          <div className="space-y-2">
+            <div className="text-xs font-semibold text-muted-foreground">獲得フレーム</div>
+            {unlockedFrames.length === 0 ? (
+              <div className="rounded-xl border border-border/60 p-3 text-xs text-muted-foreground">
+                まだありません。
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                {unlockedFrames.map((item) => {
+                  const applying = inventoryApplying === `frame:${item.itemKey}`;
+                  const frame = getFrameById(item.itemKey);
+                  return (
+                    <div
+                      key={item.id}
+                      className="flex items-center justify-between rounded-xl border border-border/60 px-3 py-2"
+                      data-testid="inventory-item"
+                    >
+                      <div className="min-w-0">
+                        <div className="truncate text-sm font-medium">
+                          {frame.id === "none" ? item.itemKey : frame.label}
+                        </div>
+                        <div className="text-[11px] text-muted-foreground">
+                          id: {item.itemKey} / rarity: {item.rarity}
+                        </div>
+                      </div>
+                      <Button
+                        size="sm"
+                        variant="default"
+                        onClick={() => applyInventoryItem("frame", item.itemKey)}
+                        disabled={applying}
+                        data-testid="inventory-apply"
+                      >
+                        {applying ? "適用中..." : "適用"}
+                      </Button>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        </CardContent>
+      </Card>
 
       <Card className="rounded-2xl border p-4 shadow-sm">
         <CardHeader className="p-0 pb-3">
