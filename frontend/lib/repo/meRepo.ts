@@ -112,6 +112,27 @@ export const meRepo = {
     return ensureLocalMe();
   },
 
+  async refreshMe(opts?: { strict?: boolean }): Promise<MeDto> {
+    if (!isApiMode()) {
+      return ensureLocalMe();
+    }
+
+    try {
+      const me = await apiGet<MeDto>("/api/me", {
+        headers: { "X-Device-Id": getDeviceId() },
+      });
+      const normalized = normalizeMe(me);
+      saveJson(ME_KEY, normalized);
+      syncUiSettingsFromMe(normalized);
+      return normalized;
+    } catch (e) {
+      if (opts?.strict) {
+        throw e;
+      }
+      return ensureLocalMe();
+    }
+  },
+
   async updateUiSettings(payload: {
     themeId?: string | null;
     specialBgEnabled?: boolean;

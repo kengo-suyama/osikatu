@@ -10,6 +10,8 @@ type SyncStatus = "polling" | "synced" | "timeout";
 
 const MAX_POLLS = 12;
 const POLL_INTERVAL = 5000;
+const SELF_HEAL_MESSAGE =
+  "反映に少し時間がかかっています。少し時間をおいて再読み込みしてください。";
 
 export default function BillingCompletePage() {
   const [status, setStatus] = useState<SyncStatus>("polling");
@@ -30,7 +32,7 @@ export default function BillingCompletePage() {
       });
 
       try {
-        const me = await meRepo.getMe();
+        const me = await meRepo.refreshMe();
         if (me && (me.plan === "plus" || me.effectivePlan === "plus")) {
           setStatus("synced");
           clearInterval(timer);
@@ -86,9 +88,19 @@ export default function BillingCompletePage() {
             <div className="text-sm font-semibold">反映に時間がかかっています</div>
             <div className="text-xs text-muted-foreground">
               決済は完了していますが、プランの反映に時間がかかっています。
-              しばらく待っても反映されない場合は、お問い合わせください。
+              {SELF_HEAL_MESSAGE}
             </div>
             <div className="flex gap-2 pt-2">
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={() => {
+                  setPollCount(0);
+                  setStatus("polling");
+                }}
+              >
+                再読み込み
+              </Button>
               <Link href="/contact">
                 <Button variant="outline" size="sm">お問い合わせ</Button>
               </Link>

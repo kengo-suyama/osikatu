@@ -51,11 +51,7 @@ class PlanGate
 
     public static function effectiveUserPlan(User $user): string
     {
-        if (self::isTrialActive($user) && $user->plan === 'free') {
-            return 'premium';
-        }
-
-        return $user->plan;
+        return SubscriptionResolver::resolve($user);
     }
 
     public static function hasPremium(User $user): bool
