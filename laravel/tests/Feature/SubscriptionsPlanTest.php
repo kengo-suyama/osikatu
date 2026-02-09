@@ -65,5 +65,97 @@ class SubscriptionsPlanTest extends TestCase
             ->assertJsonPath('success.data.plan', 'plus')
             ->assertJsonPath('success.data.effectivePlan', 'plus');
     }
-}
 
+    public function test_trialing_subscription_me_plan_is_plus(): void
+    {
+        $deviceId = 'device-sub-plan-plus-trialing-001';
+        $user = User::factory()->create([
+            'plan' => 'free',
+        ]);
+
+        MeProfile::create([
+            'device_id' => $deviceId,
+            'nickname' => 'Me',
+            'initial' => 'M',
+            'user_id' => $user->id,
+        ]);
+
+        BillingSubscription::create([
+            'user_id' => $user->id,
+            'plan' => 'plus',
+            'status' => 'trialing',
+            'stripe_customer_id' => 'cus_test_002',
+            'stripe_subscription_id' => 'sub_test_002',
+            'current_period_end' => now()->addMonth(),
+            'cancel_at_period_end' => false,
+        ]);
+
+        $this->withHeaders(['X-Device-Id' => $deviceId])
+            ->getJson('/api/me')
+            ->assertStatus(200)
+            ->assertJsonPath('success.data.plan', 'plus')
+            ->assertJsonPath('success.data.effectivePlan', 'plus');
+    }
+
+    public function test_canceled_subscription_is_ignored_and_me_plan_falls_back(): void
+    {
+        $deviceId = 'device-sub-plan-plus-canceled-001';
+        $user = User::factory()->create([
+            'plan' => 'free',
+        ]);
+
+        MeProfile::create([
+            'device_id' => $deviceId,
+            'nickname' => 'Me',
+            'initial' => 'M',
+            'user_id' => $user->id,
+        ]);
+
+        BillingSubscription::create([
+            'user_id' => $user->id,
+            'plan' => 'plus',
+            'status' => 'canceled',
+            'stripe_customer_id' => 'cus_test_003',
+            'stripe_subscription_id' => 'sub_test_003',
+            'current_period_end' => now()->subDay(),
+            'cancel_at_period_end' => false,
+        ]);
+
+        $this->withHeaders(['X-Device-Id' => $deviceId])
+            ->getJson('/api/me')
+            ->assertStatus(200)
+            ->assertJsonPath('success.data.plan', 'free')
+            ->assertJsonPath('success.data.effectivePlan', 'free');
+    }
+
+    public function test_me_plan_endpoint_uses_effective_plan(): void
+    {
+        $deviceId = 'device-sub-plan-planendpoint-001';
+        $user = User::factory()->create([
+            'plan' => 'free',
+        ]);
+
+        MeProfile::create([
+            'device_id' => $deviceId,
+            'nickname' => 'Me',
+            'initial' => 'M',
+            'user_id' => $user->id,
+        ]);
+
+        BillingSubscription::create([
+            'user_id' => $user->id,
+            'plan' => 'plus',
+            'status' => 'active',
+            'stripe_customer_id' => 'cus_test_004',
+            'stripe_subscription_id' => 'sub_test_004',
+            'current_period_end' => now()->addMonth(),
+            'cancel_at_period_end' => false,
+        ]);
+
+        $this->withHeaders(['X-Device-Id' => $deviceId])
+            ->getJson('/api/me/plan')
+            ->assertStatus(200)
+            ->assertJsonPath('success.data.plan', 'plus')
+            ->assertJsonPath('success.data.effectivePlan', 'plus');
+    }
+}

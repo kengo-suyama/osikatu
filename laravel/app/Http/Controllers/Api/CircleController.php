@@ -69,7 +69,7 @@ class CircleController extends Controller
             return ApiResponse::error('USER_NOT_FOUND', 'User not found.', null, 404);
         }
 
-        if ($user->plan !== 'plus' && !PlanGate::isTrialActive($user)) {
+        if (!PlanGate::hasPlus($user) && !PlanGate::isTrialActive($user)) {
             return ApiResponse::error('PLAN_REQUIRED', 'Plus plan required to create circles.', [
                 'requiredPlan' => 'plus',
             ], 402);

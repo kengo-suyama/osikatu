@@ -84,9 +84,12 @@ class Entitlements
 
     public static function forApi(User $user): array
     {
+        $effective = self::effectivePlan($user);
         return [
-            'plan' => $user->plan ?? self::PLAN_FREE,
-            'effectivePlan' => self::effectivePlan($user),
+            // In API responses, `plan` should reflect the effective plan (Stripe subscription / trial aware)
+            // to avoid UI inconsistencies ("paid but still looks free").
+            'plan' => $effective,
+            'effectivePlan' => $effective,
             'planStatus' => $user->plan_status ?? 'active',
             'trialEndsAt' => $user->trial_ends_at?->toIso8601String(),
             'quotas' => self::quotas($user),

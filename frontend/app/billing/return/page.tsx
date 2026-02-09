@@ -9,6 +9,9 @@ import { meRepo } from "@/lib/repo/meRepo";
 
 type ViewState = "loading" | "success" | "notYet" | "invalid" | "redirecting";
 
+const SELF_HEAL_MESSAGE =
+  "反映に少し時間がかかっています。少し時間をおいて再読み込みしてください。";
+
 export default function BillingReturnPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -35,7 +38,7 @@ export default function BillingReturnPage() {
 
     setView("loading");
     meRepo
-      .getMe()
+      .refreshMe()
       .then((me) => {
         if (me && (me.plan === "plus" || me.effectivePlan === "plus")) {
           setView("success");
@@ -94,7 +97,7 @@ export default function BillingReturnPage() {
           <div className="space-y-2">
             <div className="text-sm font-semibold">反映に少し時間がかかっています</div>
             <div className="text-xs text-muted-foreground">
-              決済は完了している可能性があります。しばらくしてから再読み込みしてください。
+              決済は完了している可能性があります。{SELF_HEAL_MESSAGE}
             </div>
             <div className="flex flex-wrap gap-2 pt-1">
               <Button
@@ -103,7 +106,7 @@ export default function BillingReturnPage() {
                 onClick={() => {
                   setView("loading");
                   meRepo
-                    .getMe()
+                    .refreshMe()
                     .then((me) => {
                       if (me && (me.plan === "plus" || me.effectivePlan === "plus")) {
                         setView("success");

@@ -3,6 +3,7 @@ import { apiGet, apiSend } from "@/lib/repo/http";
 import { getDeviceId } from "@/lib/device";
 import { loadJson, saveJson } from "@/lib/storage";
 import type { MeDto, Plan, PlanStatusDto } from "@/lib/types";
+import { meRepo } from "@/lib/repo/meRepo";
 
 const ME_KEY = "osikatu:me";
 
@@ -45,7 +46,7 @@ export const billingRepo = {
       };
     }
 
-    return apiSend<PlanStatusDto>(
+    const res = await apiSend<PlanStatusDto>(
       "/api/me/plan",
       "PUT",
       { plan },
@@ -56,6 +57,9 @@ export const billingRepo = {
         },
       }
     );
+    // Best-effort: keep cached `osikatu:me` in sync after plan changes.
+    meRepo.getMe().catch(() => {});
+    return res;
   },
 
   async cancelPlan(): Promise<PlanStatusDto> {
@@ -69,9 +73,11 @@ export const billingRepo = {
       };
     }
 
-    return apiSend<PlanStatusDto>("/api/me/cancel", "POST", null, {
+    const res = await apiSend<PlanStatusDto>("/api/me/cancel", "POST", null, {
       headers: { "X-Device-Id": getDeviceId() },
     });
+    meRepo.getMe().catch(() => {});
+    return res;
   },
 
   async createCheckoutUrl(): Promise<string> {
