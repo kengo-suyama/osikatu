@@ -10,7 +10,8 @@ export type ThemeId =
   | "neon"
   | "royal"
   | "ocean"
-  | "berry";
+  | "berry"
+  | "mystic";
 
 export type ThemeDefinition = {
   id: ThemeId;
@@ -32,11 +33,12 @@ const PREMIUM_THEMES: ThemeDefinition[] = [
   { id: "royal", label: "クラシック" },
   { id: "ocean", label: "シティポップ" },
   { id: "berry", label: "ヒップホップ" },
+  { id: "mystic", label: "Mystic" },
 ];
 
 export const ALL_THEMES: ThemeDefinition[] = PREMIUM_THEMES;
 
-export const getThemeLimit = (plan: Plan): number => (plan === "free" ? 5 : 10);
+export const getThemeLimit = (plan: Plan): number => (plan === "free" ? 5 : 11);
 
 export const getVisibleThemes = (plan: Plan): ThemeDefinition[] => {
   if (plan === "free") return ALL_THEMES;
