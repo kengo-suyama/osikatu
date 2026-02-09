@@ -99,7 +99,7 @@ class CircleChatController extends Controller
         }
 
         $messages = $query
-            ->with(['senderMember.meProfile', 'media'])
+            ->with(['senderMember.meProfile', 'media', 'reactions'])
             ->orderByDesc('id')
             ->limit($limit)
             ->get()
@@ -231,7 +231,7 @@ class CircleChatController extends Controller
             ]);
         }
 
-        $message->load(['senderMember.meProfile', 'media']);
+        $message->load(['senderMember.meProfile', 'media', 'reactions']);
 
         Circle::query()
             ->where('id', $circle)

@@ -35,6 +35,7 @@ import type { CircleAnnouncementDto, CircleDto, MeDto, PostDto } from "@/lib/typ
 import { cn } from "@/lib/utils";
 import { ALL_THEMES } from "@/src/theme/themes";
 import { Nameplate } from "@/components/chat/Nameplate";
+import ReactionBar from "@/components/chat/ReactionBar";
 import type { TitleBadgeRarity } from "@/components/titles/TitleBadge";
 import { TitleEnterPop } from "@/components/chat/TitleEnterPop";
 import { oshiActionRepo } from "@/lib/repo/oshiActionRepo";
@@ -412,7 +413,7 @@ export default function CircleChatScreen({ circleId }: { circleId: number }) {
                 <div
                   key={message.id}
                   className={cn(
-                    "flex items-end gap-2",
+                    "group flex items-end gap-2",
                     isMine ? "justify-end" : "justify-start"
                   )}
                 >
@@ -467,6 +468,13 @@ export default function CircleChatScreen({ circleId }: { circleId: number }) {
                         message.body
                       )}
                     </div>
+                    {message.reactions ? (
+                      <ReactionBar
+                        messageId={message.id}
+                        counts={message.reactions.counts ?? {}}
+                        myReacted={message.reactions.myReacted ?? []}
+                      />
+                    ) : null}
                     <div className="text-[10px] text-muted-foreground">
                       {formatTime(message.createdAt)}
                     </div>

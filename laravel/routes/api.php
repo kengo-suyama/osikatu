@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\Api\BudgetController;
 use App\Http\Controllers\Api\CircleController;
+use App\Http\Controllers\Api\ChatReactionController;
 use App\Http\Controllers\Api\CircleChatController;
 use App\Http\Controllers\Api\CircleAnnouncementController;
 use App\Http\Controllers\Api\CircleJoinRequestController;
@@ -131,6 +132,8 @@ Route::get('/circles/{circle}/chat/messages', [CircleChatController::class, 'ind
 Route::post('/circles/{circle}/chat/messages', [CircleChatController::class, 'store']);
 Route::post('/circles/{circle}/chat/read', [CircleChatController::class, 'read']);
 Route::delete('/circles/{circle}/chat/messages/{message}', [CircleChatController::class, 'destroy']);
+Route::post('/chat/messages/{message}/reactions', [ChatReactionController::class, 'store']);
+Route::post('/chat/messages/{message}/reactions/remove', [ChatReactionController::class, 'destroy']);
 Route::get('/circles/{circle}/announcement', [CircleAnnouncementController::class, 'show']);
 Route::put('/circles/{circle}/announcement', [CircleAnnouncementController::class, 'update']);
 Route::delete('/circles/{circle}/announcement', [CircleAnnouncementController::class, 'destroy']);

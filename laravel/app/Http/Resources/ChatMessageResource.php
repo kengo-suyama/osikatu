@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Http\Resources;
 
+use App\Support\CurrentUser;
+use App\Support\MeProfileResolver;
 use Illuminate\Http\Resources\Json\JsonResource;
 
 class ChatMessageResource extends JsonResource
@@ -54,6 +56,48 @@ class ChatMessageResource extends JsonResource
             'pinDueAt' => null,
             'deletedAt' => null,
             'createdAt' => $this->created_at?->toIso8601String(),
+            'reactions' => $this->buildReactions(),
         ];
+    }
+
+    private function buildReactions(): array
+    {
+        $reactions = $this->whenLoaded('reactions', function () {
+            return $this->reactions;
+        });
+
+        if (!$reactions || $reactions instanceof \Illuminate\Database\Eloquent\MissingValue) {
+            return ['counts' => (object) [], 'myReacted' => []];
+        }
+
+        $userId = $this->resolveCurrentUserId();
+        $counts = [];
+        $myReacted = [];
+
+        foreach ($reactions as $reaction) {
+            $emoji = $reaction->emoji;
+            if (!isset($counts[$emoji])) {
+                $counts[$emoji] = 0;
+            }
+            $counts[$emoji]++;
+            if ($userId && $reaction->user_id === $userId) {
+                $myReacted[] = $emoji;
+            }
+        }
+
+        return [
+            'counts' => empty($counts) ? (object) [] : $counts,
+            'myReacted' => array_values(array_unique($myReacted)),
+        ];
+    }
+
+    private function resolveCurrentUserId(): ?int
+    {
+        $deviceId = request()->header('X-Device-Id');
+        if ($deviceId) {
+            $profile = MeProfileResolver::resolve($deviceId);
+            return $profile?->user_id;
+        }
+        return CurrentUser::id();
     }
 }

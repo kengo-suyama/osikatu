@@ -39,4 +39,9 @@ class ChatMessage extends Model
     {
         return $this->hasMany(ChatMessageMedia::class);
     }
+
+    public function reactions(): HasMany
+    {
+        return $this->hasMany(MessageReaction::class, 'message_id');
+    }
 }
