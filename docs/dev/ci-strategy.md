@@ -25,4 +25,12 @@ When ready, add:
 ## Chaos Mode
 
 Use `E2E_CHAOS=1` for extended timeouts and slowMo.
-See nightly chaos workflow for automated runs.
+
+| Setting | Normal | Chaos |
+|---------|--------|-------|
+| timeout | 90s | 180s |
+| actionTimeout | 10s | 30s |
+| slowMo | 0 | 200ms |
+
+Automated via `ci-nightly-chaos` workflow (03:00 JST / 18:00 UTC daily).
+Can also be triggered manually via workflow_dispatch.
