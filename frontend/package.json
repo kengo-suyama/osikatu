@@ -8,6 +8,7 @@
     "start": "next start",
     "lint": "next lint",
     "e2e": "playwright test",
+    "e2e:billing": "playwright test tests/e2e/billing-gates.spec.ts --reporter=line --workers=1",
     "e2e:debug": "playwright test --reporter=line --headed --workers=1 --timeout=60000",
     "e2e:ui": "playwright test --ui",
     "e2e:report": "playwright test --reporter=line",
