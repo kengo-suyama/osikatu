@@ -179,6 +179,22 @@ class NotificationController extends Controller
         return $user && PlanGate::hasPlus($user);
     }
 
+
+    public function unreadCount(Request $request)
+    {
+        $userId = $this->resolveUserId($request);
+        if (!$userId) {
+            return ApiResponse::error('UNAUTHORIZED', 'Unauthorized.', null, 401);
+        }
+
+        $count = Notification::query()
+            ->where('user_id', $userId)
+            ->whereNull('read_at')
+            ->count();
+
+        return ApiResponse::success(['unreadCount' => $count]);
+    }
+
     public function readAll(Request $request)
     {
         $userId = $this->resolveUserId($request);
