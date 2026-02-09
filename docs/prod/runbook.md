@@ -214,6 +214,60 @@ curl -f https://osikatu.com/ -o /dev/null -w '%{http_code}'
 # → 200
 ```
 
+## 4.1 Stripe 本番セットアップ（1枚）
+
+### 4.1.1 Product / Price 作成（Plus）
+
+- Stripe Dashboard → `Products` → `Add product`
+- Name: `Osikatu Plus`
+- Pricing: Recurring（月額）
+- Price ID を控える: `price_...`
+- `.env` に反映:
+  - `STRIPE_PRICE_PLUS=price_...`
+  - 反映後は `php artisan config:cache`
+
+### 4.1.2 Webhook endpoint 作成（必要イベント）
+
+- Stripe Dashboard → `Developers` → `Webhooks` → `Add endpoint`
+- Endpoint URL: `https://<domain>/api/billing/webhook`
+- Events（最低限）:
+  - `checkout.session.completed`
+  - `customer.subscription.created`
+  - `customer.subscription.updated`
+  - `customer.subscription.deleted`
+- Signing secret を控える: `whsec_...`
+- `.env` に反映:
+  - `STRIPE_WEBHOOK_SECRET=whsec_...`
+  - 反映後は `php artisan config:cache`
+
+### 4.1.3 Customer Portal 設定（運用に必要な操作のみ）
+
+- Stripe Dashboard → `Settings` → `Billing` → `Customer portal`
+- 許可する操作（例）:
+  - サブスクキャンセル（Cancel）
+  - 支払い方法更新（Update payment method）
+  - 請求履歴の表示（Invoices）
+- 戻りURL:
+  - `BILLING_PORTAL_RETURN_URL`（例: `https://<domain>/settings/billing`）
+
+### 4.1.4 テスト手順（本番前チェック）
+
+```bash
+# 1) readiness（env/queue/config cache を機械判定）
+curl -s https://<domain>/api/health/ready | jq .
+
+# 2) webhook 受信ログ（受信/検証/冪等/キュー）
+grep "billing_webhook_" /var/log/osikatu/*.log | tail -50
+
+# 3) job 側（遅延/完了/失敗）
+grep "billing_webhook_job_" /var/log/osikatu/*.log | tail -50
+
+# 4) サブスク同期（plan/status）
+grep "billing_subscription_synced" /var/log/osikatu/*.log | tail -50
+```
+
+> Webhook 障害時の復旧は `docs/prod/webhook-recovery.md` を参照。
+
 ## 5. ロールバック
 
 ### 5.1 コードレベル（git revert）
