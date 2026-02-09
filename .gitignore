@@ -36,3 +36,6 @@ tools/_phpserve.pid
 
 # Local investigation evidence (never commit)
 _evidence/
+
+# local agent workspace
+_agent/
