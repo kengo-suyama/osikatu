@@ -13,6 +13,13 @@ import { DEFAULT_ACCENT_COLOR } from "@/lib/color";
 import { cn } from "@/lib/utils";
 import type { Oshi, SummaryChip } from "@/lib/uiTypes";
 
+function bustCache(url: string | null): string | null {
+  if (!url) return null;
+  if (url.startsWith("data:") || url.startsWith("blob:")) return url;
+  const sep = url.includes("?") ? "&" : "?";
+  return `${url}${sep}v=${Date.now()}`;
+}
+
 export default function OshiAvatarCard({
   oshi,
   summary,
@@ -25,7 +32,7 @@ export default function OshiAvatarCard({
   onUpdated?: (oshi: Oshi) => void;
 }) {
   const [image, setImage] = useState<string | null>(
-    oshi.profile.image_base64 ?? oshi.profile.image_url ?? null
+    bustCache(oshi.profile.image_base64 ?? oshi.profile.image_url ?? null)
   );
   const [frameId, setFrameId] = useState<string>(
     oshi.profile.image_frame_id ?? "none"
@@ -34,7 +41,7 @@ export default function OshiAvatarCard({
   const chips = compact ? summary.slice(0, 2) : summary;
 
   useEffect(() => {
-    setImage(oshi.profile.image_base64 ?? oshi.profile.image_url ?? null);
+    setImage(bustCache(oshi.profile.image_base64 ?? oshi.profile.image_url ?? null));
     setFrameId(oshi.profile.image_frame_id ?? "none");
   }, [oshi]);
 
@@ -61,7 +68,7 @@ export default function OshiAvatarCard({
           ) : (
             <div className="flex h-full w-full flex-col items-center justify-center gap-3 bg-gradient-to-br from-rose-200 via-white to-amber-100 text-rose-500" data-testid="home-hero-empty">
               <ImageIcon className="h-10 w-10" />
-              <OshiImageUpload oshiId={oshi.id} label="＋ 画像を追加" onChange={setImage} />
+              <OshiImageUpload oshiId={oshi.id} label="＋ 画像を追加" onChange={(v) => setImage(bustCache(v))} />
             </div>
           )}
         <div className="absolute right-3 top-3 z-10 flex gap-2" data-testid="home-hero-edit">
