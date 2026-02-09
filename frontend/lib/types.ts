@@ -296,6 +296,7 @@ export type PostAuthorDto = {
   id: number;
   name: string;
   avatarUrl?: string | null;
+  currentTitleId?: string | null;
 };
 
 export type PostMediaDto = {

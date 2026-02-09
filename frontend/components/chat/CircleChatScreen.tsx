@@ -35,7 +35,7 @@ import type { CircleAnnouncementDto, CircleDto, MeDto, PostDto } from "@/lib/typ
 import { cn } from "@/lib/utils";
 import { ALL_THEMES } from "@/src/theme/themes";
 import { Nameplate } from "@/components/chat/Nameplate";
-import type { TitleBadgeRarity } from "@/components/titles/TitleBadge";
+import { TitleBadge, type TitleBadgeRarity } from "@/components/titles/TitleBadge";
 import { TitleEnterPop } from "@/components/chat/TitleEnterPop";
 import { oshiActionRepo } from "@/lib/repo/oshiActionRepo";
 import { TITLES_JA_1000_UNIVERSAL } from "@/lib/titles/titles_ja_1000_universal";
@@ -427,11 +427,24 @@ export default function CircleChatScreen({ circleId }: { circleId: number }) {
                   )}
                   <div className={cn("max-w-[75%] space-y-1", isMine && "text-right")}>
                     {!isSameAuthor ? (
-                      <div className={cn(isMine ? "flex justify-end" : "flex justify-start")}>
+                      <div
+                        className={cn(
+                          "flex items-center gap-1.5",
+                          isMine ? "justify-end" : "justify-start"
+                        )}
+                        data-testid="chat-message-sender"
+                      >
                         <Nameplate
                           name={author?.name ?? "?"}
                           rarity={rarityFromAuthorId(author?.id ?? 0)}
                         />
+                        {author?.currentTitleId ? (
+                          <TitleBadge
+                            title={author.currentTitleId}
+                            rarity={rarityFromAuthorId(author.id ?? 0)}
+                            className="scale-90"
+                          />
+                        ) : null}
                       </div>
                     ) : null}
                     <div

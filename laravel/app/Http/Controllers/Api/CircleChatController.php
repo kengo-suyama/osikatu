@@ -43,7 +43,7 @@ class CircleChatController extends Controller
             $legacy = Post::query()
                 ->where('circle_id', $circle)
                 ->where('post_type', 'chat')
-                ->with(['authorMember.meProfile', 'media'])
+                ->with(['authorMember.meProfile.user', 'media'])
                 ->orderBy('id')
                 ->limit($limit)
                 ->get();
@@ -51,9 +51,11 @@ class CircleChatController extends Controller
             $legacyItems = $legacy->map(function (Post $post): array {
                 $authorMember = $post->authorMember ?? null;
                 $profile = $authorMember?->meProfile ?? null;
+                $authorUser = $profile?->user ?? null;
                 $authorId = $authorMember?->id ?? $post->user_id ?? null;
                 $authorName = $profile?->nickname ?? $post->user?->name ?? 'Member';
                 $avatarUrl = $profile?->avatar_url ?? null;
+                $currentTitleId = $authorUser?->current_title_id ?? null;
                 $media = $post->media ?? collect();
                 $imageUrl = $media->first()?->url ?? null;
 
@@ -65,11 +67,13 @@ class CircleChatController extends Controller
                         'id' => $authorId,
                         'name' => $authorName,
                         'avatarUrl' => $avatarUrl,
+                        'currentTitleId' => $currentTitleId,
                     ],
                     'author' => [
                         'id' => $authorId,
                         'name' => $authorName,
                         'avatarUrl' => $avatarUrl,
+                        'currentTitleId' => $currentTitleId,
                     ],
                     'postType' => 'chat',
                     'body' => $post->body ?? '',
@@ -99,7 +103,7 @@ class CircleChatController extends Controller
         }
 
         $messages = $query
-            ->with(['senderMember.meProfile', 'media'])
+            ->with(['senderMember.meProfile.user', 'media'])
             ->orderByDesc('id')
             ->limit($limit)
             ->get()
@@ -231,7 +235,7 @@ class CircleChatController extends Controller
             ]);
         }
 
-        $message->load(['senderMember.meProfile', 'media']);
+        $message->load(['senderMember.meProfile.user', 'media']);
 
         Circle::query()
             ->where('id', $circle)
