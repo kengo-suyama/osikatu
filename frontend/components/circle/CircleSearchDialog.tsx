@@ -149,12 +149,22 @@ export default function CircleSearchDialog({
                   size="sm"
                   onClick={() => {
                     handleClose(false);
-                    eventsRepo.track(ANALYTICS_EVENTS.CIRCLE_CREATE_OPEN, pathname);
-                    onRequestCreate();
+                    if (me?.plan === "plus" || isTrialActive) {
+                      eventsRepo.track(ANALYTICS_EVENTS.CIRCLE_CREATE_OPEN, pathname);
+                      onRequestCreate();
+                      return;
+                    }
+                    router.push("/pricing");
+                    eventsRepo.track(ANALYTICS_EVENTS.PLAN_UPGRADE_OPEN, pathname);
                   }}
                 >
-                  作成へ
+                  {me?.plan === "plus" || isTrialActive ? "作成へ" : "Upgrade"}
                 </Button>
+                {me?.plan === "plus" || isTrialActive ? null : (
+                  <div className="mt-1 text-[11px] text-muted-foreground">
+                    サークル作成は Plus 機能です。
+                  </div>
+                )}
               </Card>
               <Card className="rounded-xl border p-3">
                 <div className="text-sm font-medium">👤 個人で推し活を続ける</div>
