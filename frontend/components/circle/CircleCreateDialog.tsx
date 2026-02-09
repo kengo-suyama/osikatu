@@ -21,6 +21,7 @@ import { circleRepo } from "@/lib/repo/circleRepo";
 import { eventsRepo } from "@/lib/repo/eventsRepo";
 import type { CircleDto } from "@/lib/types";
 import { cn } from "@/lib/utils";
+import { PlanGateErrorBanner } from "@/components/PlanGateErrorBanner";
 
 type CircleCreateDialogProps = {
   open: boolean;
@@ -113,6 +114,13 @@ export default function CircleCreateDialog({
             推しタグと公開設定は後から変更できます。
           </DialogDescription>
         </DialogHeader>
+
+        {!canCreate && (
+          <PlanGateErrorBanner
+            message="サークル作成にはPlusプランが必要です"
+            kind="upgrade"
+          />
+        )}
 
         <div className="space-y-4">
           <div className="space-y-2">
