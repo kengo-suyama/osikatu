@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 import { ImageIcon } from "lucide-react";
 
 import { Card } from "@/components/ui/card";
+import FrameRenderer from "@/components/media/FrameRenderer";
 import OshiImageEditorDialog from "@/components/oshi/OshiImageEditorDialog";
 import OshiImageUpload from "@/components/oshi/OshiImageUpload";
 import TodaySummary from "@/components/widgets/TodaySummary";
@@ -46,12 +47,14 @@ export default function OshiAvatarCard({
         "space-y-3 rounded-2xl border shadow-sm",
         compact ? "p-3" : "p-4"
       )}
+      data-testid="home-hero"
     >
-      <div
-        className="media-frame relative aspect-[16/9] rounded-xl border bg-muted/40"
-        data-frame={frameId}
+      <FrameRenderer
+        frameId={frameId}
+        className="aspect-[16/9]"
+        contentClassName="overflow-hidden rounded-xl"
+        testId="home-hero-frame"
       >
-        <div className="media-frame__content h-full w-full overflow-hidden rounded-xl">
           {image ? (
             // eslint-disable-next-line @next/next/no-img-element
             <img src={image} alt={`${oshi.name}の画像`} className="h-full w-full object-cover" />
@@ -61,7 +64,6 @@ export default function OshiAvatarCard({
               <OshiImageUpload oshiId={oshi.id} label="＋ 画像を追加" onChange={setImage} />
             </div>
           )}
-        </div>
         <div className="absolute right-3 top-3 z-10 flex gap-2">
           <OshiImageUpload
             oshiId={oshi.id}
@@ -89,7 +91,7 @@ export default function OshiAvatarCard({
             {badgeText}
           </span>
         </div>
-      </div>
+      </FrameRenderer>
       <TodaySummary items={chips} />
     </Card>
   );
