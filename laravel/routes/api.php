@@ -86,6 +86,7 @@ Route::delete('/me/goods/{good}', [GoodController::class, 'destroy']);
 Route::get('/me/budget', [BudgetController::class, 'show']);
 Route::get('/me/points', [MePointsController::class, 'show']);
 Route::post('/me/points/earn', [MePointsEarnController::class, 'earn']);
+Route::get('/me/points/history', [MePointsController::class, 'history']);
 Route::post('/me/gacha/pull', [MeGachaController::class, 'pull']);
 Route::get('/me/inventory', [MeInventoryController::class, 'index']);
 Route::post('/me/inventory/apply', [MeInventoryController::class, 'apply']);

@@ -59,5 +59,51 @@ class MePointsController extends Controller
             ])->all(),
         ]);
     }
+
+    public function history(Request $request)
+    {
+        $deviceId = (string) $request->header('X-Device-Id', '');
+        $deviceId = trim($deviceId);
+        if ($deviceId === '') {
+            return ApiResponse::error('UNAUTHORIZED', 'Unauthorized.', null, 401);
+        }
+
+        $profile = MeProfileResolver::resolve($deviceId);
+        $userId = $profile?->user_id;
+        if (!$userId) {
+            return ApiResponse::error('UNAUTHORIZED', 'Unauthorized.', null, 401);
+        }
+
+        $perPage = min((int) ($request->query('per_page', '20')), 100);
+
+        $balance = (int) PointsTransaction::query()
+            ->where('user_id', $userId)
+            ->whereNull('circle_id')
+            ->sum('delta');
+
+        $paginator = PointsTransaction::query()
+            ->where('user_id', $userId)
+            ->whereNull('circle_id')
+            ->orderByDesc('created_at')
+            ->orderByDesc('id')
+            ->paginate($perPage);
+
+        $items = $paginator->map(fn (PointsTransaction $tx) => [
+            'id' => $tx->id,
+            'circleId' => $tx->circle_id,
+            'delta' => (int) $tx->delta,
+            'reason' => $tx->reason,
+            'sourceMeta' => $tx->source_meta,
+            'requestId' => $tx->request_id,
+            'createdAt' => $tx->created_at?->toIso8601String(),
+        ])->values();
+
+        return ApiResponse::success([
+            'balance' => $balance,
+            'items' => $items,
+            'nextCursor' => $paginator->hasMorePages() ? (string) ($paginator->currentPage() + 1) : null,
+            'total' => $paginator->total(),
+        ]);
+    }
 }
 
