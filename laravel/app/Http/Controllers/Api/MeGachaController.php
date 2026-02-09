@@ -6,6 +6,7 @@ namespace App\Http\Controllers\Api;
 
 use App\Exceptions\InsufficientPointsException;
 use App\Http\Controllers\Controller;
+use App\Models\GachaLog;
 use App\Models\PointsTransaction;
 use App\Models\User;
 use App\Models\UserUnlock;
@@ -87,6 +88,15 @@ class MeGachaController extends Controller
                     ]
                 );
 
+                GachaLog::create([
+                    'user_id' => $user->id,
+                    'item_type' => $prize['itemType'],
+                    'item_key' => $prize['itemKey'],
+                    'rarity' => $prize['rarity'],
+                    'is_new' => $unlock->wasRecentlyCreated,
+                    'points_cost' => $cost,
+                ]);
+
                 return [
                     'cost' => $cost,
                     'balance' => $balance - $cost,
@@ -123,5 +133,45 @@ class MeGachaController extends Controller
                 'balance' => $e->balance,
             ], 409);
         }
+    }
+
+    public function history(Request $request)
+    {
+        $deviceId = (string) $request->header('X-Device-Id', '');
+        $deviceId = trim($deviceId);
+        if ($deviceId === '') {
+            return ApiResponse::error('UNAUTHORIZED', 'Unauthorized.', null, 401);
+        }
+
+        $profile = MeProfileResolver::resolve($deviceId);
+        $userId = $profile?->user_id;
+        if (!$userId) {
+            return ApiResponse::error('UNAUTHORIZED', 'Unauthorized.', null, 401);
+        }
+
+        $perPage = min((int) ($request->query('per_page', '20')), 100);
+
+        $logs = GachaLog::query()
+            ->where('user_id', $userId)
+            ->orderByDesc('created_at')
+            ->paginate($perPage);
+
+        $items = $logs->map(function (GachaLog $log) {
+            return [
+                'id' => $log->id,
+                'itemType' => $log->item_type,
+                'itemKey' => $log->item_key,
+                'rarity' => $log->rarity,
+                'isNew' => (bool) $log->is_new,
+                'pointsCost' => $log->points_cost,
+                'createdAt' => $log->created_at?->toIso8601String(),
+            ];
+        })->values();
+
+        return ApiResponse::success([
+            'items' => $items,
+            'nextCursor' => $logs->hasMorePages() ? (string) ($logs->currentPage() + 1) : null,
+            'total' => $logs->total(),
+        ]);
     }
 }
