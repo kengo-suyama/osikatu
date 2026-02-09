@@ -10,6 +10,7 @@ import { ANALYTICS_EVENTS, type AnalyticsEventName } from "@/lib/events";
 import { circleRepo } from "@/lib/repo/circleRepo";
 import { eventsRepo } from "@/lib/repo/eventsRepo";
 import { inviteRepo } from "@/lib/repo/inviteRepo";
+import { pointsRepo } from "@/lib/repo/pointsRepo";
 import type { CircleDto, InviteDto } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
@@ -154,6 +155,10 @@ export default function CircleShareCard({ circleId }: CircleShareCardProps) {
     setTimeout(() => setCopyState(null), 1500);
     if (ok && eventName) {
       eventsRepo.track(eventName, pathname, circleId);
+    }
+    if (ok && key !== "code") {
+      // SNS定型文コピーの最小報酬 (rate-limited server-side).
+      void pointsRepo.earn("share_copy");
     }
     return ok;
   };
