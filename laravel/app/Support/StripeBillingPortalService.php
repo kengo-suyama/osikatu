@@ -11,7 +11,10 @@ class StripeBillingPortalService implements BillingPortalService
     public function createPortalUrl(string $stripeCustomerId): string
     {
         $secret = (string) config('billing.stripe_secret_key', '');
-        $returnUrl = (string) config('billing.portal_return_url', '');
+        $rawReturnUrl = (string) config('billing.portal_return_url', '');
+
+        $baseUrl = (string) config('billing.public_url', config('app.url', ''));
+        $returnUrl = $this->resolveUrl($baseUrl, $rawReturnUrl);
 
         if ($secret === '' || $returnUrl === '') {
             throw new \RuntimeException('Billing config is not set.');
@@ -30,5 +33,24 @@ class StripeBillingPortalService implements BillingPortalService
 
         return $url;
     }
-}
 
+    private function resolveUrl(string $baseUrl, string $value): string
+    {
+        $v = trim($value);
+        if ($v === '') {
+            return '';
+        }
+        if (preg_match('/^https?:\\/\\//i', $v) === 1) {
+            return $v;
+        }
+        $base = trim($baseUrl);
+        if ($base === '') {
+            return $v;
+        }
+
+        if (str_starts_with($v, '/')) {
+            return rtrim($base, '/') . $v;
+        }
+        return rtrim($base, '/') . '/' . ltrim($v, '/');
+    }
+}
