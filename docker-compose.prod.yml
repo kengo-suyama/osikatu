@@ -53,5 +53,38 @@ services:
       - api
     restart: unless-stopped
 
+  # Development/testing only — enable with: docker compose --profile with-db up
+  db:
+    image: mysql:8.0
+    profiles: ["with-db"]
+    environment:
+      MYSQL_ROOT_PASSWORD: root
+      MYSQL_DATABASE: osikatu
+      MYSQL_USER: osikatu_app
+      MYSQL_PASSWORD: osikatu_pass
+    ports:
+      - "${DB_PORT:-3306}:3306"
+    volumes:
+      - db-data:/var/lib/mysql
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    profiles: ["with-db"]
+    ports:
+      - "${REDIS_PORT:-6379}:6379"
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 3
+
 volumes:
   laravel-storage:
+  db-data:
