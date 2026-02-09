@@ -122,6 +122,42 @@ stdout_logfile=/var/log/osikatu/worker.log
 stopwaitsecs=3600
 ```
 
+#### 3.3.1 起動/状態確認/ログ確認（supervisor）
+
+```bash
+# 設定反映
+supervisorctl reread
+supervisorctl update
+
+# 状態確認
+supervisorctl status osikatu-worker:*
+
+# 再起動（コード更新後は queue:restart も実行する）
+supervisorctl restart osikatu-worker:*
+
+# ログ確認
+tail -n 200 -f /var/log/osikatu/worker.log
+```
+
+#### 3.3.2 Worker が止まった時の復旧チェックリスト
+
+```bash
+# 1) queue の設定確認（sync になっていないか / redis 接続など）
+php /srv/osikatu/laravel/artisan tinker --execute="echo config('queue.default');"
+
+# 2) 失敗ジョブ確認/再実行
+php /srv/osikatu/laravel/artisan queue:failed
+php /srv/osikatu/laravel/artisan queue:retry all
+
+# 3) 新コード反映（worker が古いコードを保持しているケース）
+php /srv/osikatu/laravel/artisan queue:restart
+
+# 4) supervisor 側の再起動
+supervisorctl restart osikatu-worker:*
+```
+
+> `.env` を変更した場合、`php artisan config:cache` を実行しないと反映されません（本番は config cache 前提）。
+
 ## 3.4 Queue Worker（Docker compose）
 
 ```bash
