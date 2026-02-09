@@ -13,6 +13,7 @@ import {
 } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
 import { SealOfuda, type SealPhase } from "@/components/gacha/SealOfuda";
+import { playGachaBell, playGachaPaperRip } from "@/lib/gachaSfx";
 
 type SealRevealModalProps = {
   open: boolean;
@@ -103,7 +104,10 @@ export function SealRevealModal({
                   onOpenChange(false);
                   return;
                 }
-                setPhase((p) => nextPhase(p));
+                const next = nextPhase(phase);
+                if (next === "crack") playGachaBell();
+                if (next === "burst") playGachaPaperRip();
+                setPhase(next);
               }}
               data-testid={ui.primary.testid}
             >
@@ -115,4 +119,3 @@ export function SealRevealModal({
     </Dialog>
   );
 }
-

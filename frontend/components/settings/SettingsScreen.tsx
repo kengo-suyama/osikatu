@@ -28,6 +28,7 @@ import { loadString, saveString } from "@/lib/storage";
 import type { MeDto } from "@/lib/types";
 import type { Oshi } from "@/lib/uiTypes";
 import { cn } from "@/lib/utils";
+import { getGachaSfxEnabled, setGachaSfxEnabled } from "@/lib/gachaSfx";
 import {
   getVisibleThemes,
   isThemeLocked,
@@ -47,8 +48,11 @@ export default function SettingsScreen() {
   const [me, setMe] = useState<MeDto | null>(null);
   const [themeId, setThemeId] = useState<ThemeId>(() => getStoredThemeId());
   const [themeLimitOpen, setThemeLimitOpen] = useState(false);
+  const [gachaSfxEnabled, setGachaSfxEnabledState] = useState(true);
+  const [hydrated, setHydrated] = useState(false);
 
   useEffect(() => {
+    setHydrated(true);
     const load = async () => {
       try {
         const list = await oshiRepo.getOshis();
@@ -80,6 +84,8 @@ export default function SettingsScreen() {
 
     const storedCompact = loadString(COMPACT_KEY);
     if (storedCompact) setCompactHome(storedCompact === "true");
+
+    setGachaSfxEnabledState(getGachaSfxEnabled());
 
     const handleOshiChange = async (event: Event) => {
       const next = (event as CustomEvent<string>).detail;
@@ -197,8 +203,14 @@ export default function SettingsScreen() {
     void meRepo.updateUiSettings({ themeId: next });
   };
 
+  const handleGachaSfxChange = (checked: boolean) => {
+    setGachaSfxEnabledState(checked);
+    setGachaSfxEnabled(checked);
+  };
+
   return (
-    <div className="space-y-4">
+    <div className="space-y-4" data-testid="settings-page">
+      {hydrated ? <span data-testid="settings-hydrated" /> : null}
       {me ? <PlanStatusCard me={me} /> : null}
 
       <Card className="rounded-2xl border p-4 shadow-sm">
@@ -258,6 +270,27 @@ export default function SettingsScreen() {
       </Card>
 
       <CelebrationSettingsCard />
+
+      <Card className="rounded-2xl border p-4 shadow-sm">
+        <CardHeader className="p-0 pb-3">
+          <CardTitle className="text-sm font-semibold text-muted-foreground">
+            ガチャSE
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="flex items-center justify-between p-0">
+          <div>
+            <div className="text-sm font-medium">鈴 / 紙破れの効果音</div>
+            <div className="text-xs text-muted-foreground" data-testid="gacha-sfx-state">
+              {gachaSfxEnabled ? "ON" : "OFF"}
+            </div>
+          </div>
+          <Switch
+            data-testid="settings-gacha-sfx"
+            checked={gachaSfxEnabled}
+            onCheckedChange={handleGachaSfxChange}
+          />
+        </CardContent>
+      </Card>
 
       <Card className="rounded-2xl border p-4 shadow-sm">
         <CardHeader className="p-0 pb-3">
