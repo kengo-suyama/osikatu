@@ -129,6 +129,11 @@ stopwaitsecs=3600
 # Endpoint added in PR 02
 curl -f https://osikatu.com/api/healthz
 
+# Production readiness check
+curl -f https://osikatu.com/api/health/ready
+# ok=true → all required env/config present
+# ok=false → errors[] lists missing requirements
+
 # 期待レスポンス:
 # { "success": { "data": { "status": "ok", "db_ok": true, "time": "...", "app_version": "..." } } }
 ```
