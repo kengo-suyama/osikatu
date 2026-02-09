@@ -97,7 +97,9 @@ export default function CircleAlbumScreen({ circleId }: { circleId: number }) {
         <video
           src={current.url}
           controls
+          playsInline
           className="max-h-[60vh] w-full rounded-xl"
+          data-testid="album-viewer-video"
         />
       );
     }
@@ -171,7 +173,10 @@ export default function CircleAlbumScreen({ circleId }: { circleId: number }) {
               data-testid="album-item"
             >
               {item.type === "video" ? (
-                <video src={item.url} className="h-24 w-full object-cover" muted />
+                <div className="relative">
+                  <video src={item.url} className="h-24 w-full object-cover" muted playsInline />
+                  <span className="absolute inset-0 flex items-center justify-center bg-black/20" data-testid="album-video-overlay"><span className="rounded-full bg-black/60 px-2 py-1 text-xs text-white">▶</span></span>
+                </div>
               ) : (
                 // eslint-disable-next-line @next/next/no-img-element
                 <img src={item.url} alt="album" className="h-24 w-full object-cover" />

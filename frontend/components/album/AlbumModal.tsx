@@ -424,11 +424,15 @@ export default function AlbumModal({
                     )}
                   >
                     {item.type === "video" ? (
-                      <video
-                        src={item.url}
-                        className="h-16 w-full object-cover"
-                        muted
-                      />
+                      <div className="relative">
+                        <video
+                          src={item.url}
+                          className="h-16 w-full object-cover"
+                          muted
+                          playsInline
+                        />
+                        <span className="absolute inset-0 flex items-center justify-center bg-black/20" data-testid="album-video-overlay"><span className="rounded-full bg-black/60 px-2 py-1 text-xs text-white">▶</span></span>
+                      </div>
                     ) : (
                       // eslint-disable-next-line @next/next/no-img-element
                       <img
@@ -438,7 +442,7 @@ export default function AlbumModal({
                       />
                     )}
                     <span
-                      className="absolute right-1 top-1 rounded-full bg-black/60 px-1.5 py-0.5 text-[9px] text-white"
+                      className="absolute right-1 top-1 z-10 rounded-full bg-black/60 px-1.5 py-0.5 text-[9px] text-white"
                       onClick={(event) => {
                         event.stopPropagation();
                         removeMedia(item.id);
@@ -685,12 +689,15 @@ export default function AlbumModal({
                         {entry.media.slice(0, 6).map((item) => (
                           <div key={item.id} className="overflow-hidden rounded-lg border">
                             {item.type === "video" ? (
-                              <video
-                                src={item.url}
-                                className="h-16 w-full object-cover"
-                                muted
-                                playsInline
-                              />
+                              <div className="relative">
+                                <video
+                                  src={item.url}
+                                  className="h-16 w-full object-cover"
+                                  muted
+                                  playsInline
+                                />
+                                <span className="absolute inset-0 flex items-center justify-center bg-black/20" data-testid="album-video-overlay"><span className="rounded-full bg-black/60 px-2 py-1 text-xs text-white">▶</span></span>
+                              </div>
                             ) : (
                               // eslint-disable-next-line @next/next/no-img-element
                               <img
