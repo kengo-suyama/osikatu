@@ -273,6 +273,33 @@
   --buttonStyle: 0 8px 20px rgba(120, 20, 60, 0.3), var(--accentGlow);
 }
 
+[data-theme="mystic"] {
+  --background: 270 15% 8%;
+  --foreground: 40 60% 90%;
+  --card: 270 20% 12%;
+  --card-foreground: 40 60% 90%;
+  --popover: 270 20% 12%;
+  --popover-foreground: 40 60% 90%;
+  --primary: 40 85% 55%;
+  --primary-foreground: 270 15% 8%;
+  --secondary: 270 20% 18%;
+  --secondary-foreground: 40 60% 85%;
+  --muted: 270 15% 18%;
+  --muted-foreground: 270 10% 55%;
+  --accent: 280 65% 60%;
+  --accent-foreground: 0 0% 100%;
+  --destructive: 0 84% 60%;
+  --destructive-foreground: 0 0% 100%;
+  --border: 270 15% 20%;
+  --input: 270 15% 20%;
+  --ring: 40 85% 55%;
+  --radius: 12px;
+  --shadow: 0 10px 24px rgba(40, 20, 80, 0.45);
+  --fontWeight: 600;
+  --accentGlow: 0 0 18px rgba(200, 160, 40, 0.35);
+  --buttonStyle: 0 6px 18px rgba(40, 20, 80, 0.4), var(--accentGlow);
+}
+
 * {
   @apply border-border;
 }
