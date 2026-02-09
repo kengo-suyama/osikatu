@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace App\Http\Resources;
 
 use Illuminate\Http\Resources\Json\JsonResource;
-use Illuminate\Support\Facades\Storage;
 
 class OshiResource extends JsonResource
 {
@@ -29,7 +28,8 @@ class OshiResource extends JsonResource
         if (str_starts_with($path, 'http://') || str_starts_with($path, 'https://')) {
             return $path;
         }
-        return Storage::disk('public')->url($path);
+        // Return relative URL so the frontend can proxy `/storage/*` via Next rewrites
+        return '/storage/' . ltrim($path, '/');
     }
 
     public function toArray($request): array

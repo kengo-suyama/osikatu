@@ -5,10 +5,19 @@ declare(strict_types=1);
 namespace App\Http\Resources;
 
 use Illuminate\Http\Resources\Json\JsonResource;
-use Illuminate\Support\Facades\Storage;
 
 class CircleResource extends JsonResource
 {
+    private function resolvePublicUrl(?string $path): ?string
+    {
+        if (!$path) {
+            return null;
+        }
+        if (str_starts_with($path, 'http://') || str_starts_with($path, 'https://')) {
+            return $path;
+        }
+        return '/storage/' . ltrim($path, '/');
+    }
 
     public function toArray($request): array
     {
@@ -22,7 +31,7 @@ class CircleResource extends JsonResource
             'isPublic' => (bool) $this->is_public,
             'joinPolicy' => $this->join_policy ?? 'request',
             'approvalRequired' => ($this->join_policy ?? 'request') !== 'instant',
-            'iconUrl' => $this->icon_path ? Storage::disk('public')->url($this->icon_path) : null,
+            'iconUrl' => $this->resolvePublicUrl($this->icon_path ?? null),
             'maxMembers' => $this->max_members ?? 30,
             'memberCount' => $this->members_count ?? null,
             'planRequired' => $this->plan_required ?? 'free',

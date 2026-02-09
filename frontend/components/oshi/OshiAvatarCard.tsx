@@ -74,6 +74,7 @@ export default function OshiAvatarCard({
             <OshiImageEditorDialog
               oshiId={oshi.id}
               currentFrameId={frameId}
+              imageUrl={image}
               onFrameSaved={(nextFrameId, updated) => {
                 setFrameId(nextFrameId);
                 if (updated) {

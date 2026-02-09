@@ -110,7 +110,7 @@ class MeHomeMediaController extends Controller
             $extension = $file->getClientOriginalExtension() ?: 'mp4';
             $filename = Str::uuid()->toString() . '.' . $extension;
             $path = $file->storeAs($directory, $filename, 'public');
-            $url = Storage::disk('public')->url($path);
+            $url = '/storage/' . ltrim($path, '/');
 
             return [
                 'type' => 'video',
@@ -141,7 +141,7 @@ class MeHomeMediaController extends Controller
     {
         return [
             'type' => $item->type,
-            'url' => Storage::disk('public')->url($item->path),
+            'url' => '/storage/' . ltrim($item->path, '/'),
             'mime' => $item->mime,
             'sizeBytes' => $item->size_bytes,
             'width' => $item->width,
@@ -150,4 +150,3 @@ class MeHomeMediaController extends Controller
         ];
     }
 }
-

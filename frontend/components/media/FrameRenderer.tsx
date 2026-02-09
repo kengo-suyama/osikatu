@@ -28,7 +28,7 @@ export default function FrameRenderer({
   return (
     <div
       className={cn(
-        "media-frame relative overflow-hidden rounded-xl border bg-muted/40",
+        "media-frame relative rounded-xl",
         className
       )}
       data-frame={resolved}

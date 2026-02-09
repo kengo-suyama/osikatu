@@ -5,10 +5,20 @@ declare(strict_types=1);
 namespace App\Http\Resources;
 
 use Illuminate\Http\Resources\Json\JsonResource;
-use Illuminate\Support\Facades\Storage;
 
 class DiaryResource extends JsonResource
 {
+    private function resolvePublicUrl(?string $path): ?string
+    {
+        if (!$path) {
+            return null;
+        }
+        if (str_starts_with($path, 'http://') || str_starts_with($path, 'https://')) {
+            return $path;
+        }
+        return '/storage/' . ltrim($path, '/');
+    }
+
     public function toArray($request): array
     {
         return [
@@ -24,7 +34,7 @@ class DiaryResource extends JsonResource
                 return $this->attachments->map(function ($attachment) {
                     return [
                         'id' => $attachment->id,
-                        'url' => Storage::disk('public')->url($attachment->file_path),
+                        'url' => $this->resolvePublicUrl($attachment->file_path ?? null),
                         'fileType' => $attachment->file_type,
                     ];
                 })->values();

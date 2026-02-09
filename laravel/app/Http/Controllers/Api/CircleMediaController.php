@@ -201,7 +201,7 @@ class CircleMediaController extends Controller
             $extension = $file->getClientOriginalExtension() ?: 'mp4';
             $filename = Str::uuid()->toString() . '.' . $extension;
             $path = $file->storeAs($directory, $filename, 'public');
-            $url = Storage::disk('public')->url($path);
+            $url = '/storage/' . ltrim($path, '/');
 
             return [
                 'type' => 'video',
