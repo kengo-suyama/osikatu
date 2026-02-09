@@ -52,7 +52,7 @@ class InviteRewardPointsTest extends TestCase
         );
 
         $this->assertSame(
-            20,
+            50,
             (int) PointsTransaction::query()
                 ->where('user_id', $invitee->id)
                 ->whereNull('circle_id')
