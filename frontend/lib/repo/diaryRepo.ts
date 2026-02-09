@@ -7,6 +7,8 @@ export interface DiaryFilters {
   q?: string;
   tag?: string;
   hasPhoto?: boolean;
+  from?: string;
+  to?: string;
 }
 
 export async function listDiaries(filters?: DiaryFilters): Promise<DiaryDto[]> {
@@ -18,6 +20,8 @@ export async function listDiaries(filters?: DiaryFilters): Promise<DiaryDto[]> {
   if (filters?.q) params.set("q", filters.q);
   if (filters?.tag) params.set("tag", filters.tag);
   if (filters?.hasPhoto === true) params.set("hasPhoto", "1");
+  if (filters?.from) params.set("from", filters.from);
+  if (filters?.to) params.set("to", filters.to);
   const qs = params.toString();
   const path = `/api/me/diaries${qs ? `?${qs}` : ""}`;
 

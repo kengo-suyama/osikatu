@@ -63,6 +63,16 @@ class DiaryController extends Controller
             });
         }
 
+        $from = $request->query('from');
+        if (!empty($from)) {
+            $query->where('diary_date', '>=', $from);
+        }
+
+        $to = $request->query('to');
+        if (!empty($to)) {
+            $query->where('diary_date', '<=', $to);
+        }
+
         $diaries = $query->orderByDesc('diary_date')->get();
 
         return ApiResponse::success(DiaryResource::collection($diaries));
