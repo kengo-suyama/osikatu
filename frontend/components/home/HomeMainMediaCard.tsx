@@ -15,6 +15,7 @@ import {
   ToastViewport,
 } from "@/components/ui/toast";
 import { homeMediaRepo } from "@/lib/repo/homeMediaRepo";
+import { ApiRequestError } from "@/lib/repo/http";
 import type { HomeMediaItemDto } from "@/lib/types";
 
 export default function HomeMainMediaCard({ frameId }: { frameId?: string | null }) {
@@ -25,11 +26,23 @@ export default function HomeMainMediaCard({ frameId }: { frameId?: string | null
   const [toastOpen, setToastOpen] = useState(false);
   const [toastTitle, setToastTitle] = useState("");
   const [toastDescription, setToastDescription] = useState("");
+  const [toastKind, setToastKind] = useState<"success" | "error" | null>(null);
 
-  const showToast = (title: string, description?: string) => {
+  const showToast = (kind: "success" | "error", title: string, description?: string) => {
+    setToastKind(kind);
     setToastTitle(title);
     setToastDescription(description ?? "");
     setToastOpen(true);
+  };
+
+  const resolveMediaUrl = (value: HomeMediaItemDto | null) => {
+    if (!value) return null;
+    const url = value.url;
+    const updatedAt = value.updatedAt ?? null;
+    if (!updatedAt) return url;
+    if (url.startsWith("data:") || url.startsWith("blob:")) return url;
+    const sep = url.includes("?") ? "&" : "?";
+    return `${url}${sep}v=${encodeURIComponent(updatedAt)}`;
   };
 
   useEffect(() => {
@@ -72,13 +85,21 @@ export default function HomeMainMediaCard({ frameId }: { frameId?: string | null
                   try {
                     const next = await homeMediaRepo.upload(file);
                     if (!next) {
-                      showToast("アップロード失敗", "この形式は対応していません。");
+                      showToast("error", "アップロード失敗", "この形式は対応していません。");
                       return;
                     }
-                    setItem(next);
-                    showToast("アップロードしました", "ホームに反映しました。");
-                  } catch {
-                    showToast("アップロード失敗", "時間をおいて再度お試しください。");
+                    // Invalidate: re-fetch once so UI always reflects the server truth.
+                    const refreshed = await homeMediaRepo.get();
+                    setItem(refreshed ?? next);
+                    showToast("success", "アップロードしました", "ホームに反映しました。");
+                  } catch (e) {
+                    const message =
+                      e instanceof ApiRequestError && e.status === 413
+                        ? "ファイルサイズが大きすぎます。"
+                        : e instanceof ApiRequestError && e.status === 415
+                          ? "この形式は対応していません。"
+                          : "通信状況を確認して再度お試しください。";
+                    showToast("error", "アップロード失敗", message);
                   } finally {
                     setUploading(false);
                   }
@@ -89,7 +110,7 @@ export default function HomeMainMediaCard({ frameId }: { frameId?: string | null
                 variant="secondary"
                 onClick={() => inputRef.current?.click()}
                 disabled={uploading}
-                data-testid="home-main-media-upload"
+                data-testid="home-hero-upload"
               >
                 <UploadCloud className="mr-1 h-4 w-4" />
                 {uploading ? "アップロード中..." : "アップロード"}
@@ -105,11 +126,11 @@ export default function HomeMainMediaCard({ frameId }: { frameId?: string | null
               frameId={frameId ?? "none"}
               className="aspect-[16/9]"
               contentClassName="overflow-hidden rounded-xl"
-              testId="home-main-media-frame"
+              testId="home-hero-media"
             >
               {item?.type === "video" ? (
                 <video
-                  src={item.url}
+                  src={resolveMediaUrl(item) ?? undefined}
                   controls
                   className="h-full w-full object-cover"
                   data-testid="home-main-media-video"
@@ -117,7 +138,7 @@ export default function HomeMainMediaCard({ frameId }: { frameId?: string | null
               ) : item?.type === "image" ? (
                 // eslint-disable-next-line @next/next/no-img-element
                 <img
-                  src={item.url}
+                  src={resolveMediaUrl(item) ?? undefined}
                   alt="home media"
                   className="h-full w-full object-cover"
                   data-testid="home-main-media-image"
@@ -139,6 +160,7 @@ export default function HomeMainMediaCard({ frameId }: { frameId?: string | null
         open={toastOpen}
         onOpenChange={setToastOpen}
         className="rounded-xl border border-white/20 bg-white/90 text-sm text-foreground"
+        data-testid={toastKind === "success" ? "home-hero-upload-success" : undefined}
       >
         <ToastTitle>{toastTitle}</ToastTitle>
         {toastDescription ? <ToastDescription>{toastDescription}</ToastDescription> : null}
@@ -148,4 +170,3 @@ export default function HomeMainMediaCard({ frameId }: { frameId?: string | null
     </ToastProvider>
   );
 }
-

@@ -209,8 +209,12 @@ test("home main media upload updates the preview immediately (mocked)", async ({
     buffer: fileBuffer,
   });
 
+  await expect(page.locator('[data-testid="home-hero-upload-success"]')).toBeVisible({
+    timeout: 15_000,
+  });
+
   const img = page.locator('[data-testid="home-main-media-image"]');
   await expect(img).toBeVisible({ timeout: 15_000 });
-  await expect(img).toHaveAttribute("src", "https://example.com/home-main.png");
+  await expect(img).toHaveAttribute("src", /https:\/\/example\.com\/home-main\.png/);
+  await expect(img).toHaveAttribute("src", /[?&]v=/);
 });
-
