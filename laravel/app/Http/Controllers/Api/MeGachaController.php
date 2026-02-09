@@ -15,6 +15,7 @@ use App\Support\MeProfileResolver;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\RateLimiter;
 
 class MeGachaController extends Controller
 {
@@ -36,6 +37,13 @@ class MeGachaController extends Controller
         if (!$user) {
             return ApiResponse::error('USER_NOT_FOUND', 'User not found.', null, 404);
         }
+
+        // Rate limit: max 10 pulls per minute per user
+        $rateKey = "gacha:pull:user:{$user->id}";
+        if (RateLimiter::tooManyAttempts($rateKey, 10)) {
+            return ApiResponse::error('RATE_LIMITED', 'Too many gacha pulls. Please wait.', null, 429);
+        }
+        RateLimiter::hit($rateKey, 60);
 
         $cost = (int) config('gacha.cost', 100);
         if ($cost <= 0) {
