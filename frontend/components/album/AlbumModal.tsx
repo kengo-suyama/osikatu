@@ -164,7 +164,13 @@ export default function AlbumModal({
             media,
           });
 
-      const next = [newEntry, ...entries];
+      // Re-list so the UI always matches the repo's persisted ordering (and any server-side adjustments).
+      const refreshed = await albumRepo.list().catch(() => null);
+      const next = refreshed
+        ? refreshed.some((e) => String(e.id) === String(newEntry.id))
+          ? refreshed
+          : [newEntry, ...refreshed]
+        : [newEntry, ...entries];
       setEntries(next);
       albumRepo.persistEntries(next);
 
@@ -461,12 +467,12 @@ export default function AlbumModal({
             <div className="text-sm font-semibold text-muted-foreground">保存済みアルバム</div>
             <div className="text-xs text-muted-foreground">{entries.length}件</div>
           </div>
-          {entries.length === 0 ? (
-            <div className="rounded-xl border border-dashed px-4 py-6 text-center text-xs text-muted-foreground">
-              まだ保存されたアルバムがありません。
-            </div>
-          ) : (
-            <div className="space-y-3">
+           {entries.length === 0 ? (
+             <div className="rounded-xl border border-dashed px-4 py-6 text-center text-xs text-muted-foreground">
+               まだ保存されたアルバムがありません。
+             </div>
+           ) : (
+            <div className="space-y-3" data-testid="album-list">
               {savedEntry ? (
                 <div className="rounded-2xl border border-[hsl(var(--accent))]/40 p-3">
                   <div className="flex items-center justify-between">
@@ -711,7 +717,13 @@ export default function AlbumModal({
       <Toast
         open={toastOpen}
         onOpenChange={setToastOpen}
-        data-testid={toastKind === "error" ? "upload-error" : undefined}
+        data-testid={
+          toastKind === "error"
+            ? "upload-error"
+            : toastKind === "success"
+              ? "album-upload-success"
+              : undefined
+        }
       >
         <ToastTitle>{toastTitle}</ToastTitle>
         {toastDescription ? <ToastDescription>{toastDescription}</ToastDescription> : null}
