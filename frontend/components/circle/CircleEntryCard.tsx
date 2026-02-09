@@ -119,9 +119,14 @@ export default function CircleEntryCard({ me, onCircleSelected }: CircleEntryCar
         </Button>
         <Button
           onClick={() => {
+            if (!canCreate) {
+              setPlanLimitOpen(true);
+              return;
+            }
             setCreateOpen(true);
             eventsRepo.track(ANALYTICS_EVENTS.CIRCLE_CREATE_OPEN, pathname);
           }}
+          data-testid="circle-create-btn"
         >
           サークルを作る
         </Button>
@@ -163,8 +168,10 @@ export default function CircleEntryCard({ me, onCircleSelected }: CircleEntryCar
         onOpenChange={setPlanLimitOpen}
         isTrialAvailable={trialAvailable}
         isTrialActive={trialActive}
+        title="Plusプランが必要です"
+        description="サークルの作成・参加にはPlusプランが必要です。"
         onManageCircles={() => router.push("/settings")}
-        onPlanCompare={() => router.push("/settings")}
+        onPlanCompare={() => router.push("/pricing")}
         onContinue={() => setPlanLimitOpen(false)}
       />
     </div>
