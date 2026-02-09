@@ -531,6 +531,34 @@ export type MeHomeMediaResponseDto = {
   item: HomeMediaItemDto | null;
 };
 
+/** ---- User Album ---- */
+export type UserAlbumMediaDto = {
+  id: string;
+  type: "image" | "video";
+  url: string;
+  name?: string | null;
+  mime?: string | null;
+  sizeBytes?: number | null;
+  width?: number | null;
+  height?: number | null;
+};
+
+export type UserAlbumItemDto = {
+  id: number;
+  date: ISODate | null;
+  note: string | null;
+  media: UserAlbumMediaDto[];
+  createdAt: ISODateTime | null;
+};
+
+export type UserAlbumListDto = {
+  items: UserAlbumItemDto[];
+};
+
+export type UserAlbumDeleteResponseDto = {
+  deleted: boolean;
+};
+
 /** ---- Circle Media / Album ---- */
 export type CircleMediaDto = {
   id: number;

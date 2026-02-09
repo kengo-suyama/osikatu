@@ -101,6 +101,7 @@ export default function BottomNav() {
             "flex flex-col items-center gap-1 rounded-md px-2 py-2 text-[11px] font-medium transition",
             albumOpen ? "text-primary" : "text-muted-foreground"
           )}
+          data-testid="nav-album"
         >
           <span
             className={cn(
