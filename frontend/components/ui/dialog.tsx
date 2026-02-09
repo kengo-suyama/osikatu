@@ -35,7 +35,8 @@ const DialogContent = React.forwardRef<
     <DialogPrimitive.Content
       ref={ref}
       className={cn(
-        "fixed left-[50%] top-[50%] z-50 grid w-[92vw] max-w-md translate-x-[-50%] translate-y-[-50%] gap-4 rounded-lg border bg-background p-4 shadow-lg",
+        // Prevent "off-screen submit" on small viewports by making the content scrollable.
+        "fixed left-[50%] top-[50%] z-50 grid w-[92vw] max-w-md max-h-[90dvh] translate-x-[-50%] translate-y-[-50%] gap-4 overflow-y-auto overscroll-contain rounded-lg border bg-background p-4 shadow-lg",
         className
       )}
       {...props}

@@ -32,6 +32,11 @@ final class UserScheduleController extends Controller
             $query->where('start_at', '<=', Carbon::parse($to)->endOfDay());
         }
 
+        $search = $request->query('search');
+        if ($search) {
+            $query->where('title', 'like', '%' . $search . '%');
+        }
+
         $items = $query->orderBy('start_at')->get();
 
         return response()->json([
