@@ -25,6 +25,7 @@ use App\Http\Controllers\Api\MePointsEarnController;
 use App\Http\Controllers\Api\NotificationController;
 use App\Http\Controllers\Api\OshiController;
 use App\Http\Controllers\Api\OperationLogController;
+use App\Http\Controllers\Api\OperationLogDrilldownController;
 use App\Http\Controllers\Api\OshiActionController;
 use App\Http\Controllers\Api\UserScheduleController;
 use App\Http\Controllers\Api\PostController;
@@ -62,6 +63,7 @@ Route::post('/me/notifications/{notification}/read', [NotificationController::cl
 Route::post('/me/notifications/read-all', [NotificationController::class, 'readAll']);
 Route::get('/me/logs', [OperationLogController::class, 'myIndex']);
 Route::delete('/me/logs/{log}', [OperationLogController::class, 'destroy']);
+Route::get('/me/logs/by-request-id', [OperationLogDrilldownController::class, 'byRequestId']);
 Route::get('/me/fortune', [FortuneController::class, 'today']);
 Route::get('/me/fortune/today', [FortuneController::class, 'today']);
 Route::get('/me/fortune/history', [FortuneController::class, 'history']);
