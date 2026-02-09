@@ -21,11 +21,11 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { loadJson, saveJson } from "@/lib/storage";
+import { isApiMode } from "@/lib/config";
+import { albumRepo } from "@/lib/repo/albumRepo";
 import type { AlbumEntry, LogMedia } from "@/lib/uiTypes";
 import { cn } from "@/lib/utils";
 
-const ALBUM_KEY = "osikatu:album";
 const ALBUM_MEDIA_LIMIT = 8;
 
 const makeId = (prefix: string) =>
@@ -44,12 +44,21 @@ const readMedia = async (files: FileList, limit: number) => {
     .filter((file) => file.type.startsWith("image/") || file.type.startsWith("video/"))
     .slice(0, limit);
   const urls = await Promise.all(targets.map((file) => readFileAsDataUrl(file)));
-  return targets.map((file, index) => ({
+  const items = targets.map((file, index) => ({
     id: makeId("media"),
     type: file.type.startsWith("video/") ? "video" : "image",
     url: urls[index],
     name: file.name,
   })) as LogMedia[];
+
+  const filesById: Record<string, File> = {};
+  items.forEach((item, index) => {
+    const file = targets[index];
+    if (!file) return;
+    filesById[item.id] = file;
+  });
+
+  return { items, filesById };
 };
 
 export default function AlbumModal({
@@ -63,21 +72,23 @@ export default function AlbumModal({
   const [date, setDate] = useState(() => new Date().toISOString().slice(0, 10));
   const [note, setNote] = useState("");
   const [media, setMedia] = useState<LogMedia[]>([]);
+  const [pendingFiles, setPendingFiles] = useState<Record<string, File>>({});
   const [index, setIndex] = useState(0);
   const [fullView, setFullView] = useState(false);
   const [savedEntry, setSavedEntry] = useState<AlbumEntry | null>(null);
   const [savedIndex, setSavedIndex] = useState(0);
   const [savedFullView, setSavedFullView] = useState(false);
+  const [saving, setSaving] = useState(false);
   const [dragEntryId, setDragEntryId] = useState<string | null>(null);
   const [dragReadyEntryId, setDragReadyEntryId] = useState<string | null>(null);
   const [dragOverEntryId, setDragOverEntryId] = useState<string | null>(null);
   const dragTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
-    const stored = loadJson<AlbumEntry[]>(ALBUM_KEY);
-    if (stored && stored.length > 0) {
-      setEntries(stored);
-    }
+    albumRepo
+      .list()
+      .then((items) => setEntries(items))
+      .catch(() => setEntries([]));
   }, []);
 
   useEffect(() => {
@@ -93,46 +104,77 @@ export default function AlbumModal({
     if (!files) return;
     const remaining = ALBUM_MEDIA_LIMIT - media.length;
     if (remaining <= 0) return;
-    const items = await readMedia(files, remaining);
+    const { items, filesById } = await readMedia(files, remaining);
     setMedia((prev) => [...prev, ...items]);
+    setPendingFiles((prev) => ({ ...prev, ...filesById }));
     event.target.value = "";
   };
 
   const removeMedia = (id: string) => {
     setMedia((prev) => prev.filter((item) => item.id !== id));
+    setPendingFiles((prev) => {
+      const next = { ...prev };
+      delete next[id];
+      return next;
+    });
     setIndex((prev) => Math.max(0, Math.min(prev, media.length - 2)));
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!note.trim() && media.length === 0) return;
-    const newEntry: AlbumEntry = {
-      id: makeId("album"),
-      date: date || new Date().toISOString().slice(0, 10),
-      note,
-      media,
-    };
-    const next = [newEntry, ...entries];
-    setEntries(next);
-    saveJson(ALBUM_KEY, next);
-    setSavedEntry(newEntry);
-    setSavedIndex(0);
-    setSavedFullView(false);
-    setNote("");
-    setMedia([]);
-    setIndex(0);
-    setFullView(false);
+    if (saving) return;
+
+    setSaving(true);
+    try {
+      const resolvedDate = date || new Date().toISOString().slice(0, 10);
+
+      const newEntry = isApiMode()
+        ? await albumRepo.createApi({
+            date: resolvedDate,
+            note,
+            files: media
+              .map((m) => pendingFiles[m.id])
+              .filter((f): f is File => Boolean(f)),
+          })
+        : await albumRepo.createLocal({
+            date: resolvedDate,
+            note,
+            media,
+          });
+
+      const next = [newEntry, ...entries];
+      setEntries(next);
+      albumRepo.persistEntries(next);
+
+      setSavedEntry(newEntry);
+      setSavedIndex(0);
+      setSavedFullView(false);
+
+      setNote("");
+      setMedia([]);
+      setPendingFiles({});
+      setIndex(0);
+      setFullView(false);
+    } finally {
+      setSaving(false);
+    }
   };
 
   const persistEntries = (next: AlbumEntry[]) => {
     setEntries(next);
-    saveJson(ALBUM_KEY, next);
+    albumRepo.persistEntries(next);
     setSavedEntry((prev) => {
       if (!prev) return prev;
       return next.find((entry) => entry.id === prev.id) ?? null;
     });
   };
 
-  const handleDeleteEntry = (id: string) => {
+  const handleDeleteEntry = async (id: string) => {
+    try {
+      await albumRepo.delete(String(id));
+    } catch {
+      return;
+    }
     const next = entries.filter((entry) => entry.id !== id);
     persistEntries(next);
     if (savedEntry?.id === id) {
@@ -198,7 +240,10 @@ export default function AlbumModal({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-h-[92vh] w-[94vw] max-w-[430px] overflow-y-auto rounded-2xl p-4">
+      <DialogContent
+        className="max-h-[92vh] w-[94vw] max-w-[430px] overflow-y-auto rounded-2xl p-4"
+        data-testid="album-modal"
+      >
         <DialogHeader className="items-center">
           <DialogTitle className="flex items-center gap-2 text-base">
             <Images className="h-4 w-4" />
@@ -222,6 +267,7 @@ export default function AlbumModal({
               multiple
               onChange={handleMediaChange}
               className="hidden"
+              data-testid="album-upload-input"
             />
           </label>
 
@@ -361,14 +407,16 @@ export default function AlbumModal({
           ) : null}
 
           <div className="grid grid-cols-2 gap-2">
-            <Button onClick={handleSave}>追加する</Button>
+            <Button onClick={handleSave} disabled={saving} data-testid="album-save">
+              {saving ? "追加中..." : "追加する"}
+            </Button>
             <Button variant="secondary" onClick={() => onOpenChange(false)}>
               閉じる
             </Button>
           </div>
         </div>
 
-        <div className="space-y-2 border-t pt-4">
+        <div className="space-y-2 border-t pt-4" data-testid="album-saved-list">
           <div className="flex items-center justify-between">
             <div className="text-sm font-semibold text-muted-foreground">保存済みアルバム</div>
             <div className="text-xs text-muted-foreground">{entries.length}件</div>
@@ -490,6 +538,8 @@ export default function AlbumModal({
                     dragEntryId === entry.id && "opacity-60",
                     dragOverEntryId === entry.id && "ring-2 ring-[hsl(var(--accent))]/40"
                   )}
+                  data-testid="album-entry"
+                  data-entry-id={String(entry.id)}
                   role="button"
                   tabIndex={0}
                   draggable={dragReadyEntryId === entry.id}
@@ -576,6 +626,8 @@ export default function AlbumModal({
                         }}
                         className="rounded-full border border-red-200 p-1 text-red-500 transition hover:bg-red-50"
                         aria-label="削除"
+                        data-testid="album-entry-delete"
+                        data-entry-id={String(entry.id)}
                       >
                         <Trash2 className="h-3.5 w-3.5" />
                       </button>
