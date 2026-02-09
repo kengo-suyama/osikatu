@@ -36,6 +36,9 @@ import { cn } from "@/lib/utils";
 import { ALL_THEMES } from "@/src/theme/themes";
 import { Nameplate } from "@/components/chat/Nameplate";
 import type { TitleBadgeRarity } from "@/components/titles/TitleBadge";
+import { TitleEnterPop } from "@/components/chat/TitleEnterPop";
+import { oshiActionRepo } from "@/lib/repo/oshiActionRepo";
+import { TITLES_JA_1000_UNIVERSAL } from "@/lib/titles/titles_ja_1000_universal";
 
 const formatTime = (value?: string | null) => {
   if (!value) return "";
@@ -55,6 +58,9 @@ const STAMPS = [
   { id: "star", label: "🌟" },
 ];
 
+const ENTER_POP_COOLDOWN_MS = 3 * 60 * 1000;
+const ENTER_POP_KEY = "osikatu:chat:title-pop:last";
+
 const rarityFromAuthorId = (id: number): TitleBadgeRarity => {
   // Deterministic fallback until author/title rarity is available in the DTO.
   const mod = Math.abs(id) % 5;
@@ -62,6 +68,13 @@ const rarityFromAuthorId = (id: number): TitleBadgeRarity => {
   if (mod === 2) return "SR";
   if (mod === 3) return "SSR";
   if (mod === 4) return "UR";
+  return "N";
+};
+
+const rarityFromTitleEntry = (rarity: string | null | undefined): TitleBadgeRarity => {
+  if (rarity === "rare") return "R";
+  if (rarity === "epic") return "SR";
+  if (rarity === "legendary") return "SSR";
   return "N";
 };
 
@@ -83,6 +96,9 @@ export default function CircleChatScreen({ circleId }: { circleId: number }) {
   const [announcementOpen, setAnnouncementOpen] = useState(false);
   const [announcementDraft, setAnnouncementDraft] = useState("");
   const [stampOpen, setStampOpen] = useState(false);
+  const [enterPopOpen, setEnterPopOpen] = useState(false);
+  const [enterTitleText, setEnterTitleText] = useState("きらめく入室");
+  const [enterTitleRarity, setEnterTitleRarity] = useState<TitleBadgeRarity>("N");
   const bottomRef = useRef<HTMLDivElement | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const reduceMotion = useReducedMotion();
@@ -121,6 +137,31 @@ export default function CircleChatScreen({ circleId }: { circleId: number }) {
   useEffect(() => {
     refresh();
     eventsRepo.track(ANALYTICS_EVENTS.NAV_CHAT_OPEN, pathname, circleId);
+
+    if (typeof window !== "undefined" && !reduceMotion) {
+      const raw = window.localStorage.getItem(ENTER_POP_KEY);
+      const last = raw ? Number(raw) : 0;
+      const now = Date.now();
+      if (!Number.isFinite(last) || now - last > ENTER_POP_COOLDOWN_MS) {
+        window.localStorage.setItem(ENTER_POP_KEY, String(now));
+        setEnterPopOpen(true);
+
+        // Best-effort: resolve current title (API mode) without blocking chat.
+        oshiActionRepo
+          .getTitles()
+          .then((data) => {
+            const currentId = data?.currentTitleId ?? null;
+            if (!currentId) return;
+            const entry = TITLES_JA_1000_UNIVERSAL.find((t) => t.id === currentId) ?? null;
+            if (!entry) return;
+            setEnterTitleText(entry.title);
+            setEnterTitleRarity(rarityFromTitleEntry(entry.rarity));
+          })
+          .catch(() => {
+            // ignore
+          });
+      }
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [circleId]);
 
@@ -219,6 +260,12 @@ export default function CircleChatScreen({ circleId }: { circleId: number }) {
   return (
     <div className="relative flex h-[calc(100vh-3.5rem)] flex-col gap-3">
       <SpecialBackground enabled={showSpecialBg} />
+      <TitleEnterPop
+        open={enterPopOpen}
+        onDone={() => setEnterPopOpen(false)}
+        titleText={enterTitleText}
+        rarity={enterTitleRarity}
+      />
 
       <div className="relative z-10 flex items-center gap-2">
         <Button variant="ghost" size="icon" onClick={() => router.back()}>
