@@ -20,6 +20,8 @@ import {
 import { Trash2 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { formatLogTime, logSentence } from "@/lib/ui/logText";
+import { usePlanGateError } from "@/lib/usePlanGateError";
+import { PlanGateErrorBanner } from "@/components/PlanGateErrorBanner";
 
 type RangeKey = "7d" | "30d" | "all";
 
@@ -49,6 +51,8 @@ export default function CircleLogsPage() {
   const [toastTitle, setToastTitle] = useState("");
   const [toastDescription, setToastDescription] = useState("");
 
+  const { planGate, handleApiError, clearPlanError } = usePlanGateError();
+
   const isManager = Boolean(
     me?.plan === "plus" && (circle?.myRole === "owner" || circle?.myRole === "admin")
   );
@@ -64,6 +68,7 @@ export default function CircleLogsPage() {
   const loadFirst = async () => {
     if (!circleId) return;
     if (!isManager) {
+      clearPlanError();
       setForbidden(true);
       return;
     }
@@ -71,14 +76,14 @@ export default function CircleLogsPage() {
     setLoading(true);
     setDone(false);
     setForbidden(false);
+    clearPlanError();
     try {
       const data = await listCircleLogs(circleId, { limit: 20, from, cursor: null });
       setItems(data.items);
       setCursor(data.nextCursor);
       setDone(!data.nextCursor);
     } catch (err) {
-      if (err instanceof ApiRequestError && err.status === 403) {
-        setForbidden(true);
+      if (handleApiError(err)) {
         setItems([]);
         setCursor(null);
         setDone(true);
@@ -243,10 +248,13 @@ export default function CircleLogsPage() {
             <div className="rounded-2xl border border-white/10 bg-white/5 p-6 text-center text-sm text-muted-foreground">
               {error}
             </div>
+          ) : planGate ? (
+            <PlanGateErrorBanner message={planGate.message} kind={planGate.kind} />
           ) : forbidden ? (
-            <div className="rounded-2xl border border-white/10 bg-white/5 p-6 text-center text-sm opacity-80">
-              Plusのオーナー/管理者のみご利用いただけます。
-            </div>
+            <PlanGateErrorBanner
+              message="Plusのオーナー/管理者のみご利用いただけます。"
+              kind={me?.plan === "plus" ? "forbidden" : "upgrade"}
+            />
           ) : (
             <>
               {items.filter((log) => {
@@ -306,7 +314,7 @@ export default function CircleLogsPage() {
           {loading ? (
             <div className="py-4 text-center text-sm opacity-70">読み込み中...</div>
           ) : null}
-          {done && !forbidden && items.length > 0 ? (
+          {done && !forbidden && !planGate && items.length > 0 ? (
             <div className="py-4 text-center text-xs opacity-60">ここまで</div>
           ) : null}
         </div>

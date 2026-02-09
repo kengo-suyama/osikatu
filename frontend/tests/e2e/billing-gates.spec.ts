@@ -88,6 +88,10 @@ test.describe("Billing gates (mocked)", () => {
 
     await page.goto(`/circles/${CIRCLE_ID}/settlements`, { waitUntil: "domcontentloaded" });
     await expect(page.locator('[data-testid="settlement-forbidden"]')).toBeVisible({ timeout: 30_000 });
+
+    // Unified 402 UX: Upgrade CTA should always navigate to /pricing
+    await page.locator('[data-testid="plan-gate-upgrade"]').click();
+    await page.waitForURL("**/pricing", { timeout: 15_000 });
   });
 
   test("plus owner can open settlement create dialog", async ({ page }) => {
@@ -122,7 +126,7 @@ test.describe("Billing gates (mocked)", () => {
     await page.goto(`/circles/${CIRCLE_ID}/settlements`, { waitUntil: "domcontentloaded" });
     await expect(page.locator('[data-testid="settlement-expenses"]')).toBeVisible({ timeout: 30_000 });
     await page.locator('[data-testid="settlement-create-open"]').click();
-    await expect(page.locator('[data-testid="settlement-create-expense-dialog"]')).toBeVisible({ timeout: 10_000 });
+    await expect(page.locator('[data-testid="settlement-create-dialog"]')).toBeVisible({ timeout: 10_000 });
   });
 
   test("pricing upgrade redirects to mocked checkout URL", async ({ page }) => {
@@ -141,9 +145,16 @@ test.describe("Billing gates (mocked)", () => {
       r.fulfill({ status: 200, contentType: "application/json", body: successBody({ url: "/mock-checkout" }) })
     );
 
+    const meReq = page.waitForRequest("**/api/me", { timeout: 15_000 });
     await page.goto("/pricing", { waitUntil: "domcontentloaded" });
-    await page.locator('[data-testid="pricing-upgrade"]').click();
-    await page.waitForURL("**/mock-checkout", { timeout: 15_000 });
+    await meReq;
+
+    const [req] = await Promise.all([
+      page.waitForRequest("**/api/billing/checkout", { timeout: 15_000 }),
+      page.locator('[data-testid="pricing-upgrade"]').click(),
+    ]);
+    expect(req.method()).toBe("POST");
+
+    await page.waitForURL("**/mock-checkout", { timeout: 15_000, waitUntil: "domcontentloaded" });
   });
 });
-

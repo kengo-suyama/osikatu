@@ -15,6 +15,8 @@ import {
   ToastViewport,
 } from "@/components/ui/toast";
 import { formatLogTime, logSentence } from "@/lib/ui/logText";
+import { usePlanGateError } from "@/lib/usePlanGateError";
+import { PlanGateErrorBanner } from "@/components/PlanGateErrorBanner";
 
 type RangeKey = "7d" | "30d" | "all";
 
@@ -31,10 +33,11 @@ export default function LogsPage() {
   const [loading, setLoading] = useState(false);
   const [done, setDone] = useState(false);
   const [deletingLogId, setDeletingLogId] = useState<string | null>(null);
-  const [forbidden, setForbidden] = useState(false);
   const [toastOpen, setToastOpen] = useState(false);
   const [toastTitle, setToastTitle] = useState("");
   const [toastDescription, setToastDescription] = useState("");
+
+  const { planGate, handleApiError, clearPlanError } = usePlanGateError();
 
   const sentinelRef = useRef<HTMLDivElement | null>(null);
 
@@ -47,15 +50,17 @@ export default function LogsPage() {
   const loadFirst = async () => {
     setLoading(true);
     setDone(false);
-    setForbidden(false);
+    clearPlanError();
     try {
       const data = await listMyLogs({ limit: 20, from, cursor: null });
       setItems(data.items);
       setCursor(data.nextCursor);
       setDone(!data.nextCursor);
     } catch (err: any) {
-      if (err?.status === 403) {
-        setForbidden(true);
+      if (handleApiError(err)) {
+        setItems([]);
+        setCursor(null);
+        setDone(true);
       }
     } finally {
       setLoading(false);
@@ -147,13 +152,9 @@ export default function LogsPage() {
         </div>
 
         <div className="mt-4 space-y-2">
-          {forbidden && (
-            <div className="rounded-2xl border border-white/10 bg-white/5 p-6 text-center text-sm opacity-70">
-              ログを閲覧する権限がありません
-            </div>
-          )}
+          {planGate && <PlanGateErrorBanner message={planGate.message} kind={planGate.kind} />}
 
-          {!forbidden &&
+          {!planGate &&
             items.map((log) => (
               <div key={log.id} className="rounded-2xl border border-white/10 bg-white/5 p-3">
                 <div className="flex items-start justify-between gap-2">
@@ -193,7 +194,7 @@ export default function LogsPage() {
               </div>
             ))}
 
-          {!forbidden && items.length === 0 && !loading && (
+          {!planGate && items.length === 0 && !loading && (
             <div className="rounded-2xl border border-white/10 bg-white/5 p-6 text-center text-sm opacity-70">
               ログがまだありません
             </div>
