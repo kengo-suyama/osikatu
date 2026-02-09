@@ -4,6 +4,7 @@ const apiBase = (process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://127.0.0.1:8000"
   .trim()
   .replace(/\/$/, "");
 const nextConfig = {
+  output: "standalone",
   reactStrictMode: true,
   // Workaround: allow e2e/CI runs to use a different dist directory to avoid local .next write/ACL issues on Windows.
   ...(distDir ? { distDir } : {}),

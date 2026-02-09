@@ -1,0 +1,29 @@
+services:
+  api:
+    build:
+      context: ./laravel
+      dockerfile: Dockerfile
+      target: production
+    ports:
+      - "${API_PORT:-9000}:9000"
+    env_file:
+      - ./laravel/.env
+    volumes:
+      - laravel-storage:/var/www/html/storage
+    restart: unless-stopped
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      target: production
+    ports:
+      - "${FRONTEND_PORT:-3000}:3000"
+    environment:
+      - NEXT_PUBLIC_API_BASE_URL=http://api:9000
+    depends_on:
+      - api
+    restart: unless-stopped
+
+volumes:
+  laravel-storage:
