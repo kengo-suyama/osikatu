@@ -239,6 +239,8 @@ test("album modal: upload -> save -> delete (mocked)", async ({ page }) => {
   });
 
   await safeClick(dialog.locator('[data-testid="album-save"]'));
+  await expect(page.locator('[data-testid="album-upload-success"]')).toBeVisible({ timeout: 10_000 });
+  await expect(dialog.locator('[data-testid="album-list"]')).toBeVisible({ timeout: 10_000 });
   await expect(dialog.locator('[data-testid="album-entry"][data-entry-id="101"]')).toBeVisible({
     timeout: 15_000,
   });
