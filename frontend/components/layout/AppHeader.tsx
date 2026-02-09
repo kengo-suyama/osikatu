@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
-import { Bell, Settings2 } from "lucide-react";
+import { Bell, Coins, Settings2 } from "lucide-react";
 
 import { EVENTS } from "@/lib/events";
 import type { CircleChangeDetail } from "@/lib/events";
@@ -10,6 +10,11 @@ import { useBudgetState } from "@/lib/budgetState";
 import { circleRepo } from "@/lib/repo/circleRepo";
 import { fetchNotifications } from "@/lib/repo/notificationRepo";
 import { oshiRepo } from "@/lib/repo/oshiRepo";
+import { pointsRepo } from "@/lib/repo/pointsRepo";
+import { pointsRepo } from "@/lib/repo/pointsRepo";
+import { pointsRepo } from "@/lib/repo/pointsRepo";
+import { pointsRepo } from "@/lib/repo/pointsRepo";
+import { pointsRepo } from "@/lib/repo/pointsRepo";
 import type { BudgetResponse } from "@/lib/repo/budgetRepo";
 import { moneySnapshot } from "@/lib/dummy";
 import { localYearMonth } from "@/lib/date";
@@ -38,6 +43,11 @@ export default function AppHeader() {
   const [circleValue, setCircleValue] = useState<string>("");
   const [circleLoading, setCircleLoading] = useState(false);
   const [unreadCount, setUnreadCount] = useState(0);
+  const [pointsBalance, setPointsBalance] = useState<number | null>(null);
+  const [pointsBalance, setPointsBalance] = useState<number | null>(null);
+  const [pointsBalance, setPointsBalance] = useState<number | null>(null);
+  const [pointsBalance, setPointsBalance] = useState<number | null>(null);
+  const [pointsBalance, setPointsBalance] = useState<number | null>(null);
 
   useEffect(() => {
     const loadOshis = async () => {
