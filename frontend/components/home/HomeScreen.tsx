@@ -566,6 +566,7 @@ export default function HomeScreen() {
     <div
       className={cn("space-y-4", isCompact && "space-y-3")}
       style={{ "--accent": accentColor } as CSSProperties}
+      data-testid="home-page"
     >
       {oshisLoaded && oshis.length === 0 ? (
         <Card className="rounded-2xl border p-6 shadow-sm" data-testid="oshi-gate">

@@ -125,4 +125,3 @@ class MeGachaController extends Controller
         }
     }
 }
-
