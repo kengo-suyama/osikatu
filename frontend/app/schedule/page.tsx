@@ -1,15 +1,35 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
-import { Trash2 } from "lucide-react";
-import { fetchMySchedules, createMySchedule, deleteMySchedule } from "@/lib/repo/scheduleRepo";
-import type { ScheduleDto } from "@/lib/types";
-import { isApiMode } from "@/lib/config";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { CalendarDays, Pencil, Plus, Trash2 } from "lucide-react";
 
-const DEFAULT_FORM = {
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Switch } from "@/components/ui/switch";
+import { Textarea } from "@/components/ui/textarea";
+import { cn } from "@/lib/utils";
+import type { ScheduleDto } from "@/lib/types";
+import { createMySchedule, deleteMySchedule, fetchMySchedules, updateMySchedule } from "@/lib/repo/scheduleRepo";
+
+type FormState = {
+  title: string;
+  startAt: string; // datetime-local
+  endAt: string; // datetime-local
+  isAllDay: boolean;
+  note: string;
+  location: string;
+  remindAt: string; // datetime-local
+};
+
+const DEFAULT_FORM: FormState = {
   title: "",
   startAt: "",
   endAt: "",
@@ -19,143 +39,358 @@ const DEFAULT_FORM = {
   remindAt: "",
 };
 
+const pad2 = (n: number) => String(n).padStart(2, "0");
+
+const isoToLocalInput = (iso: string | null | undefined) => {
+  if (!iso) return "";
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return "";
+  return `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}T${pad2(
+    d.getHours()
+  )}:${pad2(d.getMinutes())}`;
+};
+
+const localInputToIso = (value: string) => {
+  if (!value) return "";
+  const d = new Date(value);
+  if (Number.isNaN(d.getTime())) return "";
+  return d.toISOString();
+};
+
+const formatRange = (item: ScheduleDto) => {
+  if (item.isAllDay) return "終日";
+  const start = item.startAt ? new Date(item.startAt).toLocaleString() : "";
+  const end = item.endAt ? new Date(item.endAt).toLocaleString() : "";
+  if (!end) return start;
+  return `${start} 〜 ${end}`;
+};
+
 export default function SchedulePage() {
-  const [schedules, setSchedules] = useState<ScheduleDto[]>([]);
-  const [loading, setLoading] = useState(false);
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const shouldOpenNew = searchParams.get("new") === "1";
+
+  const [items, setItems] = useState<ScheduleDto[]>([]);
+  const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [form, setForm] = useState(DEFAULT_FORM);
   const [error, setError] = useState<string | null>(null);
 
-  const loadSchedules = () => {
-    if (!isApiMode()) {
-      setSchedules([]);
-      return;
-    }
+  const [open, setOpen] = useState(false);
+  const [mode, setMode] = useState<"create" | "edit">("create");
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [form, setForm] = useState<FormState>(DEFAULT_FORM);
+
+  const openedFromQueryRef = useRef(false);
+
+  const sortedItems = useMemo(() => {
+    return [...items].sort(
+      (a, b) => new Date(a.startAt).getTime() - new Date(b.startAt).getTime()
+    );
+  }, [items]);
+
+  const load = async () => {
     setLoading(true);
-    fetchMySchedules()
-      .then((items) => setSchedules(items))
-      .catch(() => setError("予定を取得できませんでした"))
-      .finally(() => setLoading(false));
+    setError(null);
+    try {
+      const list = await fetchMySchedules();
+      setItems(list);
+    } catch {
+      setError("予定を取得できませんでした");
+    } finally {
+      setLoading(false);
+    }
   };
 
   useEffect(() => {
-    loadSchedules();
+    load();
   }, []);
 
-  const handleCreate = async () => {
+  useEffect(() => {
+    if (!shouldOpenNew) return;
+    if (openedFromQueryRef.current) return;
+    openedFromQueryRef.current = true;
+    setMode("create");
+    setEditingId(null);
+    setForm(DEFAULT_FORM);
+    setOpen(true);
+    // Clean the query to avoid re-opening on back/forward loops.
+    router.replace("/schedule");
+  }, [router, shouldOpenNew]);
+
+  const openCreate = () => {
+    setMode("create");
+    setEditingId(null);
+    setForm(DEFAULT_FORM);
+    setOpen(true);
+  };
+
+  const openEdit = (item: ScheduleDto) => {
+    setMode("edit");
+    setEditingId(item.id);
+    setForm({
+      title: item.title ?? "",
+      startAt: isoToLocalInput(item.startAt),
+      endAt: isoToLocalInput(item.endAt),
+      isAllDay: Boolean(item.isAllDay),
+      note: item.note ?? "",
+      location: item.location ?? "",
+      remindAt: isoToLocalInput(item.remindAt),
+    });
+    setOpen(true);
+  };
+
+  const onSubmit = async () => {
     setError(null);
+    if (!form.title.trim()) {
+      setError("タイトルを入力してください");
+      return;
+    }
+    if (!form.startAt) {
+      setError("開始日時を入力してください");
+      return;
+    }
+
+    const payload = {
+      title: form.title.trim(),
+      startAt: localInputToIso(form.startAt),
+      endAt: form.endAt ? localInputToIso(form.endAt) : null,
+      isAllDay: form.isAllDay,
+      note: form.note.trim() ? form.note.trim() : null,
+      location: form.location.trim() ? form.location.trim() : null,
+      remindAt: form.remindAt ? localInputToIso(form.remindAt) : null,
+    };
+
     setSaving(true);
     try {
-      const dto = await createMySchedule({
-        title: form.title,
-        startAt: form.startAt,
-        endAt: form.endAt || undefined,
-        isAllDay: form.isAllDay,
-        note: form.note || undefined,
-        location: form.location || undefined,
-        remindAt: form.remindAt || undefined,
-      });
-      setSchedules((prev) => [...prev, dto]);
-      setForm(DEFAULT_FORM);
-    } catch (err: any) {
-      setError(err?.message ?? "保存できませんでした");
+      if (mode === "create") {
+        const created = await createMySchedule(payload);
+        setItems((prev) => [...prev, created]);
+      } else if (editingId) {
+        const updated = await updateMySchedule(editingId, payload);
+        setItems((prev) => prev.map((x) => (String(x.id) === String(editingId) ? updated : x)));
+      }
+      setOpen(false);
+    } catch (e: any) {
+      setError(e?.message ?? "保存に失敗しました");
     } finally {
       setSaving(false);
     }
   };
 
-  const handleDelete = async (id: string) => {
-    if (!window.confirm("この予定を削除しますか？")) return;
+  const onDelete = async (id: string) => {
+    if (typeof window !== "undefined") {
+      const ok = window.confirm("この予定を削除しますか？");
+      if (!ok) return;
+    }
+
+    setSaving(true);
+    setError(null);
     try {
       await deleteMySchedule(id);
-      setSchedules((prev) => prev.filter((item) => item.id !== id));
+      setItems((prev) => prev.filter((x) => String(x.id) !== String(id)));
     } catch {
-      setError("削除できませんでした");
+      setError("削除に失敗しました");
+    } finally {
+      setSaving(false);
     }
   };
 
-  const formattedSchedules = useMemo(
-    () => schedules.sort((a, b) => new Date(a.startAt).getTime() - new Date(b.startAt).getTime()),
-    [schedules]
-  );
-
   return (
-    <div className="max-w-3xl mx-auto py-6 space-y-4">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-semibold">予定</h1>
-          <p className="text-sm text-muted-foreground">個人予定を管理</p>
+    <div className="mx-auto max-w-xl space-y-4 px-4 py-6 pb-24" data-testid="schedule-page">
+      <div className="flex items-start justify-between gap-3">
+        <div className="space-y-0.5">
+          <div className="flex items-center gap-2">
+            <CalendarDays className="h-5 w-5 text-muted-foreground" />
+            <div className="text-lg font-semibold">予定</div>
+          </div>
+          <div className="text-xs text-muted-foreground">個人の予定をメモして、忘れないように。</div>
         </div>
-        <div className="text-xs text-muted-foreground">{isApiMode() ? "APIモード" : "ローカルモード"}</div>
-      </div>
-      <div className="grid gap-3 sm:grid-cols-2">
-        <Input
-          placeholder="タイトル"
-          value={form.title}
-          onChange={(event) => setForm((prev) => ({ ...prev, title: event.target.value }))}
-        />
-        <Input
-          type="datetime-local"
-          value={form.startAt}
-          onChange={(event) => setForm((prev) => ({ ...prev, startAt: event.target.value }))}
-        />
-        <Input
-          type="datetime-local"
-          value={form.endAt}
-          onChange={(event) => setForm((prev) => ({ ...prev, endAt: event.target.value }))}
-        />
-        <Input
-          placeholder="ロケーション"
-          value={form.location}
-          onChange={(event) => setForm((prev) => ({ ...prev, location: event.target.value }))}
-        />
-        <Input
-          type="datetime-local"
-          value={form.remindAt}
-          onChange={(event) => setForm((prev) => ({ ...prev, remindAt: event.target.value }))}
-        />
-        <Textarea
-          placeholder="メモ"
-          value={form.note}
-          onChange={(event) => setForm((prev) => ({ ...prev, note: event.target.value }))}
-        />
         <Button
-          className="sm:col-span-2"
-          onClick={handleCreate}
-          disabled={saving || !form.title || !form.startAt}
+          size="sm"
+          onClick={openCreate}
+          className="rounded-full"
+          data-testid="schedule-create"
         >
-          {saving ? "保存中..." : "予定を追加"}
+          <Plus className="mr-1 h-4 w-4" />
+          追加
         </Button>
       </div>
-      {error ? <div className="text-sm text-destructive">{error}</div> : null}
-      <div className="space-y-3">
-        {loading ? (
-          <div className="text-sm text-muted-foreground">読み込み中...</div>
-        ) : formattedSchedules.length ? (
-          formattedSchedules.map((item) => (
-            <div key={item.id} className="flex items-center justify-between gap-3 rounded-xl border bg-card p-4">
-              <div>
-                <div className="text-sm font-semibold">{item.title}</div>
-                <div className="text-xs text-muted-foreground">
-                  {item.isAllDay ? "終日" : `${new Date(item.startAt).toLocaleString()} 〜 ${item.endAt ? new Date(item.endAt).toLocaleString() : ""}`}
+
+      <Card className="rounded-2xl border p-4 shadow-sm">
+        <CardHeader className="p-0 pb-3">
+          <CardTitle className="text-sm font-semibold text-muted-foreground">一覧</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-3 p-0">
+          {loading ? (
+            <div className="text-xs text-muted-foreground">読み込み中...</div>
+          ) : sortedItems.length ? (
+            sortedItems.map((item) => (
+              <div
+                key={item.id}
+                className="rounded-xl border border-border/60 bg-background/70 p-3"
+                data-testid="schedule-item"
+                data-schedule-id={String(item.id)}
+              >
+                <div className="flex items-start justify-between gap-2">
+                  <div className="min-w-0">
+                    <div className="truncate text-sm font-semibold">{item.title}</div>
+                    <div className="mt-0.5 text-xs text-muted-foreground">{formatRange(item)}</div>
+                    {item.location ? (
+                      <div className="mt-1 text-xs text-muted-foreground">場所: {item.location}</div>
+                    ) : null}
+                  </div>
+                  <div className="flex items-center gap-1">
+                    <button
+                      type="button"
+                      className="rounded-full border border-border/60 p-2 text-muted-foreground hover:text-foreground"
+                      onClick={() => openEdit(item)}
+                      aria-label="編集"
+                      data-testid="schedule-edit"
+                      data-schedule-id={String(item.id)}
+                    >
+                      <Pencil className="h-4 w-4" />
+                    </button>
+                    <button
+                      type="button"
+                      className="rounded-full border border-red-200 p-2 text-red-500 hover:bg-red-50"
+                      onClick={() => onDelete(item.id)}
+                      aria-label="削除"
+                      data-testid="schedule-delete"
+                      data-schedule-id={String(item.id)}
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </button>
+                  </div>
                 </div>
-                {item.location ? (
-                  <div className="text-xs text-muted-foreground">場所: {item.location}</div>
+                {item.note ? (
+                  <div className="mt-2 rounded-lg bg-muted/20 px-3 py-2 text-xs text-muted-foreground">
+                    {item.note}
+                  </div>
                 ) : null}
               </div>
-              <button
-                type="button"
-                onClick={() => handleDelete(item.id)}
-                className="text-destructive hover:text-destructive/80"
-              >
-                <Trash2 className="h-4 w-4" />
-              </button>
+            ))
+          ) : (
+            <div className="rounded-xl border border-dashed border-border/60 p-4 text-center text-xs text-muted-foreground">
+              予定がありません。右上の「追加」から作ってみよう。
             </div>
-          ))
-        ) : (
-          <div className="text-sm text-muted-foreground">予定がありません</div>
-        )}
-      </div>
+          )}
+          {error ? (
+            <div className="rounded-xl border border-red-500/30 bg-red-500/5 p-3 text-xs text-red-600">
+              {error}
+            </div>
+          ) : null}
+        </CardContent>
+      </Card>
+
+      <Dialog open={open} onOpenChange={setOpen}>
+        <DialogContent className="max-h-[92vh] overflow-y-auto rounded-2xl p-4" data-testid="schedule-dialog">
+          <DialogHeader className="pb-2">
+            <DialogTitle className="text-base">
+              {mode === "create" ? "予定を追加" : "予定を編集"}
+            </DialogTitle>
+          </DialogHeader>
+
+          <div className="space-y-3">
+            <div className="grid gap-2">
+              <div className="text-xs text-muted-foreground">タイトル</div>
+              <Input
+                placeholder="例: 配信を見る"
+                value={form.title}
+                onChange={(e) => setForm((p) => ({ ...p, title: e.target.value }))}
+                data-testid="schedule-form-title"
+              />
+            </div>
+
+            <div className="grid gap-2">
+              <div className="text-xs text-muted-foreground">開始</div>
+              <Input
+                type="datetime-local"
+                value={form.startAt}
+                onChange={(e) => setForm((p) => ({ ...p, startAt: e.target.value }))}
+                data-testid="schedule-form-start"
+              />
+            </div>
+
+            <div className="grid gap-2">
+              <div className="text-xs text-muted-foreground">終了（任意）</div>
+              <Input
+                type="datetime-local"
+                value={form.endAt}
+                onChange={(e) => setForm((p) => ({ ...p, endAt: e.target.value }))}
+                disabled={form.isAllDay}
+                data-testid="schedule-form-end"
+              />
+            </div>
+
+            <label className="flex items-center justify-between rounded-xl border border-border/60 px-3 py-2 text-xs">
+              終日
+              <Switch
+                checked={form.isAllDay}
+                onCheckedChange={(checked) => setForm((p) => ({ ...p, isAllDay: checked }))}
+                data-testid="schedule-form-allday"
+              />
+            </label>
+
+            <div className="grid gap-2">
+              <div className="text-xs text-muted-foreground">場所（任意）</div>
+              <Input
+                placeholder="例: YouTube"
+                value={form.location}
+                onChange={(e) => setForm((p) => ({ ...p, location: e.target.value }))}
+                data-testid="schedule-form-location"
+              />
+            </div>
+
+            <div className="grid gap-2">
+              <div className="text-xs text-muted-foreground">リマインド（任意）</div>
+              <Input
+                type="datetime-local"
+                value={form.remindAt}
+                onChange={(e) => setForm((p) => ({ ...p, remindAt: e.target.value }))}
+                data-testid="schedule-form-remind"
+              />
+            </div>
+
+            <div className="grid gap-2">
+              <div className="text-xs text-muted-foreground">メモ（任意）</div>
+              <Textarea
+                placeholder="あとで見返せるメモ"
+                value={form.note}
+                onChange={(e) => setForm((p) => ({ ...p, note: e.target.value }))}
+                data-testid="schedule-form-note"
+              />
+            </div>
+
+            <div
+              className={cn(
+                "sticky bottom-0 -mx-4 mt-2 border-t bg-background px-4 pt-3"
+              )}
+            >
+              <div className="flex items-center justify-end gap-2 pb-1">
+                <Button
+                  type="button"
+                  variant="secondary"
+                  size="sm"
+                  onClick={() => setOpen(false)}
+                  disabled={saving}
+                >
+                  キャンセル
+                </Button>
+                <Button
+                  type="button"
+                  size="sm"
+                  onClick={onSubmit}
+                  disabled={saving}
+                  data-testid="schedule-create-submit"
+                >
+                  {saving ? "保存中..." : mode === "create" ? "追加する" : "更新する"}
+                </Button>
+              </div>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
+
