@@ -2,7 +2,7 @@
 
 import type { CSSProperties } from "react";
 import { useEffect, useMemo, useState } from "react";
-import { Bell, Bookmark, BookmarkCheck, CalendarDays, ExternalLink, MessageSquare, Settings, Trash2, User, UserPlus, Wallet, Activity } from "lucide-react";
+import { Bell, Bookmark, BookmarkCheck, CalendarDays, ClipboardList, ExternalLink, Images, MessageSquare, Settings, Trash2, User, UserPlus, Wallet, Activity } from "lucide-react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 
@@ -646,6 +646,41 @@ export default function HomeScreen() {
       {me ? <PlanStatusCard me={me} compact={isCompact} /> : null}
 
       <AdBanner />
+
+      <div className="grid grid-cols-4 gap-2" data-testid="home-quick-actions">
+        <Link
+          href="/log"
+          className="flex flex-col items-center gap-1 rounded-xl border p-3 text-center transition hover:bg-muted/40"
+          data-testid="qa-log"
+        >
+          <ClipboardList className="h-5 w-5 text-muted-foreground" />
+          <span className="text-[11px] font-medium">ログ</span>
+        </Link>
+        <Link
+          href="/money"
+          className="flex flex-col items-center gap-1 rounded-xl border p-3 text-center transition hover:bg-muted/40"
+          data-testid="qa-money"
+        >
+          <Wallet className="h-5 w-5 text-muted-foreground" />
+          <span className="text-[11px] font-medium">お金</span>
+        </Link>
+        <Link
+          href="/schedule"
+          className="flex flex-col items-center gap-1 rounded-xl border p-3 text-center transition hover:bg-muted/40"
+          data-testid="qa-schedule"
+        >
+          <CalendarDays className="h-5 w-5 text-muted-foreground" />
+          <span className="text-[11px] font-medium">予定</span>
+        </Link>
+        <Link
+          href="/album"
+          className="flex flex-col items-center gap-1 rounded-xl border p-3 text-center transition hover:bg-muted/40"
+          data-testid="qa-album"
+        >
+          <Images className="h-5 w-5 text-muted-foreground" />
+          <span className="text-[11px] font-medium">アルバム</span>
+        </Link>
+      </div>
 
       <HomeMainMediaCard frameId={selectedOshi?.profile.image_frame_id ?? null} />
 
