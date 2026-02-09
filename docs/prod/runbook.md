@@ -138,6 +138,22 @@ docker compose -f docker-compose.prod.yml restart queue-worker
 docker compose -f docker-compose.prod.yml exec api php artisan queue:retry all
 ```
 
+## 3.5 Scheduler（Docker compose）
+
+```bash
+# 状態確認
+docker compose -f docker-compose.prod.yml ps scheduler
+
+# ログ確認
+docker compose -f docker-compose.prod.yml logs -f scheduler
+
+# 再起動
+docker compose -f docker-compose.prod.yml restart scheduler
+
+# 登録済みタスク確認
+docker compose -f docker-compose.prod.yml exec api php artisan schedule:list
+```
+
 ## 4. ヘルスチェック
 
 ```bash
