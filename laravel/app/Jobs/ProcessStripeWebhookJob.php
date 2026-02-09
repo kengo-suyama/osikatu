@@ -25,24 +25,62 @@ class ProcessStripeWebhookJob implements ShouldQueue
         public readonly string $eventType,
         public readonly array $eventData,
         public readonly ?string $requestId = null,
+        public readonly ?int $receivedAtMs = null,
     ) {}
 
     public function handle(): void
     {
+        $startedAtMs = (int) floor(microtime(true) * 1000);
+        $lagMs = ($this->receivedAtMs !== null) ? max(0, $startedAtMs - $this->receivedAtMs) : null;
+
         Log::info('stripe_webhook_job_processing', [
             'stripe_event_id' => $this->eventId,
             'event_type' => $this->eventType,
             'request_id' => $this->requestId,
         ]);
 
-        if (in_array($this->eventType, [
-            'customer.subscription.created',
-            'customer.subscription.updated',
-            'customer.subscription.deleted',
-        ], true)) {
-            $this->upsertSubscriptionFromStripe($this->eventData);
-        } elseif ($this->eventType === 'checkout.session.completed') {
-            $this->upsertSubscriptionFromCheckoutSession($this->eventData);
+        Log::info('billing_webhook_job_processing', [
+            'stripe_event_id' => $this->eventId,
+            'event_type' => $this->eventType,
+            'request_id' => $this->requestId,
+            'queue' => (string) ($this->queue ?? ''),
+            'lag_ms' => $lagMs,
+            'result' => 'start',
+        ]);
+
+        try {
+            if (in_array($this->eventType, [
+                'customer.subscription.created',
+                'customer.subscription.updated',
+                'customer.subscription.deleted',
+            ], true)) {
+                $this->upsertSubscriptionFromStripe($this->eventData);
+            } elseif ($this->eventType === 'checkout.session.completed') {
+                $this->upsertSubscriptionFromCheckoutSession($this->eventData);
+            }
+        } catch (\Throwable $e) {
+            Log::error('billing_webhook_job_processing', [
+                'stripe_event_id' => $this->eventId,
+                'event_type' => $this->eventType,
+                'request_id' => $this->requestId,
+                'queue' => (string) ($this->queue ?? ''),
+                'result' => 'error',
+                'error' => $e->getMessage(),
+                'exception' => $e::class,
+            ]);
+            throw $e;
+        } finally {
+            $finishedAtMs = (int) floor(microtime(true) * 1000);
+            $durationMs = max(0, $finishedAtMs - $startedAtMs);
+
+            Log::info('billing_webhook_job_completed', [
+                'stripe_event_id' => $this->eventId,
+                'event_type' => $this->eventType,
+                'request_id' => $this->requestId,
+                'queue' => (string) ($this->queue ?? ''),
+                'duration_ms' => $durationMs,
+                'result' => 'completed',
+            ]);
         }
 
         Log::info('stripe_webhook_job_completed', [
@@ -58,6 +96,16 @@ class ProcessStripeWebhookJob implements ShouldQueue
             'event_type' => $this->eventType,
             'request_id' => $this->requestId,
             'error' => $exception->getMessage(),
+        ]);
+
+        Log::error('billing_webhook_job_failed', [
+            'stripe_event_id' => $this->eventId,
+            'event_type' => $this->eventType,
+            'request_id' => $this->requestId,
+            'queue' => (string) ($this->queue ?? ''),
+            'result' => 'error',
+            'error' => $exception->getMessage(),
+            'exception' => $exception::class,
         ]);
     }
 
@@ -104,6 +152,16 @@ class ProcessStripeWebhookJob implements ShouldQueue
                 'stripe_subscription_id' => $stripeSubId,
                 'stripe_customer_id' => $customerId,
             ]);
+
+            Log::warning('billing_subscription_synced', [
+                'stripe_event_id' => $this->eventId,
+                'event_type' => $this->eventType,
+                'stripe_subscription_id' => $stripeSubId,
+                'stripe_customer_id' => $customerId,
+                'plan' => 'plus',
+                'result' => 'error',
+                'reason' => 'user_unknown',
+            ]);
             return;
         }
 
@@ -142,6 +200,19 @@ class ProcessStripeWebhookJob implements ShouldQueue
         $model->current_period_end = $periodEnd;
         $model->cancel_at_period_end = $cancelAtPeriodEnd;
         $model->save();
+
+        Log::info('billing_subscription_synced', [
+            'stripe_event_id' => $this->eventId,
+            'event_type' => $this->eventType,
+            'user_id' => $userId,
+            'plan' => 'plus',
+            'status' => $status,
+            'stripe_customer_id' => $model->stripe_customer_id,
+            'stripe_subscription_id' => $stripeSubId,
+            'cancel_at_period_end' => $cancelAtPeriodEnd,
+            'current_period_end' => $periodEnd?->toIso8601String(),
+            'result' => 'success',
+        ]);
     }
 
     private function upsertSubscriptionFromCheckoutSession(array $session): void
@@ -194,5 +265,18 @@ class ProcessStripeWebhookJob implements ShouldQueue
         }
         $model->stripe_subscription_id = $stripeSubId;
         $model->save();
+
+        Log::info('billing_subscription_synced', [
+            'stripe_event_id' => $this->eventId,
+            'event_type' => $this->eventType,
+            'user_id' => $userId,
+            'plan' => 'plus',
+            'status' => null,
+            'stripe_customer_id' => $model->stripe_customer_id,
+            'stripe_subscription_id' => $stripeSubId,
+            'cancel_at_period_end' => null,
+            'current_period_end' => null,
+            'result' => 'success',
+        ]);
     }
 }

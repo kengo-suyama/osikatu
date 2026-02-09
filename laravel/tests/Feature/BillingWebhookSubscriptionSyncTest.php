@@ -7,6 +7,7 @@ namespace Tests\Feature;
 use App\Models\BillingSubscription;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Log;
 use Tests\TestCase;
 
 class BillingWebhookSubscriptionSyncTest extends TestCase
@@ -28,6 +29,8 @@ class BillingWebhookSubscriptionSyncTest extends TestCase
         $user = User::factory()->create([
             'email' => 'billing-sub-created@example.com',
         ]);
+
+        Log::spy();
 
         $this->postEvent([
             'id' => 'evt_sub_created_001',
@@ -55,6 +58,24 @@ class BillingWebhookSubscriptionSyncTest extends TestCase
         $this->assertSame('active', $sub->status);
         $this->assertFalse((bool) $sub->cancel_at_period_end);
         $this->assertNotNull($sub->current_period_end);
+
+        Log::shouldHaveReceived('info')
+            ->withArgs(function ($message, $context = []) use ($user) {
+                if ($message !== 'billing_subscription_synced') {
+                    return false;
+                }
+                if (!is_array($context)) {
+                    return false;
+                }
+                return ($context['stripe_event_id'] ?? null) === 'evt_sub_created_001'
+                    && ($context['event_type'] ?? null) === 'customer.subscription.created'
+                    && ($context['user_id'] ?? null) === $user->id
+                    && ($context['plan'] ?? null) === 'plus'
+                    && ($context['status'] ?? null) === 'active'
+                    && ($context['stripe_subscription_id'] ?? null) === 'sub_123'
+                    && ($context['result'] ?? null) === 'success';
+            })
+            ->once();
     }
 
     public function test_subscription_updated_updates_existing_row(): void
@@ -133,4 +154,3 @@ class BillingWebhookSubscriptionSyncTest extends TestCase
         $this->assertSame('canceled', $sub->status);
     }
 }
-

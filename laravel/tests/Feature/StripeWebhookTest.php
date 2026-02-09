@@ -53,6 +53,8 @@ class StripeWebhookTest extends TestCase
             'status' => 'processed',
         ]);
 
+        Log::spy();
+
         $payload = $this->makePayload('evt_dup_001');
 
         $response = $this->postJson('/api/billing/webhook', $payload);
@@ -61,6 +63,20 @@ class StripeWebhookTest extends TestCase
         $response->assertJsonPath('success.data.status', 'already_processed');
 
         $this->assertDatabaseCount('webhook_event_receipts', 1);
+
+        Log::shouldHaveReceived('info')
+            ->withArgs(function ($message, $context = []) {
+                if ($message !== 'billing_webhook_idempotent_hit') {
+                    return false;
+                }
+                if (!is_array($context)) {
+                    return false;
+                }
+                return ($context['stripe_event_id'] ?? null) === 'evt_dup_001'
+                    && ($context['result'] ?? null) === 'hit'
+                    && ($context['http_status'] ?? null) === 200;
+            })
+            ->once();
     }
 
     public function test_missing_event_id_returns_400(): void
@@ -97,6 +113,20 @@ class StripeWebhookTest extends TestCase
                     return false;
                 }
                 return is_array($context);
+            })
+            ->once();
+
+        Log::shouldHaveReceived('warning')
+            ->withArgs(function ($message, $context = []) {
+                if ($message !== 'billing_webhook_verified') {
+                    return false;
+                }
+                if (!is_array($context)) {
+                    return false;
+                }
+                return ($context['result'] ?? null) === 'fail'
+                    && ($context['reason'] ?? null) === 'invalid_signature'
+                    && ($context['http_status'] ?? null) === 400;
             })
             ->once();
     }
