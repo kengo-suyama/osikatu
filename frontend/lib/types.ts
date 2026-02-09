@@ -462,6 +462,30 @@ export type TitlesResponseDto = {
   awards: TitleAwardDto[];
 };
 
+/** ---- Points ---- */
+export type PointsEarnReason = "share_copy" | "daily_login";
+
+export type PointsTransactionItemDto = {
+  id: number;
+  circleId: number | null;
+  delta: number;
+  reason: string;
+  sourceMeta?: Record<string, unknown> | null;
+  requestId?: string | null;
+  createdAt: ISODateTime | null;
+};
+
+export type MePointsResponseDto = {
+  balance: number;
+  items: PointsTransactionItemDto[];
+};
+
+export type PointsEarnResponseDto = {
+  earned: boolean;
+  delta: number;
+  balance: number;
+};
+
 /** ---- Circle Media / Album ---- */
 export type CircleMediaDto = {
   id: number;
