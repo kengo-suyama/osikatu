@@ -486,6 +486,36 @@ export type PointsEarnResponseDto = {
   balance: number;
 };
 
+/** ---- Inventory / Unlocks ---- */
+export type UnlockItemType = "frame" | "theme" | "title" | "sticker";
+
+export type InventoryItemDto = {
+  id: number;
+  itemType: UnlockItemType;
+  itemKey: string;
+  rarity: string;
+  source: string;
+  acquiredAt: ISODateTime | null;
+};
+
+export type MeInventoryResponseDto = {
+  balance: number;
+  items: InventoryItemDto[];
+};
+
+export type InventoryApplyRequestDto = {
+  itemType: "frame" | "theme";
+  itemKey: string;
+};
+
+export type InventoryApplyResponseDto = {
+  applied: {
+    themeId?: string | null;
+    oshiId?: number;
+    imageFrameId?: string | null;
+  };
+};
+
 /** ---- Circle Media / Album ---- */
 export type CircleMediaDto = {
   id: number;
