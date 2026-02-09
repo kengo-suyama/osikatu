@@ -40,7 +40,7 @@ class OperationLogController extends Controller
         return $this->respondWithCursor($items, $limit);
     }
 
-    public function circleIndex(Request $request, int $circle)
+    public function circleIndex(Request $request, string $circle)
     {
         $deviceId = $request->header('X-Device-Id');
         if (!$deviceId) {
@@ -224,7 +224,7 @@ class OperationLogController extends Controller
         return ApiResponse::success(['deleted' => true]);
     }
 
-    public function destroyCircle(Request $request, int $circleId, string $logId)
+    public function destroyCircle(Request $request, string $circleId, string $logId)
     {
         $userId = CurrentUser::id();
         if (!$userId) {

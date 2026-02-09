@@ -1,0 +1,46 @@
+name: ci-backend
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+jobs:
+  backend:
+    runs-on: ubuntu-latest
+    env:
+      DB_CONNECTION: sqlite
+      DB_DATABASE: ":memory:"
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: "8.2"
+          extensions: mbstring, sqlite3, pdo_sqlite
+          coverage: none
+
+      - name: Install Composer dependencies
+        working-directory: laravel
+        run: composer install --no-interaction --no-progress --prefer-dist
+
+      - name: Generate app key
+        working-directory: laravel
+        run: |
+          cp .env.example .env
+          php artisan key:generate
+          mkdir -p storage/framework/{views,sessions,cache}
+
+      - name: Run migrations
+        working-directory: laravel
+        run: php artisan migrate --force
+
+      - name: Run tests
+        working-directory: laravel
+        run: vendor/bin/phpunit --testdox

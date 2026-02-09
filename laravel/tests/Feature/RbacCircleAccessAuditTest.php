@@ -30,6 +30,7 @@ class RbacCircleAccessAuditTest extends TestCase
             'circle_id' => $this->circle->id,
             'user_id' => $owner->id,
             'role' => 'owner',
+            'joined_at' => now(),
         ]);
 
         // non-member user

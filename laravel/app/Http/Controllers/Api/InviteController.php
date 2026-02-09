@@ -10,6 +10,7 @@ use App\Http\Resources\InviteResource;
 use App\Models\Circle;
 use App\Models\CircleInvite;
 use App\Models\CircleMember;
+use App\Models\OperationLog;
 use App\Models\User;
 use App\Support\ApiResponse;
 use App\Support\CurrentUser;
@@ -330,7 +331,7 @@ class InviteController extends Controller
         return ApiResponse::success(new InviteResource($inviteModel));
     }
 
-    public function regenerate(int $circleId)
+    public function regenerate(string $circleId)
     {
         $user = User::query()->find(CurrentUser::id());
         if (!$user) {
@@ -365,14 +366,19 @@ class InviteController extends Controller
         $code = strtoupper(substr(md5(uniqid((string) random_int(0, PHP_INT_MAX), true)), 0, 8));
         $newInvite = CircleInvite::create([
             'circle_id' => $circleId,
-            'creator_user_id' => $user->id,
+            'type' => 'code',
+            'created_by' => $user->id,
             'code' => $code,
             'max_uses' => null,
             'expires_at' => null,
         ]);
 
-        OperationLog::logAction($circleId, $user->id, 'invite.regenerate', [
-            'circleId' => $circleId,
+        OperationLog::create([
+            'circle_id' => (int) $circleId,
+            'user_id' => $user->id,
+            'action' => 'invite.regenerate',
+            'meta' => ['circleId' => (int) $circleId],
+            'created_at' => now(),
         ]);
 
         return ApiResponse::success([
