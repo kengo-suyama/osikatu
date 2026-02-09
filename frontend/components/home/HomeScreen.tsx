@@ -42,12 +42,14 @@ import { fetchNotifications, markNotificationRead } from "@/lib/repo/notificatio
 import { oshiRepo } from "@/lib/repo/oshiRepo";
 import { fetchMySchedules } from "@/lib/repo/scheduleRepo";
 import { fetchExpensesSummary } from "@/lib/repo/expenseRepo";
+import { pointsRepo } from "@/lib/repo/pointsRepo";
 
 import { localYearMonth, localDate } from "@/lib/date";
+// Points balance is fetched separately to avoid coupling
 import { useBudgetState } from "@/lib/budgetState";
 import { BudgetResponse } from "@/lib/repo/budgetRepo";
 import { loadJson, loadString, removeString, saveJson, saveString } from "@/lib/storage";
-import type { CircleDto, ExpensesByOshiDto, MeDto, NotificationDto, OperationLogDto, OwnerDashboardDto, ScheduleDto } from "@/lib/types";
+import type { CircleDto, ExpensesByOshiDto, MeDto, NotificationDto, OperationLogDto, OwnerDashboardDto, ScheduleDto, MePointsResponseDto } from "@/lib/types";
 import type { Oshi, SupplyItem } from "@/lib/uiTypes";
 import { cn } from "@/lib/utils";
 import { getSafeDisplayName, isProfileNameMissing } from "@/lib/ui/profileDisplay";
@@ -143,6 +145,7 @@ export default function HomeScreen() {
   const [ownerDashboard, setOwnerDashboard] = useState<OwnerDashboardDto | null>(null);
   const [ownerLoading, setOwnerLoading] = useState(false);
   const [me, setMe] = useState<MeDto | null>(null);
+  const [pointsBalance, setPointsBalance] = useState<number | null>(null);
   const [myLogs, setMyLogs] = useState<OperationLogDto[]>([]);
   const [myLogsLoading, setMyLogsLoading] = useState(false);
   const [upcomingSchedules, setUpcomingSchedules] = useState<ScheduleDto[]>([]);
@@ -165,6 +168,12 @@ export default function HomeScreen() {
   }, []);
   const [budgetInputs, setBudgetInputs] = useState<BudgetResponse>(defaultBudgetState);
   const [budgetMessage, setBudgetMessage] = useState<string | null>(null);
+  useEffect(() => {
+    pointsRepo.getMePoints().then((data) => {
+      if (data) setPointsBalance(data.balance);
+    });
+  }, []);
+
   const { budget: budgetData, loading: budgetLoading, saveBudget } =
     useBudgetState(defaultBudgetState);
 
@@ -954,6 +963,17 @@ export default function HomeScreen() {
 
       {!selectedCircleId ? (
         <CircleEntryCard me={me} onCircleSelected={handleCircleSelected} />
+      ) : null}
+
+      {pointsBalance !== null ? (
+        <Card className="rounded-2xl border p-3 shadow-sm">
+          <div className="flex items-center justify-between">
+            <div className="text-sm font-semibold text-muted-foreground">ポイント</div>
+            <div className="inline-flex items-center gap-1 rounded-full border px-3 py-1 text-xs font-medium" data-testid="gacha-points-badge">
+              {pointsBalance}P
+            </div>
+          </div>
+        </Card>
       ) : null}
 
       <CelebrationTrigger
