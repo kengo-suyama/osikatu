@@ -34,6 +34,8 @@ import {
 } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
 import { isApiMode } from "@/lib/config";
+import { usePlanGateError } from "@/lib/usePlanGateError";
+import { PlanGateErrorBanner } from "@/components/PlanGateErrorBanner";
 
 const formatAmountPlain = (amount: number) => String(Math.max(0, Math.round(amount)));
 const formatAmountYen = (amount: number) =>
@@ -102,6 +104,8 @@ export default function CircleSettlementsPage({
   const [toastOpen, setToastOpen] = useState(false);
   const [toastTitle, setToastTitle] = useState("");
   const [toastDescription, setToastDescription] = useState("");
+
+  const { planGate, handleApiError, clearPlanError } = usePlanGateError();
 
   const [showCreateExpenseDialog, setShowCreateExpenseDialog] = useState(false);
   const [ceTitle, setCeTitle] = useState("");
@@ -230,7 +234,7 @@ export default function CircleSettlementsPage({
     return () => {
       mounted = false;
     };
-  }, [circleId]);
+  }, [circleId, clearPlanError, handleApiError]);
 
   useEffect(() => {
     let mounted = true;
@@ -238,6 +242,7 @@ export default function CircleSettlementsPage({
 
     setExpenseLedgerForbidden(null);
     setExpenseLedgerError(null);
+    clearPlanError();
 
     if (!isApiMode()) {
       setExpenseLedgerLoading(false);
@@ -263,8 +268,10 @@ export default function CircleSettlementsPage({
 
         if (rejected?.reason instanceof ApiRequestError) {
           const apiErr = rejected.reason as ApiRequestError;
-          if (apiErr.status === 403) {
-            setExpenseLedgerForbidden(apiErr.message || "Plusが必要です。");
+          if (handleApiError(apiErr)) {
+            const fallback =
+              apiErr.status === 403 ? "この操作を行う権限がありません" : "この機能はPlusプランが必要です";
+            setExpenseLedgerForbidden(apiErr.message || fallback);
             setExpenseLedgerItems([]);
             setExpenseLedgerBalances(null);
             setExpenseLedgerSuggestions(null);
@@ -294,7 +301,7 @@ export default function CircleSettlementsPage({
     return () => {
       mounted = false;
     };
-  }, [circleId]);
+  }, [circleId, clearPlanError, handleApiError]);
 
   useEffect(() => {
     let mounted = true;
@@ -524,12 +531,12 @@ export default function CircleSettlementsPage({
         </div>
 
         {expenseLedgerForbidden ? (
-          <Card
-            className="rounded-2xl border p-4 text-sm text-muted-foreground"
-            data-testid="settlement-forbidden"
-          >
-            {expenseLedgerForbidden}
-          </Card>
+          <div data-testid="settlement-forbidden">
+            <PlanGateErrorBanner
+              message={expenseLedgerForbidden}
+              kind={planGate?.kind ?? "upgrade"}
+            />
+          </div>
         ) : (
           <>
             <Card className="rounded-2xl border p-4 shadow-sm" data-testid="settlement-expenses">

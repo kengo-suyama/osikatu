@@ -119,7 +119,7 @@ export default function PricingPage() {
         ))}
       </div>
 
-      {currentPlan !== "free" && (
+      {currentPlan === "plus" && (
         <div className="pt-2">
           <Button
             variant="link"
