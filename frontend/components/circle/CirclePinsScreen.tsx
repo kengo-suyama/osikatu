@@ -10,7 +10,7 @@ import { pinsRepo } from "@/lib/repo/pinsRepo";
 import { ApiRequestError } from "@/lib/repo/http";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 
@@ -502,19 +502,21 @@ export default function CirclePinsScreen({ circleId }: { circleId: number }) {
             </div>
           ) : null}
 
-          <div className="mt-2 flex justify-end gap-2">
-            <Button
-              type="button"
-              variant="secondary"
-              onClick={() => setDialogOpen(false)}
-              disabled={saving}
-            >
-              キャンセル
-            </Button>
-            <Button type="button" onClick={() => void save()} disabled={saving} data-testid="pin-save">
-              {saving ? "保存中..." : "保存"}
-            </Button>
-          </div>
+          <DialogFooter>
+            <div className="flex justify-end gap-2">
+              <Button
+                type="button"
+                variant="secondary"
+                onClick={() => setDialogOpen(false)}
+                disabled={saving}
+              >
+                キャンセル
+              </Button>
+              <Button type="button" onClick={() => void save()} disabled={saving} data-testid="pin-save">
+                {saving ? "保存中..." : "保存"}
+              </Button>
+            </div>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </div>
