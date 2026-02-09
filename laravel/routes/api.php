@@ -32,6 +32,7 @@ use App\Http\Controllers\Api\PostController;
 use App\Http\Controllers\Api\CircleSettlementExpenseController;
 use App\Http\Controllers\Api\CircleScheduleProposalController;
 use App\Http\Controllers\Api\SettlementController;
+use App\Http\Controllers\Api\AdminBillingController;
 use App\Http\Controllers\Api\BillingDebugController;
 use App\Http\Controllers\Api\BillingCheckoutController;
 use App\Http\Controllers\Api\BillingPortalController;
@@ -199,6 +200,8 @@ Route::post('/posts/{post}/ack', [PostController::class, 'ack']);
 
 // Billing
 Route::get('/billing/debug', [BillingDebugController::class, 'show']);
+
+Route::get('/admin/billing/webhook-summary', [AdminBillingController::class, 'webhookSummary']);
 Route::post('/billing/checkout', [BillingCheckoutController::class, 'create']);
 Route::get('/billing/portal', [BillingPortalController::class, 'create']);
 Route::post('/billing/webhook', [StripeWebhookController::class, 'handle'])->middleware('throttle:30,1');
