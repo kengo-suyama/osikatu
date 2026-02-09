@@ -6,6 +6,7 @@ import type { ScheduleDto } from "@/lib/types";
 type ScheduleParams = {
   from?: string;
   to?: string;
+  q?: string;
 };
 
 const normalizeId = (id: string) => Number(id.replace(/^us_/, ""));
@@ -31,8 +32,9 @@ export async function fetchMySchedules(params: ScheduleParams = {}): Promise<Sch
   const search = new URLSearchParams();
   if (params.from) search.set("from", params.from);
   if (params.to) search.set("to", params.to);
-  const path = search.toString() ? `/api/me/schedules?${search.toString()}` : "/api/me/schedules";
-  const data = await apiGet<{ items: ScheduleDto[] }>(path);
+  if (params.q) search.set("q", params.q);
+  const p = search.toString() ? `/api/me/schedules?${search.toString()}` : "/api/me/schedules";
+  const data = await apiGet<{ items: ScheduleDto[] }>(p);
   return data.items;
 }
 
@@ -44,6 +46,7 @@ export async function createMySchedule(payload: {
   note?: string | null;
   location?: string | null;
   remindAt?: string | null;
+  tags?: string[];
 }): Promise<ScheduleDto> {
   if (!isApiMode()) {
     const now = new Date().toISOString();
@@ -56,6 +59,7 @@ export async function createMySchedule(payload: {
       note: payload.note ?? null,
       location: payload.location ?? null,
       remindAt: payload.remindAt ?? null,
+      tags: payload.tags ?? [],
       updatedAt: now,
     };
     const list = ensureLocalList();
@@ -74,6 +78,7 @@ export async function updateMySchedule(id: string, payload: {
   note?: string | null;
   location?: string | null;
   remindAt?: string | null;
+  tags?: string[];
 }): Promise<ScheduleDto> {
   if (!isApiMode()) {
     const list = ensureLocalList();
@@ -90,6 +95,7 @@ export async function updateMySchedule(id: string, payload: {
       note: payload.note ?? null,
       location: payload.location ?? null,
       remindAt: payload.remindAt ?? null,
+      tags: payload.tags ?? [],
       updatedAt: new Date().toISOString(),
     };
     const next = [...list];
