@@ -140,6 +140,10 @@ class CircleSchedulesTest extends TestCase
             ->assertJsonPath('success.data.deleted', true);
     }
 
+    /**
+     * Policy: non-members always get 404 (hide circle existence).
+     * This applies to both read and write endpoints.
+     */
     public function test_non_member_is_not_found(): void
     {
         [$circle] = $this->createCircleWithMember('device-calendar-005', 'member', 'free');
@@ -147,6 +151,23 @@ class CircleSchedulesTest extends TestCase
         $response = $this->withHeaders([
             'X-Device-Id' => 'device-other-005',
         ])->getJson("/api/circles/{$circle->id}/calendar");
+
+        $response->assertStatus(404)
+            ->assertJsonPath('error.code', 'NOT_FOUND');
+    }
+
+    public function test_non_member_post_returns_not_found(): void
+    {
+        [$circle] = $this->createCircleWithMember('device-calendar-006', 'owner', 'premium');
+
+        $response = $this->withHeaders([
+            'X-Device-Id' => 'device-other-006',
+        ])->postJson("/api/circles/{$circle->id}/calendar", [
+            'title' => 'Attempt',
+            'startAt' => '2026-03-01T10:00:00+09:00',
+            'endAt' => '2026-03-01T12:00:00+09:00',
+            'isAllDay' => false,
+        ]);
 
         $response->assertStatus(404)
             ->assertJsonPath('error.code', 'NOT_FOUND');
