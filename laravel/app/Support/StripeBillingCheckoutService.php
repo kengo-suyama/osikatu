@@ -17,6 +17,11 @@ class StripeBillingCheckoutService implements BillingCheckoutService
         $successUrl = (string) config('billing.success_url', '');
         $cancelUrl = (string) config('billing.cancel_url', '');
 
+        // Allow relative paths (e.g. "/billing/return?status=success") for easier prod domain switching.
+        $baseUrl = (string) config('app.url', '');
+        $successUrl = $this->resolveUrl($baseUrl, $successUrl);
+        $cancelUrl = $this->resolveUrl($baseUrl, $cancelUrl);
+
         if ($secret === '' || $pricePlus === '' || $successUrl === '' || $cancelUrl === '') {
             throw new \RuntimeException('Billing config is not set.');
         }
@@ -62,5 +67,25 @@ class StripeBillingCheckoutService implements BillingCheckoutService
         }
 
         return $url;
+    }
+
+    private function resolveUrl(string $baseUrl, string $value): string
+    {
+        $v = trim($value);
+        if ($v === '') {
+            return '';
+        }
+        if (preg_match('/^https?:\\/\\//i', $v) === 1) {
+            return $v;
+        }
+        $base = trim($baseUrl);
+        if ($base === '') {
+            return $v;
+        }
+
+        if (str_starts_with($v, '/')) {
+            return rtrim($base, '/') . $v;
+        }
+        return rtrim($base, '/') . '/' . ltrim($v, '/');
     }
 }

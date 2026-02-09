@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { meRepo } from "@/lib/repo/meRepo";
@@ -40,6 +41,8 @@ export default function PricingPage() {
   const [me, setMe] = useState<MeDto | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState<"checkout" | "portal" | null>(null);
+  const searchParams = useSearchParams();
+  const billingStatus = searchParams.get("billing");
 
   useEffect(() => {
     meRepo.getMe().then(setMe).catch(() => {});
@@ -55,6 +58,15 @@ export default function PricingPage() {
           \u3042\u306A\u305F\u306B\u5408\u3063\u305F\u30D7\u30E9\u30F3\u3092\u9078\u3073\u307E\u3057\u3087\u3046
         </div>
       </div>
+
+      {billingStatus === "cancel" && (
+        <Card className="rounded-2xl border p-4 shadow-sm" data-testid="pricing-billing-cancel">
+          <div className="text-sm font-semibold">キャンセルされました</div>
+          <div className="mt-1 text-xs text-muted-foreground">
+            お支払いはキャンセルされました。必要ならもう一度アップグレードできます。
+          </div>
+        </Card>
+      )}
 
       <div className="space-y-3">
         {plans.map((plan) => (
