@@ -6,6 +6,7 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Support\ApiResponse;
+use Illuminate\Support\Facades\Cache;
 
 class HealthReadyController extends Controller
 {
@@ -74,6 +75,38 @@ class HealthReadyController extends Controller
                 $warnings[] = [
                     'code' => 'QUEUE_SYNC_IN_PRODUCTION',
                     'message' => 'Queue default is sync. A worker-backed queue is recommended in production.',
+                ];
+            }
+        }
+
+        // Queue heartbeat check (production only)
+        if ($isProduction) {
+            $heartbeatTs = Cache::get('queue_heartbeat_ts');
+            if ($heartbeatTs === null) {
+                $warnings[] = [
+                    'code' => 'QUEUE_HEARTBEAT_MISSING',
+                    'message' => 'Queue heartbeat not found. Ensure queue:heartbeat is scheduled.',
+                ];
+            } elseif ((now()->timestamp - (int) $heartbeatTs) > 120) {
+                $errors[] = [
+                    'code' => 'QUEUE_HEARTBEAT_STALE',
+                    'message' => 'Queue heartbeat is stale (>120s). Worker may be down.',
+                ];
+            }
+        }
+
+        // Queue heartbeat check (production only)
+        if ($isProduction) {
+            $heartbeatTs = Cache::get('queue_heartbeat_ts');
+            if ($heartbeatTs === null) {
+                $warnings[] = [
+                    'code' => 'QUEUE_HEARTBEAT_MISSING',
+                    'message' => 'Queue heartbeat not found. Ensure queue:heartbeat is scheduled.',
+                ];
+            } elseif ((now()->timestamp - (int) $heartbeatTs) > 120) {
+                $errors[] = [
+                    'code' => 'QUEUE_HEARTBEAT_STALE',
+                    'message' => 'Queue heartbeat is stale (>120s). Worker may be down.',
                 ];
             }
         }

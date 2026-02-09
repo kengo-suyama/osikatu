@@ -51,3 +51,8 @@ Artisan::command('pins:v1-status', function () {
 
     return 0;
 })->purpose('Show pins-v1 write mode and whether config is cached');
+
+use App\Jobs\QueueHeartbeatJob;
+use Illuminate\Support\Facades\Schedule;
+
+Schedule::job(new QueueHeartbeatJob)->everyMinute();
