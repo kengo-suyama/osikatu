@@ -47,5 +47,7 @@ class OshiImageUploadTest extends TestCase
             ->assertJsonPath('success.data.id', $oshi->id);
 
         $this->assertNotEmpty($imageUrl);
+        $this->assertIsString($imageUrl);
+        $this->assertStringStartsWith('/storage/', $imageUrl);
     }
 }

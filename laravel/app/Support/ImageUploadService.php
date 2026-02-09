@@ -10,6 +10,11 @@ use Illuminate\Support\Str;
 
 class ImageUploadService
 {
+    private static function publicUrlFromPath(string $path): string
+    {
+        return '/storage/' . ltrim($path, '/');
+    }
+
     public static function storePublicImage(UploadedFile $file, string $dir): array
     {
         $mime = $file->getMimeType();
@@ -32,7 +37,7 @@ class ImageUploadService
 
         if (!extension_loaded('gd') && !extension_loaded('imagick')) {
             $storedPath = $file->storeAs($directory, $filename, 'public');
-            $url = Storage::disk('public')->url($storedPath);
+            $url = self::publicUrlFromPath($storedPath);
 
             return [
                 'path' => $storedPath,
@@ -49,7 +54,7 @@ class ImageUploadService
 
         if (isset($result['error'])) {
             $storedPath = $file->storeAs($directory, $filename, 'public');
-            $url = Storage::disk('public')->url($storedPath);
+            $url = self::publicUrlFromPath($storedPath);
 
             return [
                 'path' => $storedPath,
@@ -60,7 +65,7 @@ class ImageUploadService
             ];
         }
 
-        $url = Storage::disk('public')->url($path);
+        $url = self::publicUrlFromPath($path);
 
         return [
             'path' => $path,

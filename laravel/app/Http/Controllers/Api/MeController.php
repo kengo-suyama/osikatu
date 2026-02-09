@@ -200,7 +200,7 @@ class MeController extends Controller
         if ($user->avatar_path) {
             $avatarUrl = str_starts_with($user->avatar_path, 'http://') || str_starts_with($user->avatar_path, 'https://')
                 ? $user->avatar_path
-                : Storage::disk('public')->url($user->avatar_path);
+                : '/storage/' . ltrim($user->avatar_path, '/');
         }
 
         return [
