@@ -751,11 +751,17 @@ export type ExpensesByOshiDto = {
   totalAmount: number;
 };
 
+export type ExpensesByCategoryDto = {
+  category: string;
+  totalAmount: number;
+};
+
 export type ExpensesSummaryDto = {
   month: string;
   period: { start: string; end: string };
   totalAmount: number;
   byOshi: ExpensesByOshiDto[];
+  byCategory: ExpensesByCategoryDto[];
 };
 
 export type FortuneDto = {

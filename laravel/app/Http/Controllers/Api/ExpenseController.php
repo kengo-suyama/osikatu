@@ -112,6 +112,22 @@ class ExpenseController extends Controller
             ];
         })->values();
 
+        $byCategory = (clone $query)
+            ->select(
+                'category',
+                DB::raw('SUM(amount) as total_amount')
+            )
+            ->groupBy('category')
+            ->orderByDesc('total_amount')
+            ->get()
+            ->map(static function ($row) {
+                return [
+                    'category' => $row->category ?? '',
+                    'totalAmount' => (int) $row->total_amount,
+                ];
+            })
+            ->values();
+
         return ApiResponse::success([
             'month' => $start->format('Y-m'),
             'period' => [
@@ -120,6 +136,7 @@ class ExpenseController extends Controller
             ],
             'totalAmount' => (int) $totalAmount,
             'byOshi' => $byOshi,
+            'byCategory' => $byCategory,
         ]);
     }
 }
