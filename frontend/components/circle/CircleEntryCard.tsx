@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useRef, useState } from "react";
+import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 
 import CircleCreateDialog from "@/components/circle/CircleCreateDialog";
@@ -117,14 +118,34 @@ export default function CircleEntryCard({ me, onCircleSelected }: CircleEntryCar
         >
           サークルを探す
         </Button>
-        <Button
-          onClick={() => {
-            setCreateOpen(true);
-            eventsRepo.track(ANALYTICS_EVENTS.CIRCLE_CREATE_OPEN, pathname);
-          }}
-        >
-          サークルを作る
-        </Button>
+        {canCreate ? (
+          <Button
+            data-testid="circle-create-cta"
+            onClick={() => {
+              setCreateOpen(true);
+              eventsRepo.track(ANALYTICS_EVENTS.CIRCLE_CREATE_OPEN, pathname);
+            }}
+          >
+            サークルを作る
+          </Button>
+        ) : (
+          <div className="grid gap-2">
+            <Button disabled data-testid="circle-create-disabled">
+              サークルを作る
+            </Button>
+            <Button asChild variant="secondary">
+              <Link
+                href="/pricing"
+                data-testid="circle-create-upgrade"
+                onClick={() => {
+                  eventsRepo.track(ANALYTICS_EVENTS.PLAN_UPGRADE_OPEN, pathname);
+                }}
+              >
+                Plusでサークルを作る
+              </Link>
+            </Button>
+          </div>
+        )}
         <div
           className={cn(
             "text-[11px] text-muted-foreground",

@@ -8,6 +8,23 @@ const logPass = (message: string) => console.log(`[PASS] ${message}`);
 const successBody = (data: unknown) =>
   JSON.stringify({ success: { data, meta: {} } });
 
+const baseMe = (plan: "free" | "plus") => ({
+  id: 1,
+  name: "E2E User",
+  email: "e2e@example.com",
+  plan,
+  effectivePlan: plan,
+  trialEndsAt: null,
+  profile: {
+    displayName: null,
+    avatarUrl: null,
+    bio: null,
+    prefectureCode: null,
+    onboardingCompleted: true,
+  },
+  ui: { themeId: "default", specialBgEnabled: false },
+});
+
 const ensureOnboardingDone = async (
   request: Parameters<typeof test>[1]["request"],
   deviceId: string,
@@ -132,6 +149,66 @@ const setupCircleHubMocks = async (page: Parameters<typeof test>[1]["page"]) => 
 };
 
 test.describe("quick mode switch", () => {
+  test("free plan cannot open circle create entry; upgrade CTA goes to /pricing", async ({
+    page,
+    request,
+  }) => {
+    const deviceId = `device-e2e-circle-create-free-${Date.now()}`;
+    await ensureOnboardingDone(request, deviceId);
+
+    await page.addInitScript((did: string) => {
+      localStorage.setItem("osikatu:device:id", did);
+      localStorage.setItem("osikatu:data-source", "api");
+    }, deviceId);
+
+    await page.route("**/api/me", (r) =>
+      r.fulfill({ status: 200, contentType: "application/json", body: successBody(baseMe("free")) }),
+    );
+    await page.route("**/api/oshis**", (r) =>
+      r.fulfill({ status: 200, contentType: "application/json", body: successBody([]) }),
+    );
+    await page.route(/\/api\/circles(\?.*)?$/, (route) =>
+      route.fulfill({ status: 200, contentType: "application/json", body: successBody([]) }),
+    );
+
+    await page.goto("/home", { waitUntil: "domcontentloaded" });
+
+    const disabled = page.locator('[data-testid="circle-create-disabled"]');
+    await expect(disabled).toBeVisible({ timeout: 45_000 });
+    await expect(disabled).toBeDisabled();
+
+    await page.locator('[data-testid="circle-create-upgrade"]').click();
+    // /pricing may need a cold compile on first navigation; commit is enough to assert correct route.
+    await page.waitForURL("**/pricing", { timeout: 45_000, waitUntil: "commit" });
+  });
+
+  test("plus plan can open circle create dialog from home entry", async ({ page, request }) => {
+    const deviceId = `device-e2e-circle-create-plus-${Date.now()}`;
+    await ensureOnboardingDone(request, deviceId);
+
+    await page.addInitScript((did: string) => {
+      localStorage.setItem("osikatu:device:id", did);
+      localStorage.setItem("osikatu:data-source", "api");
+    }, deviceId);
+
+    await page.route("**/api/me", (r) =>
+      r.fulfill({ status: 200, contentType: "application/json", body: successBody(baseMe("plus")) }),
+    );
+    await page.route("**/api/oshis**", (r) =>
+      r.fulfill({ status: 200, contentType: "application/json", body: successBody([]) }),
+    );
+    await page.route(/\/api\/circles(\?.*)?$/, (route) =>
+      route.fulfill({ status: 200, contentType: "application/json", body: successBody([]) }),
+    );
+
+    await page.goto("/home", { waitUntil: "domcontentloaded" });
+
+    await page.locator('[data-testid="circle-create-cta"]').click();
+    await expect(page.getByRole("heading", { name: "サークルを作成" })).toBeVisible({
+      timeout: 10_000,
+    });
+  });
+
   test("clicking circle button navigates to circle hub", async ({ page, request }) => {
     const deviceId = `device-e2e-qms1-${Date.now()}`;
     await ensureOnboardingDone(request, deviceId);
