@@ -1,0 +1,37 @@
+import type { Dictionary } from "./types";
+
+const zhHant: Dictionary = {
+  "app.name": "推し活",
+  "nav.home": "首頁",
+  "nav.log": "日誌",
+  "nav.money": "金額",
+  "nav.schedule": "日程",
+  "nav.album": "相簿",
+  "nav.settings": "設定",
+  "nav.gacha": "轉蛋",
+  "nav.share": "分享",
+  "action.save": "儲存",
+  "action.cancel": "取消",
+  "action.delete": "刪除",
+  "action.edit": "編輯",
+  "action.create": "建立",
+  "action.close": "關閉",
+  "action.copy": "複製",
+  "action.search": "搜尋",
+  "action.filter": "篩選",
+  "action.clear": "清除",
+  "action.upload": "上傳",
+  "common.loading": "載入中...",
+  "common.noData": "沒有資料",
+  "common.error": "發生錯誤",
+  "common.confirm": "確認",
+  "common.yes": "是",
+  "common.no": "否",
+  "points.balance": "點數餘額",
+  "points.insufficient": "點數不足",
+  "theme.select": "選擇主題",
+  "language.select": "選擇語言",
+  "language.title": "語言",
+};
+
+export default zhHant;

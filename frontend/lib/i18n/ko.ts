@@ -1,0 +1,37 @@
+import type { Dictionary } from "./types";
+
+const ko: Dictionary = {
+  "app.name": "오시카츠",
+  "nav.home": "홈",
+  "nav.log": "로그",
+  "nav.money": "돈",
+  "nav.schedule": "일정",
+  "nav.album": "앨범",
+  "nav.settings": "설정",
+  "nav.gacha": "가챠",
+  "nav.share": "공유",
+  "action.save": "저장",
+  "action.cancel": "취소",
+  "action.delete": "삭제",
+  "action.edit": "편집",
+  "action.create": "만들기",
+  "action.close": "닫기",
+  "action.copy": "복사",
+  "action.search": "검색",
+  "action.filter": "필터",
+  "action.clear": "지우기",
+  "action.upload": "업로드",
+  "common.loading": "로딩 중...",
+  "common.noData": "데이터 없음",
+  "common.error": "오류가 발생했습니다",
+  "common.confirm": "확인",
+  "common.yes": "예",
+  "common.no": "아니오",
+  "points.balance": "포인트 잔액",
+  "points.insufficient": "포인트가 부족합니다",
+  "theme.select": "테마 선택",
+  "language.select": "언어 선택",
+  "language.title": "언어",
+};
+
+export default ko;

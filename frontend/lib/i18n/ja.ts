@@ -1,0 +1,37 @@
+import type { Dictionary } from "./types";
+
+const ja: Dictionary = {
+  "app.name": "おしかつ",
+  "nav.home": "ホーム",
+  "nav.log": "ログ",
+  "nav.money": "お金",
+  "nav.schedule": "予定",
+  "nav.album": "アルバム",
+  "nav.settings": "設定",
+  "nav.gacha": "ガチャ",
+  "nav.share": "共有",
+  "action.save": "保存",
+  "action.cancel": "キャンセル",
+  "action.delete": "削除",
+  "action.edit": "編集",
+  "action.create": "作成",
+  "action.close": "閉じる",
+  "action.copy": "コピー",
+  "action.search": "検索",
+  "action.filter": "フィルタ",
+  "action.clear": "クリア",
+  "action.upload": "アップロード",
+  "common.loading": "読み込み中…",
+  "common.noData": "データがありません",
+  "common.error": "エラーが発生しました",
+  "common.confirm": "確認",
+  "common.yes": "はい",
+  "common.no": "いいえ",
+  "points.balance": "ポイント残高",
+  "points.insufficient": "ポイントが不足しています",
+  "theme.select": "テーマを選択",
+  "language.select": "言語を選択",
+  "language.title": "言語設定",
+};
+
+export default ja;
