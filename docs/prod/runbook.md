@@ -122,6 +122,22 @@ stdout_logfile=/var/log/osikatu/worker.log
 stopwaitsecs=3600
 ```
 
+## 3.4 Queue Worker（Docker compose）
+
+```bash
+# 状態確認
+docker compose -f docker-compose.prod.yml ps queue-worker
+
+# ログ確認
+docker compose -f docker-compose.prod.yml logs -f queue-worker
+
+# 再起動
+docker compose -f docker-compose.prod.yml restart queue-worker
+
+# 失敗 Job の再実行
+docker compose -f docker-compose.prod.yml exec api php artisan queue:retry all
+```
+
 ## 4. ヘルスチェック
 
 ```bash
