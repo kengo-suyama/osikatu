@@ -12,6 +12,20 @@ services:
       - laravel-storage:/var/www/html/storage
     restart: unless-stopped
 
+  queue-worker:
+    build:
+      context: ./laravel
+      dockerfile: Dockerfile
+      target: production
+    command: ["php", "artisan", "queue:work", "--sleep=3", "--tries=3", "--max-time=3600"]
+    env_file:
+      - ./laravel/.env
+    volumes:
+      - laravel-storage:/var/www/html/storage
+    depends_on:
+      - api
+    restart: unless-stopped
+
   frontend:
     build:
       context: ./frontend
