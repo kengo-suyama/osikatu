@@ -12,6 +12,11 @@ test("personal schedule: create then delete (mocked)", async ({ page }) => {
     localStorage.setItem("osikatu:data-source", "api");
   }, DEVICE_ID);
 
+  let createRequests = 0;
+  page.on("request", (req) => {
+    if (req.method() === "POST" && req.url().endsWith("/api/me/schedules")) createRequests += 1;
+  });
+
   await page.route("**/api/me", (r) =>
     r.fulfill({
       status: 200,
@@ -109,9 +114,24 @@ test("personal schedule: create then delete (mocked)", async ({ page }) => {
   const dialog = await openDialogByTestId(page, "schedule-create");
   await expect(dialog).toBeVisible();
 
+  // Empty submit should be blocked by UI validation (no request).
+  await safeClick(dialog.locator('[data-testid="schedule-create-submit"]'));
+  await expect(dialog.locator('[data-testid="schedule-title-error"]')).toBeVisible();
+  expect(createRequests).toBe(0);
+
   await dialog.locator('[data-testid="schedule-form-title"]').fill("E2E Schedule");
   await dialog.locator('[data-testid="schedule-form-start"]').fill("2026-02-09T12:00");
+
+  // End before start should be blocked by UI validation (no request).
+  await dialog.locator('[data-testid="schedule-form-end"]').fill("2026-02-09T11:00");
   await safeClick(dialog.locator('[data-testid="schedule-create-submit"]'));
+  await expect(dialog.locator('[data-testid="schedule-datetime-error"]')).toBeVisible();
+  expect(createRequests).toBe(0);
+
+  // Fix and submit successfully.
+  await dialog.locator('[data-testid="schedule-form-end"]').fill("");
+  await safeClick(dialog.locator('[data-testid="schedule-create-submit"]'));
+  expect(createRequests).toBe(1);
 
   await expect(page.locator('[data-testid="schedule-item"][data-schedule-id="us_101"]')).toBeVisible({
     timeout: 15_000,
@@ -122,4 +142,3 @@ test("personal schedule: create then delete (mocked)", async ({ page }) => {
 
   await expect(page.locator('[data-testid="schedule-item"][data-schedule-id="us_101"]')).toHaveCount(0);
 });
-
