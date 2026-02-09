@@ -18,6 +18,9 @@ import { homeMediaRepo } from "@/lib/repo/homeMediaRepo";
 import { ApiRequestError } from "@/lib/repo/http";
 import type { HomeMediaItemDto } from "@/lib/types";
 
+const HOME_MEDIA_HELP =
+  "対応形式: jpg/jpeg/png/webp/mp4 / 上限: 20MB（通信が不安定だと失敗することがあります）";
+
 export default function HomeMainMediaCard({ frameId }: { frameId?: string | null }) {
   const inputRef = useRef<HTMLInputElement | null>(null);
   const [item, setItem] = useState<HomeMediaItemDto | null>(null);
@@ -151,7 +154,9 @@ export default function HomeMainMediaCard({ frameId }: { frameId?: string | null
             </FrameRenderer>
           )}
           <div className="text-[11px] text-muted-foreground">
-            {uploading ? "通信状況によって時間がかかる場合があります。" : "画像/動画はホームに表示されます。"}
+            <span data-testid="upload-help">
+              {uploading ? "通信状況によって時間がかかる場合があります。" : HOME_MEDIA_HELP}
+            </span>
           </div>
         </CardContent>
       </Card>
@@ -160,7 +165,13 @@ export default function HomeMainMediaCard({ frameId }: { frameId?: string | null
         open={toastOpen}
         onOpenChange={setToastOpen}
         className="rounded-xl border border-white/20 bg-white/90 text-sm text-foreground"
-        data-testid={toastKind === "success" ? "home-hero-upload-success" : undefined}
+        data-testid={
+          toastKind === "success"
+            ? "home-hero-upload-success"
+            : toastKind === "error"
+              ? "upload-error"
+              : undefined
+        }
       >
         <ToastTitle>{toastTitle}</ToastTitle>
         {toastDescription ? <ToastDescription>{toastDescription}</ToastDescription> : null}
