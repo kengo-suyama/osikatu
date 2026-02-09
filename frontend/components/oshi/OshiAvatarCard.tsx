@@ -47,7 +47,7 @@ export default function OshiAvatarCard({
         "space-y-3 rounded-2xl border shadow-sm",
         compact ? "p-3" : "p-4"
       )}
-      data-testid="home-hero"
+      data-testid="home-hero-media"
     >
       <FrameRenderer
         frameId={frameId}
@@ -59,12 +59,12 @@ export default function OshiAvatarCard({
             // eslint-disable-next-line @next/next/no-img-element
             <img src={image} alt={`${oshi.name}の画像`} className="h-full w-full object-cover" />
           ) : (
-            <div className="flex h-full w-full flex-col items-center justify-center gap-3 bg-gradient-to-br from-rose-200 via-white to-amber-100 text-rose-500">
+            <div className="flex h-full w-full flex-col items-center justify-center gap-3 bg-gradient-to-br from-rose-200 via-white to-amber-100 text-rose-500" data-testid="home-hero-empty">
               <ImageIcon className="h-10 w-10" />
               <OshiImageUpload oshiId={oshi.id} label="＋ 画像を追加" onChange={setImage} />
             </div>
           )}
-        <div className="absolute right-3 top-3 z-10 flex gap-2">
+        <div className="absolute right-3 top-3 z-10 flex gap-2" data-testid="home-hero-edit">
           <OshiImageUpload
             oshiId={oshi.id}
             label={hasImage ? "画像変更" : "編集"}
