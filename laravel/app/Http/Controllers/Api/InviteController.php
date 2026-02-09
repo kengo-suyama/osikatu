@@ -365,7 +365,8 @@ class InviteController extends Controller
         $code = strtoupper(substr(md5(uniqid((string) random_int(0, PHP_INT_MAX), true)), 0, 8));
         $newInvite = CircleInvite::create([
             'circle_id' => $circleId,
-            'creator_user_id' => $user->id,
+            'type' => 'code',
+            'created_by' => $user->id,
             'code' => $code,
             'max_uses' => null,
             'expires_at' => null,
