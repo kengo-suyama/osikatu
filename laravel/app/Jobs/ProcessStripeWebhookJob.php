@@ -12,6 +12,7 @@ use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
+use App\Support\SlackNotifier;
 use Illuminate\Support\Facades\Log;
 
 class ProcessStripeWebhookJob implements ShouldQueue
@@ -107,6 +108,15 @@ class ProcessStripeWebhookJob implements ShouldQueue
             'error' => $exception->getMessage(),
             'exception' => $exception::class,
         ]);
+
+        SlackNotifier::notify(
+            ":warning: *Stripe Webhook Failed*\n"
+            . "Event: `{$this->eventType}` (`{$this->eventId}`)\n"
+            . "Error: {$exception->getMessage()}\n"
+            . "Request ID: {$this->requestId}",
+            'billing_webhook_fail',
+            300
+        );
     }
 
     private function upsertSubscriptionFromStripe(array $sub): void
