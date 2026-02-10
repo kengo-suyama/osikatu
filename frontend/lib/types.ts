@@ -516,6 +516,23 @@ export type InventoryApplyResponseDto = {
   };
 };
 
+/** ---- Gacha History ---- */
+export type GachaLogDto = {
+  id: number;
+  itemType: UnlockItemType;
+  itemKey: string;
+  rarity: string;
+  isNew: boolean;
+  pointsCost: number;
+  createdAt: ISODateTime;
+};
+
+export type GachaHistoryResponseDto = {
+  items: GachaLogDto[];
+  nextCursor: string | null;
+  total: number;
+};
+
 /** ---- Home Media ---- */
 export type HomeMediaItemDto = {
   type: "image" | "video";

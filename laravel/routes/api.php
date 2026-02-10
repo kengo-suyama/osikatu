@@ -87,6 +87,7 @@ Route::get('/me/budget', [BudgetController::class, 'show']);
 Route::get('/me/points', [MePointsController::class, 'show']);
 Route::post('/me/points/earn', [MePointsEarnController::class, 'earn']);
 Route::post('/me/gacha/pull', [MeGachaController::class, 'pull']);
+Route::get('/me/gacha/history', [MeGachaController::class, 'history']);
 Route::get('/me/inventory', [MeInventoryController::class, 'index']);
 Route::post('/me/inventory/apply', [MeInventoryController::class, 'apply']);
 Route::get('/me/media/home', [MeHomeMediaController::class, 'show']);
