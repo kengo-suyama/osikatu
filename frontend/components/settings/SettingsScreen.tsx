@@ -30,6 +30,7 @@ import type { MeDto } from "@/lib/types";
 import type { Oshi } from "@/lib/uiTypes";
 import { cn } from "@/lib/utils";
 import { getGachaSfxEnabled, setGachaSfxEnabled } from "@/lib/gachaSfx";
+import { LOCALES, useLocale, type Locale } from "@/lib/i18n";
 import {
   getVisibleThemes,
   isThemeLocked,
@@ -48,6 +49,7 @@ export default function SettingsScreen() {
   );
   const [compactHome, setCompactHome] = useState(true);
   const [me, setMe] = useState<MeDto | null>(null);
+  const { locale, setLocale } = useLocale();
   const [themeId, setThemeId] = useState<ThemeId>(() => getStoredThemeId());
   const [themeLimitOpen, setThemeLimitOpen] = useState(false);
   const [gachaSfxEnabled, setGachaSfxEnabledState] = useState(true);
@@ -496,6 +498,36 @@ export default function SettingsScreen() {
             <div className="text-xs text-muted-foreground">1画面で見やすく表示</div>
           </div>
           <Switch checked={compactHome} onCheckedChange={handleCompactHomeChange} />
+        </CardContent>
+      </Card>
+
+      <Card className="rounded-2xl border p-4 shadow-sm" data-testid="settings-locale-card">
+        <CardHeader className="p-0 pb-3">
+          <CardTitle className="text-sm font-semibold text-muted-foreground">言語</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-2 p-0">
+          <div className="text-xs text-muted-foreground">表示言語を切り替えます</div>
+          <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+            {LOCALES.map((loc) => (
+              <button
+                key={loc.id}
+                type="button"
+                onClick={() => setLocale(loc.id as Locale)}
+                className={cn(
+                  "rounded-xl border px-3 py-2 text-left text-sm",
+                  locale === loc.id
+                    ? "border-primary bg-primary/10"
+                    : "border-border/60"
+                )}
+                data-testid={"settings-locale-" + loc.id}
+              >
+                <div className="font-medium">{loc.nativeName}</div>
+                {locale === loc.id ? (
+                  <span className="text-[10px] text-primary">適用中</span>
+                ) : null}
+              </button>
+            ))}
+          </div>
         </CardContent>
       </Card>
 
