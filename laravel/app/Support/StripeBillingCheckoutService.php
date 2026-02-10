@@ -14,13 +14,10 @@ class StripeBillingCheckoutService implements BillingCheckoutService
     {
         $secret = (string) config('billing.stripe_secret_key', '');
         $pricePlus = (string) config('billing.price_plus', '');
-        $successUrl = (string) config('billing.success_url', '');
-        $cancelUrl = (string) config('billing.cancel_url', '');
 
-        // Allow relative paths (e.g. "/billing/return?status=success") for easier prod domain switching.
-        $baseUrl = (string) config('app.url', '');
-        $successUrl = $this->resolveUrl($baseUrl, $successUrl);
-        $cancelUrl = $this->resolveUrl($baseUrl, $cancelUrl);
+        $baseUrl = (string) config('billing.public_url', config('app.url', ''));
+        $successUrl = $this->resolveUrl($baseUrl, (string) config('billing.success_url', ''));
+        $cancelUrl = $this->resolveUrl($baseUrl, (string) config('billing.cancel_url', ''));
 
         if ($secret === '' || $pricePlus === '' || $successUrl === '' || $cancelUrl === '') {
             throw new \RuntimeException('Billing config is not set.');
