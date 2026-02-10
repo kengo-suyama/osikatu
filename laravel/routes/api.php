@@ -46,7 +46,7 @@ Route::get('/healthz', HealthController::class);
 Route::get('/health/ready', HealthReadyController::class);
 
 Route::get('/me', [MeController::class, 'show']);
-Route::post('/auth/session', [AuthController::class, 'session']);
+Route::post('/auth/session', [AuthController::class, 'session'])->middleware('throttle:20,1');
 Route::post('/auth/link/start', [AuthController::class, 'linkStart'])->middleware('throttle:5,1');
 Route::post('/auth/link/complete', [AuthController::class, 'linkComplete']);
 Route::put('/me/ui-settings', [MeController::class, 'updateUiSettings']);
@@ -128,7 +128,7 @@ Route::post('/circles/{circle}/join-requests/{joinRequest}/approve', [CircleJoin
 Route::post('/circles/{circle}/join-requests/{joinRequest}/reject', [CircleJoinRequestController::class, 'reject']);
 Route::put('/circles/{circle}/ui-settings', [CircleUiSettingsController::class, 'update']);
 Route::get('/circles/{circle}/chat/messages', [CircleChatController::class, 'index']);
-Route::post('/circles/{circle}/chat/messages', [CircleChatController::class, 'store']);
+Route::post('/circles/{circle}/chat/messages', [CircleChatController::class, 'store'])->middleware('throttle:30,1');
 Route::post('/circles/{circle}/chat/read', [CircleChatController::class, 'read']);
 Route::delete('/circles/{circle}/chat/messages/{message}', [CircleChatController::class, 'destroy']);
 Route::get('/circles/{circle}/announcement', [CircleAnnouncementController::class, 'show']);
@@ -173,11 +173,11 @@ Route::post('/circles/{circle}/join-approve', [CircleJoinRequestController::clas
 Route::post('/circles/{circle}/join-reject', [CircleJoinRequestController::class, 'reject']);
 
 // Invites
-Route::post('/circles/{circle}/invites', [InviteController::class, 'store']);
+Route::post('/circles/{circle}/invites', [InviteController::class, 'store'])->middleware('throttle:10,1');
 Route::get('/circles/{circle}/invites', [InviteController::class, 'index']);
 Route::post('/circles/{circle}/invites/{invite}/revoke', [InviteController::class, 'revoke']);
 Route::post('/invites/join', [InviteController::class, 'join'])->middleware('throttle:10,1');
-Route::post('/circles/{circle}/invites/regenerate', [InviteController::class, 'regenerate']);
+Route::post('/circles/{circle}/invites/regenerate', [InviteController::class, 'regenerate'])->middleware('throttle:5,1');
 Route::post('/invites/accept', [InviteController::class, 'accept']);
 
 // Circle album / media
