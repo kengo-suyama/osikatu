@@ -13,6 +13,7 @@
     "e2e:ui": "playwright test --ui",
     "e2e:report": "playwright test --reporter=line",
     "e2e:smoke": "playwright test tests/e2e/circle-hub-navigation.spec.ts tests/e2e/quick-mode-switch.spec.ts tests/e2e/log-diary-create.spec.ts tests/e2e/oshi-profile-edit.spec.ts --reporter=list --workers=1",
+    "e2e:smoke:features": "playwright test tests/e2e/gacha-shrine-pack.spec.ts tests/e2e/gacha-sfx-toggle.spec.ts tests/e2e/chat-stamp-media.spec.ts tests/e2e/language-select.spec.ts tests/e2e/navigation.spec.ts --reporter=list --workers=1",
     "e2e:stress": "node scripts/run-e2e-stress.mjs",
     "e2e:stress:report": "node scripts/e2e-stress-report.mjs",
     "guard:pins": "node scripts/guard-no-pins-v1.mjs",

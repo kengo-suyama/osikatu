@@ -1,0 +1,144 @@
+name: ci-smoke-features
+
+on:
+  pull_request:
+    paths:
+      - "frontend/components/gacha/**"
+      - "frontend/app/gacha/**"
+      - "frontend/lib/gachaSfx.ts"
+      - "frontend/lib/i18n/**"
+      - "frontend/lib/repo/gachaRepo.ts"
+      - "frontend/components/layout/BottomNav.tsx"
+      - "laravel/app/Http/Controllers/Api/MeGachaController.php"
+      - "laravel/app/Services/GachaService.php"
+      - "laravel/config/gacha.php"
+      - ".github/workflows/ci-smoke.yml"
+  push:
+    branches:
+      - main
+    paths:
+      - "frontend/components/gacha/**"
+      - "frontend/app/gacha/**"
+      - "frontend/lib/i18n/**"
+      - "laravel/app/Http/Controllers/Api/MeGachaController.php"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  smoke-features:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      CI: "true"
+      NEXT_TELEMETRY_DISABLED: "1"
+      DB_CONNECTION: sqlite
+      DB_DATABASE: storage/osikatu-ci.sqlite
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: "8.2"
+          extensions: mbstring, sqlite3, pdo_sqlite
+          coverage: none
+
+      - name: Install backend
+        working-directory: laravel
+        run: |
+          composer install --no-interaction --no-progress --prefer-dist
+          cp .env.example .env
+          php artisan key:generate
+          mkdir -p storage/framework/{views,sessions,cache}
+          mkdir -p storage
+          : > storage/osikatu-ci.sqlite
+          php artisan migrate --force
+
+      - name: Start API server
+        working-directory: laravel
+        run: |
+          php artisan serve --host=127.0.0.1 --port=8000 > /tmp/laravel.log 2>&1 &
+
+      - name: Install frontend
+        working-directory: frontend
+        run: npm ci
+
+      - name: Install Playwright browsers
+        working-directory: frontend
+        run: npx playwright install --with-deps chromium
+
+      - name: Start frontend
+        working-directory: frontend
+        env:
+          NEXT_PUBLIC_API_BASE_URL: "http://127.0.0.1:8000"
+          NEXT_PUBLIC_DATA_SOURCE: "api"
+        run: |
+          npm run dev -- -p 3000 > /tmp/next.log 2>&1 &
+
+      - name: Wait for servers
+        run: |
+          echo "Waiting for API..."
+          timeout 60 bash -c 'until curl -sf http://127.0.0.1:8000/api/healthz; do sleep 1; done'
+          echo "Waiting for frontend..."
+          timeout 60 bash -c 'until curl -sf http://127.0.0.1:3000; do sleep 1; done'
+
+      - name: Run smoke tests (gacha + chat + i18n)
+        working-directory: frontend
+        env:
+          E2E_BASE_URL: "http://127.0.0.1:3000"
+          PLAYWRIGHT_API_BASE: "http://127.0.0.1:8000"
+        run: npm run e2e:smoke:features
+
+      - name: Upload traces
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-traces-smoke-features
+          path: frontend/test-results/
+          retention-days: 7
+
+  php-smoke:
+    runs-on: ubuntu-latest
+    env:
+      DB_CONNECTION: sqlite
+      DB_DATABASE: ":memory:"
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: "8.2"
+          extensions: mbstring, sqlite3, pdo_sqlite
+          coverage: none
+
+      - name: Install Composer dependencies
+        working-directory: laravel
+        run: composer install --no-interaction --no-progress --prefer-dist
+
+      - name: Generate app key
+        working-directory: laravel
+        run: |
+          cp .env.example .env
+          php artisan key:generate
+          mkdir -p storage/framework/{views,sessions,cache}
+
+      - name: Run migrations
+        working-directory: laravel
+        run: php artisan migrate --force
+
+      - name: Run gacha + rate limit tests
+        working-directory: laravel
+        run: |
+          vendor/bin/phpunit --testdox --filter="GachaPullTest|GachaHistoryTest|AntiAbuseRateLimitTest"
