@@ -108,6 +108,7 @@ const QUICK_ACTION_URLS = {
   schedule: "/schedule?new=1",
   money: "/money?new=1",
   supply: "/log?tag=supply",
+  gacha: "/gacha",
 } as const;
 
 const resolveCompact = (value: string | null) => {
@@ -458,6 +459,10 @@ export default function HomeScreen() {
     }
     if (actionId === "supply") {
       safePush(QUICK_ACTION_URLS.supply);
+      return;
+    }
+    if (actionId === "gacha") {
+      safePush(QUICK_ACTION_URLS.gacha);
     }
   };
 
@@ -1011,6 +1016,7 @@ export default function HomeScreen() {
               key={action.id}
               type="button"
               onClick={() => handleQuickAction(action.id)}
+              data-testid={action.id === "gacha" ? "home-gacha-cta" : undefined}
               className={cn(
                 "rounded-2xl border bg-card text-left shadow-sm transition hover:shadow-md",
                 isCompact ? "p-3" : "p-4"

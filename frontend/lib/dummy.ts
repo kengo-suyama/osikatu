@@ -140,6 +140,13 @@ export const quickActions: QuickAction[] = [
     description: "見逃さないメモ",
     placeholder: "今日の供給まとめ",
   },
+  {
+    id: "gacha",
+    label: "ガチャ",
+    title: "ガチャ",
+    description: "封印札を開封しよう",
+    placeholder: "",
+  },
 ];
 
 export const supplies: SupplyItem[] = [
