@@ -480,6 +480,13 @@ export type MePointsResponseDto = {
   items: PointsTransactionItemDto[];
 };
 
+export type PointsHistoryResponseDto = {
+  balance: number;
+  items: PointsTransactionItemDto[];
+  nextCursor: string | null;
+  total: number;
+};
+
 export type PointsEarnResponseDto = {
   earned: boolean;
   delta: number;
