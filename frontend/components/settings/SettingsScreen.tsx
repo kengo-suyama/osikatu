@@ -459,6 +459,7 @@ export default function SettingsScreen() {
                 <button
                   key={theme.id}
                   type="button"
+                  data-testid={`theme-${theme.id}`}
                   onClick={() => handleThemeSelect(theme.id)}
                   className={cn(
                     "flex items-center justify-between rounded-xl border px-3 py-2 text-left text-sm",

@@ -4,7 +4,7 @@ import type { ThemeId } from "@/src/theme/themes";
 
 const THEME_KEY = "osikatu:ui:theme";
 const SPECIAL_BG_KEY = "osikatu:ui:special_bg";
-const DARK_THEMES = new Set(["dark", "midnight", "neon", "royal"]);
+const DARK_THEMES = new Set(["dark", "midnight", "neon", "royal", "mystic"]);
 
 export const isDarkThemeId = (themeId: string): boolean => {
   return DARK_THEMES.has(themeId);
