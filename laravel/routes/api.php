@@ -38,6 +38,7 @@ use App\Http\Controllers\Api\BillingCheckoutController;
 use App\Http\Controllers\Api\BillingPortalController;
 use App\Http\Controllers\Api\AccountDeleteController;
 use App\Http\Controllers\Api\StripeWebhookController;
+use App\Http\Controllers\Api\WebhookReceiptController;
 use App\Http\Controllers\Api\HealthController;
 use App\Http\Controllers\Api\HealthReadyController;
 use Illuminate\Support\Facades\Route;
@@ -207,3 +208,7 @@ Route::get('/billing/debug', [BillingDebugController::class, 'show']);
 Route::post('/billing/checkout', [BillingCheckoutController::class, 'create']);
 Route::get('/billing/portal', [BillingPortalController::class, 'create']);
 Route::post('/billing/webhook', [StripeWebhookController::class, 'handle'])->middleware('throttle:30,1');
+
+// Admin: webhook receipts
+Route::get('/admin/webhook-receipts', [WebhookReceiptController::class, 'index']);
+Route::get('/admin/webhook-receipts/{id}', [WebhookReceiptController::class, 'show']);
