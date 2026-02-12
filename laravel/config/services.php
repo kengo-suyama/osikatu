@@ -28,6 +28,10 @@ return [
         'region' => env('AWS_DEFAULT_REGION', 'us-east-1'),
     ],
 
+    'sendgrid' => [
+        'event_webhook_token' => env('SENDGRID_EVENT_WEBHOOK_TOKEN'),
+    ],
+
     'stripe' => [
         'webhook_secret' => env('STRIPE_WEBHOOK_SECRET'),
     ],

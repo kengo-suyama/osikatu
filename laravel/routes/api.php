@@ -34,6 +34,7 @@ use App\Http\Controllers\Api\CircleSettlementExpenseController;
 use App\Http\Controllers\Api\CircleScheduleProposalController;
 use App\Http\Controllers\Api\SettlementController;
 use App\Http\Controllers\Api\BillingDebugController;
+use App\Http\Controllers\Api\SendGridEventWebhookController;
 use App\Http\Controllers\Api\BillingCheckoutController;
 use App\Http\Controllers\Api\BillingPortalController;
 use App\Http\Controllers\Api\AccountDeleteController;
@@ -207,3 +208,6 @@ Route::get('/billing/debug', [BillingDebugController::class, 'show']);
 Route::post('/billing/checkout', [BillingCheckoutController::class, 'create']);
 Route::get('/billing/portal', [BillingPortalController::class, 'create']);
 Route::post('/billing/webhook', [StripeWebhookController::class, 'handle'])->middleware('throttle:30,1');
+
+Route::post('/webhooks/sendgrid/events', SendGridEventWebhookController::class)
+    ->withoutMiddleware(\App\Http\Middleware\AuthSessionMiddleware::class);
