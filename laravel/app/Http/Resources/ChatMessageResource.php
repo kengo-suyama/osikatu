@@ -22,9 +22,11 @@ class ChatMessageResource extends JsonResource
     {
         $member = $this->senderMember ?? null;
         $profile = $member?->meProfile ?? null;
+        $user = $profile?->user ?? null;
         $authorId = $member?->id ?? 0;
         $authorName = $profile?->nickname ?? 'Member';
         $avatarUrl = $profile?->avatar_url ?? null;
+        $currentTitleId = $user?->current_title_id ?? null;
 
         return [
             'id' => 'cm_' . $this->id,
@@ -34,11 +36,13 @@ class ChatMessageResource extends JsonResource
                 'id' => $authorId,
                 'name' => $authorName,
                 'avatarUrl' => $avatarUrl,
+                'currentTitleId' => $currentTitleId,
             ],
             'author' => [
                 'id' => $authorId,
                 'name' => $authorName,
                 'avatarUrl' => $avatarUrl,
+                'currentTitleId' => $currentTitleId,
             ],
             'postType' => 'chat',
             'body' => $this->body ?? '',
