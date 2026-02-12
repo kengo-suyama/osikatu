@@ -19,6 +19,7 @@ use App\Support\MeProfileResolver;
 use App\Support\PlanGate;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
+use App\Support\OperationLogService;
 use Illuminate\Support\Str;
 
 class InviteController extends Controller
@@ -93,6 +94,14 @@ class InviteController extends Controller
             'used_count' => 0,
             'created_by' => $userId,
             'created_by_device_id' => $request->header('X-Device-Id'),
+        ]);
+
+        OperationLogService::log($request, 'invite.create', $circleModel->id, [
+            'circleId' => (int) $circleModel->id,
+            'inviteId' => $invite->id,
+            'type' => $type,
+            'role' => $role,
+            'createdBy' => $userId,
         ]);
 
         return ApiResponse::success(new InviteResource($invite), null, 201);
@@ -226,6 +235,15 @@ class InviteController extends Controller
                     $idempotencyKey
                 );
             }
+        }
+
+        if ($joinedNow) {
+            OperationLogService::log($request, 'invite.join', (int) $invite->circle_id, [
+                'circleId' => (int) $invite->circle_id,
+                'inviteId' => $invite->id,
+                'joinedUserId' => $userId,
+                'inviterUserId' => $invite->created_by ? (int) $invite->created_by : null,
+            ]);
         }
 
         if ($circleCount === 0 && !$user->trial_ends_at) {
@@ -367,6 +385,12 @@ class InviteController extends Controller
 
         $inviteModel->revoked_at = now();
         $inviteModel->save();
+
+        OperationLogService::log($request, 'invite.revoke', (int) $circle, [
+            'circleId' => (int) $circle,
+            'inviteId' => $invite,
+            'revokedBy' => $userId,
+        ]);
 
         return ApiResponse::success(new InviteResource($inviteModel));
     }
