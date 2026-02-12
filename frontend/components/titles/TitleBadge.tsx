@@ -1,24 +1,9 @@
 "use client";
 
 import { cn } from "@/lib/utils";
+import { RARITY_BADGE_STYLE, RARITY_STARS, type Rarity } from "@/lib/rarity";
 
-export type TitleBadgeRarity = "N" | "R" | "SR" | "SSR" | "UR";
-
-const rarityToStars: Record<TitleBadgeRarity, number> = {
-  N: 0,
-  R: 1,
-  SR: 2,
-  SSR: 3,
-  UR: 5,
-};
-
-const rarityToStyle: Record<TitleBadgeRarity, string> = {
-  N: "border-border/60 bg-muted/30 text-muted-foreground",
-  R: "border-sky-300/50 bg-sky-50/70 text-sky-700 dark:border-sky-800/40 dark:bg-sky-950/20 dark:text-sky-200",
-  SR: "border-emerald-300/50 bg-emerald-50/70 text-emerald-700 dark:border-emerald-800/40 dark:bg-emerald-950/20 dark:text-emerald-200",
-  SSR: "border-amber-300/60 bg-amber-50/70 text-amber-800 dark:border-amber-800/40 dark:bg-amber-950/20 dark:text-amber-200",
-  UR: "border-rose-300/60 bg-rose-50/70 text-rose-800 dark:border-rose-800/40 dark:bg-rose-950/20 dark:text-rose-200",
-};
+export type TitleBadgeRarity = Rarity;
 
 export function TitleBadge({
   title,
@@ -29,13 +14,13 @@ export function TitleBadge({
   rarity: TitleBadgeRarity;
   className?: string;
 }) {
-  const stars = rarityToStars[rarity] ?? 0;
+  const stars = RARITY_STARS[rarity] ?? 0;
   return (
     <div
       data-testid="title-badge"
       className={cn(
         "inline-flex items-center gap-2 rounded-full border px-2.5 py-1 text-[11px] font-semibold shadow-sm",
-        rarityToStyle[rarity],
+        RARITY_BADGE_STYLE[rarity],
         className
       )}
       aria-label={`${title} (${rarity})`}
@@ -65,4 +50,3 @@ export function TitleBadge({
     </div>
   );
 }
-
