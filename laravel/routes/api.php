@@ -40,6 +40,7 @@ use App\Http\Controllers\Api\AccountDeleteController;
 use App\Http\Controllers\Api\StripeWebhookController;
 use App\Http\Controllers\Api\HealthController;
 use App\Http\Controllers\Api\HealthReadyController;
+use App\Http\Controllers\Api\MeMoneyController;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/healthz', HealthController::class);
@@ -83,6 +84,11 @@ Route::post('/me/goods', [GoodController::class, 'store']);
 Route::get('/me/goods/{good}', [GoodController::class, 'show']);
 Route::put('/me/goods/{good}', [GoodController::class, 'update']);
 Route::delete('/me/goods/{good}', [GoodController::class, 'destroy']);
+Route::get('/me/money', [MeMoneyController::class, 'index']);
+Route::post('/me/money', [MeMoneyController::class, 'store']);
+Route::patch('/me/money/{id}', [MeMoneyController::class, 'update']);
+Route::delete('/me/money/{id}', [MeMoneyController::class, 'destroy']);
+
 Route::get('/me/budget', [BudgetController::class, 'show']);
 Route::get('/me/points', [MePointsController::class, 'show']);
 Route::post('/me/points/earn', [MePointsEarnController::class, 'earn']);
