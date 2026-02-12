@@ -17,23 +17,11 @@ test.describe("home hero media deduplication", () => {
         status: 200,
         contentType: "application/json",
         body: successBody({
-          id: 1,
-          userId: 1,
-          deviceId: "device-e2e-hero-dedup-001",
-          role: "user",
-          name: "E2E",
-          email: "e2e@example.com",
-          plan: "free",
-          planStatus: "active",
-          effectivePlan: "free",
+          id: 1, userId: 1, deviceId: "device-e2e-hero-dedup-001",
+          role: "user", name: "E2E", email: "e2e@example.com",
+          plan: "free", planStatus: "active", effectivePlan: "free",
           trialEndsAt: null,
-          profile: {
-            displayName: null,
-            avatarUrl: null,
-            bio: null,
-            prefectureCode: null,
-            onboardingCompleted: true,
-          },
+          profile: { displayName: null, avatarUrl: null, bio: null, prefectureCode: null, onboardingCompleted: true },
           ui: { themeId: "light", specialBgEnabled: false },
         }),
       })
@@ -43,133 +31,51 @@ test.describe("home hero media deduplication", () => {
       r.fulfill({
         status: 200,
         contentType: "application/json",
-        body: successBody([
-          {
-            id: 1,
-            name: "Test Oshi",
-            category: "idol",
-            isPrimary: true,
-            nickname: null,
-            birthday: null,
-            heightCm: null,
-            weightKg: null,
-            bloodType: null,
-            accentColor: null,
-            origin: null,
-            role: null,
-            charmPoint: null,
-            quote: null,
-            hobbies: [],
-            likes: [],
-            dislikes: [],
-            skills: [],
-            favoriteFoods: [],
-            weakPoints: [],
-            supplyTags: [],
-            anniversaries: [],
-            links: [],
-            customFields: [],
-            memo: null,
-            imageUrl: null,
-            imageFrameId: "none",
-            updatedAt: null,
-          },
-        ]),
+        body: successBody([{
+          id: 1, name: "Test Oshi", category: "idol", isPrimary: true,
+          nickname: null, birthday: null, heightCm: null, weightKg: null,
+          bloodType: null, accentColor: null, origin: null, role: null,
+          charmPoint: null, quote: null, hobbies: [], likes: [], dislikes: [],
+          skills: [], favoriteFoods: [], weakPoints: [], supplyTags: [],
+          anniversaries: [], links: [], customFields: [], memo: null,
+          imageUrl: null, imageFrameId: "none", updatedAt: null,
+        }]),
       })
     );
 
-    await page.route("**/api/circles**", (r) =>
-      r.fulfill({ status: 200, contentType: "application/json", body: successBody([]) })
-    );
+    for (const pattern of [
+      "**/api/circles**",
+    ]) {
+      await page.route(pattern, (r) =>
+        r.fulfill({ status: 200, contentType: "application/json", body: successBody([]) })
+      );
+    }
     await page.route("**/api/me/notifications**", (r) =>
-      r.fulfill({
-        status: 200,
-        contentType: "application/json",
-        body: successBody({ items: [], nextCursor: null }),
-      })
+      r.fulfill({ status: 200, contentType: "application/json", body: successBody({ items: [], nextCursor: null }) })
     );
     await page.route("**/api/me/fortune**", (r) =>
-      r.fulfill({
-        status: 200,
-        contentType: "application/json",
-        body: successBody({
-          date: "2026-02-09",
-          luckScore: 50,
-          luckyColor: "blue",
-          luckyItem: "pen",
-          message: "E2E",
-          goodAction: "share",
-          badAction: "skip",
-          updatedAt: null,
-        }),
-      })
+      r.fulfill({ status: 200, contentType: "application/json", body: successBody({ date: "2026-02-09", luckScore: 50, luckyColor: "blue", luckyItem: "pen", message: "E2E", goodAction: "share", badAction: "skip", updatedAt: null }) })
     );
     await page.route("**/api/me/oshi-actions/today", (r) =>
-      r.fulfill({
-        status: 200,
-        contentType: "application/json",
-        body: successBody({
-          dateKey: "2026-02-09",
-          actionText: "E2E",
-          completed: false,
-          completedAt: null,
-          currentTitleId: null,
-          actionTotal: 0,
-          streak: 0,
-        }),
-      })
+      r.fulfill({ status: 200, contentType: "application/json", body: successBody({ dateKey: "2026-02-09", actionText: "E2E", completed: false, completedAt: null, currentTitleId: null, actionTotal: 0, streak: 0 }) })
     );
     await page.route("**/api/me/logs**", (r) =>
-      r.fulfill({
-        status: 200,
-        contentType: "application/json",
-        body: successBody({ items: [], nextCursor: null }),
-      })
+      r.fulfill({ status: 200, contentType: "application/json", body: successBody({ items: [], nextCursor: null }) })
     );
     await page.route("**/api/me/schedules**", (r) =>
-      r.fulfill({
-        status: 200,
-        contentType: "application/json",
-        body: successBody({ items: [] }),
-      })
+      r.fulfill({ status: 200, contentType: "application/json", body: successBody({ items: [] }) })
     );
     await page.route("**/api/me/expenses-summary**", (r) =>
-      r.fulfill({
-        status: 200,
-        contentType: "application/json",
-        body: successBody({
-          month: "2026-02",
-          period: { start: "2026-02-01", end: "2026-02-28" },
-          totalAmount: 0,
-          byOshi: [],
-        }),
-      })
+      r.fulfill({ status: 200, contentType: "application/json", body: successBody({ month: "2026-02", period: { start: "2026-02-01", end: "2026-02-28" }, totalAmount: 0, byOshi: [] }) })
     );
     await page.route("**/api/me/budget", (r) =>
-      r.fulfill({
-        status: 200,
-        contentType: "application/json",
-        body: successBody({
-          yearMonth: "2026-02",
-          budget: 0,
-          spent: 0,
-          updatedAt: null,
-        }),
-      })
+      r.fulfill({ status: 200, contentType: "application/json", body: successBody({ yearMonth: "2026-02", budget: 0, spent: 0, updatedAt: null }) })
     );
     await page.route("**/api/events", (r) =>
-      r.fulfill({
-        status: 200,
-        contentType: "application/json",
-        body: successBody({ ok: true }),
-      })
+      r.fulfill({ status: 200, contentType: "application/json", body: successBody({ ok: true }) })
     );
     await page.route("**/api/me/media/home**", (r) =>
-      r.fulfill({
-        status: 200,
-        contentType: "application/json",
-        body: successBody({ item: null }),
-      })
+      r.fulfill({ status: 200, contentType: "application/json", body: successBody({ item: null }) })
     );
   });
 
@@ -177,12 +83,10 @@ test.describe("home hero media deduplication", () => {
     await page.goto("/home", { waitUntil: "domcontentloaded" });
     await waitForPageReady(page, "home-page");
 
-    // The unified hero card should be visible
     const heroCard = page.locator('[data-testid="home-hero-media"]');
     await expect(heroCard).toBeVisible();
     await expect(heroCard).toHaveCount(1);
 
-    // The old separate home-main-media card should NOT exist
     const oldCard = page.locator('[data-testid="home-main-media"]');
     await expect(oldCard).toHaveCount(0);
   });
@@ -190,16 +94,12 @@ test.describe("home hero media deduplication", () => {
   test("hero card shows empty state when no oshi image", async ({ page }) => {
     await page.goto("/home", { waitUntil: "domcontentloaded" });
     await waitForPageReady(page, "home-page");
-
-    const emptyState = page.locator('[data-testid="home-hero-empty"]');
-    await expect(emptyState).toBeVisible();
+    await expect(page.locator('[data-testid="home-hero-empty"]')).toBeVisible();
   });
 
   test("hero card shows edit controls", async ({ page }) => {
     await page.goto("/home", { waitUntil: "domcontentloaded" });
     await waitForPageReady(page, "home-page");
-
-    const editControls = page.locator('[data-testid="home-hero-edit"]');
-    await expect(editControls).toBeVisible();
+    await expect(page.locator('[data-testid="home-hero-edit"]')).toBeVisible();
   });
 });
