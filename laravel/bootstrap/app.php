@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Middleware\RequestIdMiddleware;
+use App\Http\Middleware\SecurityHeadersMiddleware;
 use App\Http\Middleware\RequestMetricsMiddleware;
 use App\Http\Middleware\AuthSessionMiddleware;
 use Illuminate\Foundation\Application;
@@ -16,6 +17,7 @@ return Application::configure(basePath: dirname(__DIR__))
     )
     ->withMiddleware(function (Middleware $middleware): void {
         $middleware->api(prepend: [
+            SecurityHeadersMiddleware::class,
             RequestIdMiddleware::class,
             RequestMetricsMiddleware::class,
             AuthSessionMiddleware::class,
