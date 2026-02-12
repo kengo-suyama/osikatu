@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\Api\BudgetController;
 use App\Http\Controllers\Api\CircleController;
+use App\Http\Controllers\Api\CircleGachaController;
 use App\Http\Controllers\Api\CircleChatController;
 use App\Http\Controllers\Api\CircleAnnouncementController;
 use App\Http\Controllers\Api\CircleJoinRequestController;
@@ -179,6 +180,10 @@ Route::post('/circles/{circle}/invites/{invite}/revoke', [InviteController::clas
 Route::post('/invites/join', [InviteController::class, 'join'])->middleware('throttle:10,1');
 Route::post('/circles/{circle}/invites/regenerate', [InviteController::class, 'regenerate']);
 Route::post('/invites/accept', [InviteController::class, 'accept']);
+
+// Circle gacha
+Route::get('/circles/{circle}/points', [CircleGachaController::class, 'points']);
+Route::post('/circles/{circle}/gacha/draw', [CircleGachaController::class, 'draw']);
 
 // Circle album / media
 Route::get('/circles/{circle}/media', [CircleMediaController::class, 'index']);

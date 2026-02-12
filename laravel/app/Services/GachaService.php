@@ -12,7 +12,12 @@ final class GachaService
     public static function draw(string $pool = 'default'): array
     {
         /** @var array<int, array<string, mixed>> $items */
-        $items = config("gacha.pools.{$pool}", []);
+        if (str_starts_with($pool, 'circle:')) {
+            $subPool = substr($pool, 7);
+            $items = config("gacha.circle_pools.{$subPool}", []);
+        } else {
+            $items = config("gacha.pools.{$pool}", []);
+        }
         if (!is_array($items) || count($items) === 0) {
             throw new \RuntimeException("Gacha pool not configured: {$pool}");
         }
