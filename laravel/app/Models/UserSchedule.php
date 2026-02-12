@@ -20,6 +20,7 @@ final class UserSchedule extends Model
         'note',
         'location',
         'remind_at',
+        'tags',
     ];
 
     protected $casts = [
@@ -27,5 +28,6 @@ final class UserSchedule extends Model
         'end_at' => 'datetime',
         'remind_at' => 'datetime',
         'is_all_day' => 'boolean',
+        'tags' => 'array',
     ];
 }

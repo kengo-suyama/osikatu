@@ -24,12 +24,19 @@ final class UserScheduleController extends Controller
 
         $from = $request->query('from');
         $to = $request->query('to');
+        $q = $request->query('q');
 
         if ($from) {
             $query->where('start_at', '>=', Carbon::parse($from));
         }
         if ($to) {
             $query->where('start_at', '<=', Carbon::parse($to)->endOfDay());
+        }
+        if ($q) {
+            $query->where(function ($sub) use ($q) {
+                $sub->where('title', 'like', "%{$q}%")
+                    ->orWhere('note', 'like', "%{$q}%");
+            });
         }
 
         $items = $query->orderBy('start_at')->get();
@@ -127,6 +134,8 @@ final class UserScheduleController extends Controller
             'note' => ['nullable', 'string', 'max:1000'],
             'location' => ['nullable', 'string', 'max:120'],
             'remindAt' => ['nullable', 'date', 'after_or_equal:startAt'],
+            'tags' => ['nullable', 'array'],
+            'tags.*' => ['string', 'max:40'],
         ]);
     }
 
@@ -140,6 +149,7 @@ final class UserScheduleController extends Controller
             'note' => $payload['note'] ?? null,
             'location' => $payload['location'] ?? null,
             'remind_at' => !empty($payload['remindAt']) ? Carbon::parse($payload['remindAt']) : null,
+            'tags' => $payload['tags'] ?? null,
         ];
     }
 
@@ -164,6 +174,7 @@ final class UserScheduleController extends Controller
             'note' => $schedule->note,
             'location' => $schedule->location,
             'remindAt' => $schedule->remind_at?->toIso8601String(),
+            'tags' => $schedule->tags ?? [],
             'updatedAt' => $schedule->updated_at->toIso8601String(),
         ];
     }

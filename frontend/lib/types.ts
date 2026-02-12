@@ -35,6 +35,7 @@ export type ScheduleDto = {
   note?: string | null;
   location?: string | null;
   remindAt?: string | null;
+  tags?: string[];
   updatedAt: string;
 };
 
@@ -47,6 +48,7 @@ export type UserScheduleDto = {
   note: string | null;
   location: string | null;
   remindAt: ISODateTime | null;
+  tags?: string[];
   updatedAt: ISODateTime | null;
 };
 
