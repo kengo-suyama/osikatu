@@ -20,6 +20,7 @@ import OshiAvatarCard from "@/components/oshi/OshiAvatarCard";
 import OshiImageUpload from "@/components/oshi/OshiImageUpload";
 import OshiFabPanel from "@/components/oshi/OshiFabPanel";
 import QuickModeSwitch from "@/components/home/QuickModeSwitch";
+import SharePanel from "@/components/home/SharePanel";
 import NextDeadlines from "@/components/widgets/NextDeadlines";
 import { DailyLucky } from "@/components/widgets/DailyLucky";
 import { AdBanner } from "@/components/ads/AdBanner";
@@ -951,6 +952,8 @@ export default function HomeScreen() {
       {me?.plan === "plus" && selectedCircleId ? (
         <CircleShareCard circleId={selectedCircleId} />
       ) : null}
+
+      <SharePanel />
 
       {!selectedCircleId ? (
         <CircleEntryCard me={me} onCircleSelected={handleCircleSelected} />
