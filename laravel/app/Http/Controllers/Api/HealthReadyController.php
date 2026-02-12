@@ -31,34 +31,31 @@ class HealthReadyController extends Controller
         $cancelUrl = (string) config('billing.cancel_url', '');
 
         if ($isProduction) {
-            if ($stripeSecret === '') {
-                $errors[] = [
-                    'code' => 'STRIPE_SECRET_KEY_MISSING',
-                    'message' => 'STRIPE_SECRET_KEY is required.',
+            $stripeChecks = [
+                ['STRIPE_SECRET_KEY_MISSING', 'STRIPE_SECRET_KEY is required.', $stripeSecret],
+                ['STRIPE_WEBHOOK_SECRET_MISSING', 'STRIPE_WEBHOOK_SECRET is required. Signature skip is forbidden in production.', $webhookSecret],
+                ['STRIPE_PRICE_PLUS_MISSING', 'STRIPE_PRICE_PLUS is required.', $pricePlus],
+                ['BILLING_SUCCESS_URL_MISSING', 'BILLING_SUCCESS_URL is required.', $successUrl],
+                ['BILLING_CANCEL_URL_MISSING', 'BILLING_CANCEL_URL is required.', $cancelUrl],
+            ];
+
+            foreach ($stripeChecks as [$code, $message, $value]) {
+                if ($value === '') {
+                    $errors[] = ['code' => $code, 'message' => $message];
+                }
+            }
+
+            if ($stripeSecret !== '' && !str_starts_with($stripeSecret, 'sk_')) {
+                $warnings[] = [
+                    'code' => 'STRIPE_SECRET_KEY_FORMAT',
+                    'message' => 'STRIPE_SECRET_KEY does not start with sk_. Verify it is a valid Stripe secret key.',
                 ];
             }
-            if ($webhookSecret === '') {
-                $errors[] = [
-                    'code' => 'STRIPE_WEBHOOK_SECRET_MISSING',
-                    'message' => 'STRIPE_WEBHOOK_SECRET is required.',
-                ];
-            }
-            if ($pricePlus === '') {
-                $errors[] = [
-                    'code' => 'STRIPE_PRICE_PLUS_MISSING',
-                    'message' => 'STRIPE_PRICE_PLUS is required.',
-                ];
-            }
-            if ($successUrl === '') {
-                $errors[] = [
-                    'code' => 'BILLING_SUCCESS_URL_MISSING',
-                    'message' => 'BILLING_SUCCESS_URL is required.',
-                ];
-            }
-            if ($cancelUrl === '') {
-                $errors[] = [
-                    'code' => 'BILLING_CANCEL_URL_MISSING',
-                    'message' => 'BILLING_CANCEL_URL is required.',
+
+            if ($webhookSecret !== '' && !str_starts_with($webhookSecret, 'whsec_')) {
+                $warnings[] = [
+                    'code' => 'STRIPE_WEBHOOK_SECRET_FORMAT',
+                    'message' => 'STRIPE_WEBHOOK_SECRET does not start with whsec_. Verify it is valid.',
                 ];
             }
 
@@ -78,11 +75,12 @@ class HealthReadyController extends Controller
             }
         }
 
+        $ok = count($errors) === 0;
+
         return ApiResponse::success([
-            'ok' => count($errors) === 0,
+            'ok' => $ok,
             'errors' => $errors,
             'warnings' => $warnings,
-        ]);
+        ], null, $ok ? 200 : 503);
     }
 }
-
