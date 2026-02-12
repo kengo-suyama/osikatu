@@ -42,7 +42,7 @@ export default function OshiFabPanel({
     (x: number, y: number) => {
     if (typeof window === "undefined") return { x, y };
     const maxX = Math.max(margin, window.innerWidth - size - margin);
-    const maxY = Math.max(margin, window.innerHeight - size - margin);
+    const maxY = Math.max(margin, window.innerHeight - size - bottomOffset);
     return {
       x: Math.min(maxX, Math.max(margin, x)),
       y: Math.min(maxY, Math.max(margin, y)),

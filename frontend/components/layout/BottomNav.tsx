@@ -20,7 +20,7 @@ export default function BottomNav() {
   const [albumOpen, setAlbumOpen] = useState(false);
 
   return (
-    <nav className="fixed bottom-0 left-0 right-0 z-40 border-t bg-background/80 backdrop-blur">
+    <nav className="fixed bottom-0 left-0 right-0 z-40 border-t bg-background/80 backdrop-blur" style={{ paddingBottom: "env(safe-area-inset-bottom, 0px)" }}>
       <div className="mx-auto grid max-w-[430px] grid-cols-6 px-2 py-1">
         <Link
           href="/home"
