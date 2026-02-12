@@ -44,6 +44,7 @@ use Illuminate\Support\Facades\Route;
 
 Route::get('/healthz', HealthController::class);
 Route::get('/health/ready', HealthReadyController::class);
+Route::get('/status', \App\Http\Controllers\Api\StatusController::class);
 
 Route::get('/me', [MeController::class, 'show']);
 Route::post('/auth/session', [AuthController::class, 'session']);
