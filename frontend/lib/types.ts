@@ -250,6 +250,10 @@ export type CirclePostDTO = {
   media: PostMediaDTO[];
   likeCount: number;
   likedByMe: boolean;
+  reactions?: {
+    counts: Record<string, number>;
+    myReacted: string[];
+  };
   isPinned: boolean;
   createdAt: ISODateTime;
 };
