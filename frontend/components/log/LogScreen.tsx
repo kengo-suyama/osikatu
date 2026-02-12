@@ -78,6 +78,8 @@ export default function LogScreen() {
   const [activeQuery, setActiveQuery] = useState("");
   const [activeTag, setActiveTag] = useState<string | null>(null);
   const [hasPhotoOnly, setHasPhotoOnly] = useState(false);
+  const [dateFrom, setDateFrom] = useState("");
+  const [dateTo, setDateTo] = useState("");
   const [allTags, setAllTags] = useState<string[]>([]);
   const searchTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const mergeDiariesById = (prev: DiaryDto[], incoming: DiaryDto[]) => {
@@ -112,12 +114,12 @@ export default function LogScreen() {
   };
 
   const fetchDiaries = useCallback(
-    async (q?: string, tag?: string, hasPhoto?: boolean) => {
+    async (q?: string, tag?: string, hasPhoto?: boolean, from?: string, to?: string) => {
       setLoadingDiaries(true);
       try {
         const filters =
-          q || tag || hasPhoto !== undefined
-            ? { q: q || undefined, tag: tag || undefined, hasPhoto }
+          q || tag || hasPhoto !== undefined || from || to
+            ? { q: q || undefined, tag: tag || undefined, hasPhoto, from: from || undefined, to: to || undefined }
             : undefined;
         const items = await listDiaries(filters);
         if (!q && !tag && hasPhoto === undefined) {
@@ -175,17 +177,19 @@ export default function LogScreen() {
   // Re-fetch when active filters change
   useEffect(() => {
     if (!apiMode) return;
-    fetchDiaries(activeQuery || undefined, activeTag || undefined, hasPhotoOnly ? true : undefined);
-  }, [activeQuery, activeTag, hasPhotoOnly, apiMode, fetchDiaries]);
+    fetchDiaries(activeQuery || undefined, activeTag || undefined, hasPhotoOnly ? true : undefined, dateFrom || undefined, dateTo || undefined);
+  }, [activeQuery, activeTag, hasPhotoOnly, dateFrom, dateTo, apiMode, fetchDiaries]);
 
   const clearFilters = () => {
     setSearchInput("");
     setActiveQuery("");
     setActiveTag(null);
     setHasPhotoOnly(false);
+    setDateFrom("");
+    setDateTo("");
   };
 
-  const hasActiveFilter = activeQuery !== "" || activeTag !== null || hasPhotoOnly;
+  const hasActiveFilter = activeQuery !== "" || activeTag !== null || hasPhotoOnly || dateFrom !== "" || dateTo !== "";
 
   const showToast = (titleValue: string, descriptionValue?: string) => {
     setToastTitle(titleValue);
@@ -569,6 +573,25 @@ export default function LogScreen() {
                 data-testid="log-filter-hasphoto"
               />
             </div>
+            <div className="flex gap-2" data-testid="log-date-range">
+              <Input
+                type="date"
+                value={dateFrom}
+                onChange={(event) => setDateFrom(event.target.value)}
+                placeholder="開始日"
+                className="flex-1 text-xs"
+                data-testid="log-date-from"
+              />
+              <span className="self-center text-xs text-muted-foreground">〜</span>
+              <Input
+                type="date"
+                value={dateTo}
+                onChange={(event) => setDateTo(event.target.value)}
+                placeholder="終了日"
+                className="flex-1 text-xs"
+                data-testid="log-date-to"
+              />
+            </div>
             {hasActiveFilter ? (
               <div className="flex flex-wrap gap-2 text-xs text-muted-foreground" data-testid="log-filter-active">
                 {activeQuery ? (
@@ -580,17 +603,27 @@ export default function LogScreen() {
                 {hasPhotoOnly ? (
                   <span className="rounded-full bg-muted px-2 py-0.5">写真あり</span>
                 ) : null}
+                {dateFrom || dateTo ? (
+                  <span className="rounded-full bg-muted px-2 py-0.5">
+                    期間: {dateFrom || "..."} 〜 {dateTo || "..."}
+                  </span>
+                ) : null}
               </div>
             ) : null}
             {hasActiveFilter ? (
-              <button
-                type="button"
-                onClick={clearFilters}
-                className="text-xs text-muted-foreground underline hover:text-foreground"
-                data-testid="log-filter-clear-all"
-              >
-                フィルタをクリア
-              </button>
+              <div className="flex items-center justify-between">
+                <span className="text-xs text-muted-foreground" data-testid="log-result-count">
+                  {diaries.length}件
+                </span>
+                <button
+                  type="button"
+                  onClick={clearFilters}
+                  className="text-xs text-muted-foreground underline hover:text-foreground"
+                  data-testid="log-filter-clear-all"
+                >
+                  フィルタをクリア
+                </button>
+              </div>
             ) : null}
           </div>
         ) : null}
