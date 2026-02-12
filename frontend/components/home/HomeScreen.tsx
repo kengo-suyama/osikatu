@@ -971,7 +971,7 @@ export default function HomeScreen() {
         />
       ) : null}
 
-      <div className="space-y-2">
+      <div className="space-y-2" data-testid="quick-actions-section">
         <div className="flex flex-wrap items-center justify-between gap-2">
           <div className="text-sm font-semibold text-muted-foreground">クイックアクション</div>
           <QuickModeSwitch />
@@ -982,6 +982,7 @@ export default function HomeScreen() {
               "rounded-2xl border bg-card text-left shadow-sm transition hover:shadow-md",
               isCompact ? "p-3" : "p-4"
             )}
+            data-testid="quick-action-oshi-image"
           >
             <div className="text-sm font-semibold">
               推し画像を{selectedOshi?.profile.image_url || selectedOshi?.profile.image_base64 ? "変更" : "追加"}
@@ -1006,7 +1007,13 @@ export default function HomeScreen() {
               )}
             </div>
           </div>
-          {quickActions.map((action) => (
+          {quickActions
+            .filter((action) => {
+              // supply requires an oshi to be selected
+              if (action.id === "supply" && !selectedOshi) return false;
+              return true;
+            })
+            .map((action) => (
             <button
               key={action.id}
               type="button"
@@ -1015,6 +1022,7 @@ export default function HomeScreen() {
                 "rounded-2xl border bg-card text-left shadow-sm transition hover:shadow-md",
                 isCompact ? "p-3" : "p-4"
               )}
+              data-testid={"quick-action-" + action.id}
             >
               <div className="text-sm font-semibold">{action.label}</div>
               <div className="text-xs text-muted-foreground">{action.description}</div>
