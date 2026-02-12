@@ -45,8 +45,38 @@ class MeGachaController extends Controller
         $requestId = (string) ($request->header('X-Request-Id') ?? '');
         $requestId = trim($requestId) !== '' ? $requestId : null;
 
+        $idempotencyKey = $requestId ? "gacha_pull:{$requestId}" : null;
+
+        // Idempotency: if same request_id was used, return cached result
+        if ($idempotencyKey) {
+            $existing = PointsTransaction::query()
+                ->where('user_id', $user->id)
+                ->whereNull('circle_id')
+                ->where('idempotency_key', $idempotencyKey)
+                ->first();
+
+            if ($existing) {
+                $balance = (int) PointsTransaction::query()
+                    ->where('user_id', $user->id)
+                    ->whereNull('circle_id')
+                    ->sum('delta');
+
+                $meta = is_array($existing->source_meta) ? $existing->source_meta : [];
+                return ApiResponse::success([
+                    'cost' => $meta['cost'] ?? $cost,
+                    'balance' => $balance,
+                    'prize' => [
+                        'itemType' => $meta['itemType'] ?? 'frame',
+                        'itemKey' => $meta['itemKey'] ?? 'unknown',
+                        'rarity' => $meta['rarity'] ?? 'R',
+                        'isNew' => $meta['isNew'] ?? false,
+                    ],
+                ]);
+            }
+        }
+
         try {
-            $out = DB::transaction(function () use ($user, $cost, $requestId): array {
+            $out = DB::transaction(function () use ($user, $cost, $requestId, $idempotencyKey): array {
                 // Serialize per-user pulls to prevent double-spend races.
                 User::query()->whereKey($user->id)->lockForUpdate()->first();
 
@@ -58,19 +88,6 @@ class MeGachaController extends Controller
                 if ($balance < $cost) {
                     throw new InsufficientPointsException($balance, $cost);
                 }
-
-                PointsTransaction::create([
-                    'user_id' => $user->id,
-                    'circle_id' => null,
-                    'delta' => -$cost,
-                    'reason' => 'gacha_pull_cost',
-                    'source_meta' => [
-                        'source' => 'gacha',
-                        'cost' => $cost,
-                    ],
-                    'request_id' => $requestId,
-                    'idempotency_key' => null,
-                ]);
 
                 $prize = GachaService::draw('default');
 
@@ -87,6 +104,25 @@ class MeGachaController extends Controller
                     ]
                 );
 
+                $isNew = (bool) $unlock->wasRecentlyCreated;
+
+                PointsTransaction::create([
+                    'user_id' => $user->id,
+                    'circle_id' => null,
+                    'delta' => -$cost,
+                    'reason' => 'gacha_pull_cost',
+                    'source_meta' => [
+                        'source' => 'gacha',
+                        'cost' => $cost,
+                        'itemType' => $prize['itemType'],
+                        'itemKey' => $prize['itemKey'],
+                        'rarity' => $prize['rarity'],
+                        'isNew' => $isNew,
+                    ],
+                    'request_id' => $requestId,
+                    'idempotency_key' => $idempotencyKey,
+                ]);
+
                 return [
                     'cost' => $cost,
                     'balance' => $balance - $cost,
@@ -94,7 +130,7 @@ class MeGachaController extends Controller
                         'itemType' => $prize['itemType'],
                         'itemKey' => $prize['itemKey'],
                         'rarity' => $prize['rarity'],
-                        'isNew' => (bool) $unlock->wasRecentlyCreated,
+                        'isNew' => $isNew,
                     ],
                 ];
             });
