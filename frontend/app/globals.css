@@ -512,3 +512,12 @@ img {
   mix-blend-mode: screen;
   opacity: 0.9;
 }
+
+/* A11y: reduce motion */
+[data-reduce-motion="true"] *,
+[data-reduce-motion="true"] *::before,
+[data-reduce-motion="true"] *::after {
+  animation-duration: 0.01ms !important;
+  animation-iteration-count: 1 !important;
+  transition-duration: 0.01ms !important;
+}

@@ -29,6 +29,7 @@ import { loadString, saveString } from "@/lib/storage";
 import type { MeDto } from "@/lib/types";
 import type { Oshi } from "@/lib/uiTypes";
 import { cn } from "@/lib/utils";
+import { useReduceMotion } from "@/lib/a11y";
 import { getGachaSfxEnabled, setGachaSfxEnabled } from "@/lib/gachaSfx";
 import {
   getVisibleThemes,
@@ -48,6 +49,7 @@ export default function SettingsScreen() {
   );
   const [compactHome, setCompactHome] = useState(true);
   const [me, setMe] = useState<MeDto | null>(null);
+  const { reduceMotion, setReduceMotion } = useReduceMotion();
   const [themeId, setThemeId] = useState<ThemeId>(() => getStoredThemeId());
   const [themeLimitOpen, setThemeLimitOpen] = useState(false);
   const [gachaSfxEnabled, setGachaSfxEnabledState] = useState(true);
@@ -496,6 +498,23 @@ export default function SettingsScreen() {
             <div className="text-xs text-muted-foreground">1画面で見やすく表示</div>
           </div>
           <Switch checked={compactHome} onCheckedChange={handleCompactHomeChange} />
+        </CardContent>
+      </Card>
+
+      <Card className="rounded-2xl border p-4 shadow-sm" data-testid="settings-reduce-motion-card">
+        <CardHeader className="p-0 pb-3">
+          <CardTitle className="text-sm font-semibold text-muted-foreground">アクセシビリティ</CardTitle>
+        </CardHeader>
+        <CardContent className="flex items-center justify-between p-0">
+          <div>
+            <div className="text-sm font-medium">モーションを減らす</div>
+            <div className="text-xs text-muted-foreground">アニメーションを最小限にします</div>
+          </div>
+          <Switch
+            data-testid="settings-reduce-motion"
+            checked={reduceMotion}
+            onCheckedChange={setReduceMotion}
+          />
         </CardContent>
       </Card>
 
