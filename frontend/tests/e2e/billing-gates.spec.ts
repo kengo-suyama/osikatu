@@ -157,4 +157,35 @@ test.describe("Billing gates (mocked)", () => {
 
     await page.waitForURL("**/mock-checkout", { timeout: 15_000, waitUntil: "domcontentloaded" });
   });
+  test("plus user billing settings shows portal entry", async ({ page }) => {
+    await page.addInitScript((d: string) => {
+      localStorage.setItem("osikatu:device:id", d);
+      localStorage.setItem("osikatu:data-source", "api");
+    }, DEVICE_ID);
+
+    await page.route("**/api/me", (r) =>
+      r.fulfill({ status: 200, contentType: "application/json", body: successBody(baseMe("plus")) })
+    );
+    await page.route("**/api/oshis**", (r) =>
+      r.fulfill({ status: 200, contentType: "application/json", body: successBody([]) })
+    );
+    await page.route("**/api/me/plan**", (r) =>
+      r.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: successBody({ plan: "plus", effectivePlan: "plus", planStatus: "active", trialEndsAt: null }),
+      })
+    );
+    await page.route("**/api/billing/portal**", (r) =>
+      r.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: successBody({ url: "/mock-portal" }),
+      })
+    );
+
+    await page.goto("/settings/billing", { waitUntil: "domcontentloaded" });
+    await expect(page.locator('[data-testid="billing-screen"]')).toBeVisible({ timeout: 15_000 });
+  });
+
 });
