@@ -6,6 +6,7 @@ import type { ScheduleDto } from "@/lib/types";
 type ScheduleParams = {
   from?: string;
   to?: string;
+  search?: string;
 };
 
 const normalizeId = (id: string) => Number(id.replace(/^us_/, ""));
@@ -31,6 +32,7 @@ export async function fetchMySchedules(params: ScheduleParams = {}): Promise<Sch
   const search = new URLSearchParams();
   if (params.from) search.set("from", params.from);
   if (params.to) search.set("to", params.to);
+  if (params.search) search.set("search", params.search);
   const path = search.toString() ? `/api/me/schedules?${search.toString()}` : "/api/me/schedules";
   const data = await apiGet<{ items: ScheduleDto[] }>(path);
   return data.items;

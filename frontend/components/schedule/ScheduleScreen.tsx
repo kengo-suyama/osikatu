@@ -6,6 +6,7 @@ import TicketTimeline from "@/components/schedule/TicketTimeline";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { Search } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 import {
   Dialog,
@@ -33,6 +34,7 @@ export default function ScheduleScreen() {
   const [endAt, setEndAt] = useState("");
   const [isAllDay, setIsAllDay] = useState(false);
   const [actionLoading, setActionLoading] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
   const [message, setMessage] = useState<string | null>(null);
 
   const hasConflict = false;
@@ -51,7 +53,7 @@ export default function ScheduleScreen() {
     let mounted = true;
     setLoading(true);
     setError(null);
-    fetchMySchedules({ from: dateRange.from, to: dateRange.to })
+    fetchMySchedules({ from: dateRange.from, to: dateRange.to, search: searchQuery || undefined })
       .then((data) => {
         if (!mounted) return;
         setItems(data.items ?? []);
@@ -68,7 +70,7 @@ export default function ScheduleScreen() {
     return () => {
       mounted = false;
     };
-  }, [dateRange.from, dateRange.to]);
+  }, [dateRange.from, dateRange.to, searchQuery]);
 
   const formatRange = (item: UserScheduleDto) => {
     const start = item.startAt ? item.startAt.replace("T", " ").slice(0, 16) : "";
@@ -145,6 +147,16 @@ export default function ScheduleScreen() {
 
       <NextDeadlines items={deadlines} />
 
+      <div className="relative" data-testid="schedule-search">
+        <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+        <Input
+          placeholder="予定を検索…"
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+          className="pl-9"
+        />
+      </div>
+
       <Card className="rounded-2xl border p-4 shadow-sm">
         <CardHeader className="flex flex-row items-center justify-between p-0 pb-3">
           <CardTitle className="text-sm font-semibold text-muted-foreground">次の予定</CardTitle>
@@ -208,7 +220,7 @@ export default function ScheduleScreen() {
             </DialogContent>
           </Dialog>
         </CardHeader>
-        <CardContent className="space-y-3 p-0">
+        <CardContent className="space-y-3 p-0" data-testid="schedule-list">
           {loading ? (
             <div className="rounded-xl border border-border/60 p-3 text-xs text-muted-foreground">
               読み込み中…
