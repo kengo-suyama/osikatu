@@ -173,11 +173,13 @@ test.describe("log features: photos + tags + search filters", () => {
       await expect(activeFilters).toContainText(/#photo/i);
       await expect(activeFilters).toContainText(/写真あり/);
 
-      await page.locator('[data-testid="log-search-clear"]').click();
+      // Clear all filters and confirm list returns
+      await page.locator('[data-testid="log-filter-clear-all"]').click();
+      await expect(cards.filter({ hasText: noPhotoTitle }).first()).toBeVisible({ timeout: 15_000 });
       await expect(cards.filter({ hasText: withPhotoTitle }).first()).toBeVisible({
         timeout: 15_000,
       });
-      logPass("Search works with tag + hasPhoto filter");
+      logPass("Search + tag + hasPhoto filters show active summary, then clear restores list");
     } catch (e) {
       logFail("Photo upload + hasPhoto filter", e);
     }

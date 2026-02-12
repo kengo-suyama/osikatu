@@ -107,7 +107,7 @@ export default function LogScreen() {
     const tagSet = new Set<string>();
     for (const d of items) {
       if (d.tags) d.tags.forEach((t) => tagSet.add(t));
-      }
+    }
     return Array.from(tagSet).sort();
   };
 
@@ -569,29 +569,40 @@ export default function LogScreen() {
                 data-testid="log-filter-hasphoto"
               />
             </div>
-            {hasActiveFilter ? (
-              <div className="flex flex-wrap gap-2 text-xs text-muted-foreground" data-testid="log-filter-active">
-                {activeQuery ? (
-                  <span className="rounded-full bg-muted px-2 py-0.5">検索: {activeQuery}</span>
-                ) : null}
-                {activeTag ? (
-                  <span className="rounded-full bg-muted px-2 py-0.5">タグ: #{activeTag}</span>
-                ) : null}
-                {hasPhotoOnly ? (
-                  <span className="rounded-full bg-muted px-2 py-0.5">写真あり</span>
-                ) : null}
-              </div>
-            ) : null}
-            {hasActiveFilter ? (
-              <button
-                type="button"
-                onClick={clearFilters}
-                className="text-xs text-muted-foreground underline hover:text-foreground"
-                data-testid="log-filter-clear-all"
-              >
-                フィルタをクリア
-              </button>
-            ) : null}
+            <div
+              className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground"
+              data-testid="log-filter-active"
+            >
+              {hasActiveFilter ? (
+                <>
+                  {activeQuery ? (
+                    <span className="rounded-full bg-muted px-2 py-0.5">検索: {activeQuery}</span>
+                  ) : null}
+                  {activeTag ? (
+                    <span className="rounded-full bg-muted px-2 py-0.5">タグ: #{activeTag}</span>
+                  ) : null}
+                  {hasPhotoOnly ? (
+                    <span className="rounded-full bg-muted px-2 py-0.5">写真あり</span>
+                  ) : null}
+                </>
+              ) : (
+                <span className="opacity-70">フィルタ: なし</span>
+              )}
+            </div>
+            <button
+              type="button"
+              onClick={clearFilters}
+              className={cn(
+                "text-left text-xs underline transition-colors",
+                hasActiveFilter
+                  ? "text-muted-foreground hover:text-foreground"
+                  : "cursor-not-allowed text-muted-foreground/50"
+              )}
+              disabled={!hasActiveFilter}
+              data-testid="log-filter-clear-all"
+            >
+              フィルタをクリア
+            </button>
           </div>
         ) : null}
         <div className="space-y-3">
@@ -690,8 +701,30 @@ export default function LogScreen() {
               ))
           )}
           {hydrated && apiMode && !loadingDiaries && diaries.length === 0 ? (
-            <div className="rounded-2xl border border-white/10 bg-white/5 p-6 text-center text-sm opacity-70">
-              {hasActiveFilter ? "条件に一致するログがありません" : "ログがまだありません"}
+            <div
+              className="rounded-2xl border border-white/10 bg-white/5 p-6 text-center"
+              data-testid="log-empty-state"
+            >
+              <div className="text-sm font-medium">
+                {hasActiveFilter ? "条件に一致するログがありません" : "ログがまだありません"}
+              </div>
+              <div className="mt-1 text-xs text-muted-foreground">
+                {hasActiveFilter
+                  ? "フィルタを外すと見つかるかもしれません。"
+                  : "上のフォームから今日の推し活をメモしてみよう。写真も付けられます。"}
+              </div>
+              {hasActiveFilter ? (
+                <div className="mt-4 flex justify-center">
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    onClick={clearFilters}
+                    data-testid="log-empty-clear-filters"
+                  >
+                    フィルタをクリア
+                  </Button>
+                </div>
+              ) : null}
             </div>
           ) : null}
           {hydrated && apiMode && loadingDiaries ? (
