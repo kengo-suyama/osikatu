@@ -5,10 +5,12 @@ import { useEffect, useState } from "react";
 import { SealRevealModal } from "@/components/gacha/SealRevealModal";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { t, useLocale } from "@/lib/i18n";
 
 export default function Page() {
   const [open, setOpen] = useState(false);
   const [hydrated, setHydrated] = useState(false);
+  const { locale } = useLocale();
 
   useEffect(() => {
     setHydrated(true);
@@ -19,7 +21,7 @@ export default function Page() {
       {hydrated ? <span data-testid="gacha-hydrated" /> : null}
       <Card>
         <CardHeader className="pb-2">
-          <CardTitle className="text-base">封印札ガチャ</CardTitle>
+          <CardTitle className="text-base">{t("gacha.title", locale)}</CardTitle>
         </CardHeader>
         <CardContent className="space-y-3">
           <p className="text-sm text-muted-foreground">
@@ -30,7 +32,7 @@ export default function Page() {
             onClick={() => setOpen(true)}
             data-testid="gacha-open-seal"
           >
-            封印札を開く
+            {t("gacha.open", locale)}
           </Button>
         </CardContent>
       </Card>
