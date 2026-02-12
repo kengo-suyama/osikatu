@@ -13,11 +13,13 @@ import {
 } from "lucide-react";
 
 import AlbumModal from "@/components/album/AlbumModal";
+import { t, useLocale } from "@/lib/i18n";
 import { cn } from "@/lib/utils";
 
 export default function BottomNav() {
   const pathname = usePathname();
   const [albumOpen, setAlbumOpen] = useState(false);
+  const { locale } = useLocale();
 
   return (
     <nav className="fixed bottom-0 left-0 right-0 z-40 border-t bg-background/80 backdrop-blur">
@@ -37,7 +39,7 @@ export default function BottomNav() {
           >
             <Home className="h-5 w-5" />
           </span>
-          <span>ホーム</span>
+          <span>{t("nav.home", locale)}</span>
         </Link>
 
         <Link
@@ -55,7 +57,7 @@ export default function BottomNav() {
           >
             <ClipboardList className="h-5 w-5" />
           </span>
-          <span>ログ</span>
+          <span>{t("nav.log", locale)}</span>
         </Link>
 
         <Link
@@ -73,7 +75,7 @@ export default function BottomNav() {
           >
             <Wallet className="h-5 w-5" />
           </span>
-          <span>お金</span>
+          <span>{t("nav.money", locale)}</span>
         </Link>
 
         <Link
@@ -91,7 +93,7 @@ export default function BottomNav() {
           >
             <CalendarDays className="h-5 w-5" />
           </span>
-          <span>予定</span>
+          <span>{t("nav.schedule", locale)}</span>
         </Link>
 
         <button
@@ -111,7 +113,7 @@ export default function BottomNav() {
           >
             <Images className="h-5 w-5" />
           </span>
-          <span>アルバム</span>
+          <span>{t("nav.album", locale)}</span>
         </button>
 
         <Link
@@ -129,7 +131,7 @@ export default function BottomNav() {
           >
             <Settings className="h-5 w-5" />
           </span>
-          <span>設定</span>
+          <span>{t("nav.settings", locale)}</span>
         </Link>
       </div>
       <AlbumModal open={albumOpen} onOpenChange={setAlbumOpen} />
