@@ -31,6 +31,7 @@ import {
   DialogHeader,
   DialogTitle,
   DialogDescription,
+  DialogFooter,
 } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
 import { isApiMode } from "@/lib/config";
@@ -1034,6 +1035,8 @@ export default function CircleSettlementsPage({
                 {ceCreateError}
               </div>
             )}
+          </div>
+          <DialogFooter>
             <Button
               size="sm"
               onClick={handleCreateExpense}
@@ -1042,7 +1045,7 @@ export default function CircleSettlementsPage({
             >
               登録
             </Button>
-          </div>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
 
@@ -1178,6 +1181,8 @@ export default function CircleSettlementsPage({
                 {vrCreateError}
               </div>
             )}
+          </div>
+          <DialogFooter>
             <Button
               size="sm"
               onClick={handleVoidReplace}
@@ -1186,7 +1191,7 @@ export default function CircleSettlementsPage({
             >
               取消して置換
             </Button>
-          </div>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
 

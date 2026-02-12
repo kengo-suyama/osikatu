@@ -13,6 +13,7 @@ import {
   DialogHeader,
   DialogTitle,
   DialogTrigger,
+  DialogFooter,
 } from "@/components/ui/dialog";
 import { deadlines, ticketTimeline } from "@/lib/dummy";
 import type { UserScheduleDto } from "@/lib/types";
@@ -199,12 +200,14 @@ export default function ScheduleScreen() {
                     {message}
                   </div>
                 ) : null}
+              </div>
+              <DialogFooter>
                 <div className="flex justify-end">
-                  <Button size="sm" onClick={handleCreate} disabled={actionLoading}>
+                  <Button size="sm" onClick={handleCreate} disabled={actionLoading} data-testid="schedule-create-submit">
                     追加する
                   </Button>
                 </div>
-              </div>
+              </DialogFooter>
             </DialogContent>
           </Dialog>
         </CardHeader>

@@ -11,6 +11,7 @@ import {
   DialogDescription,
   DialogHeader,
   DialogTitle,
+  DialogFooter,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
@@ -210,9 +211,11 @@ export default function CircleCreateDialog({
 
         {error ? <div className="text-xs text-red-500">{error}</div> : null}
 
-        <Button onClick={handleSubmit} disabled={!canSubmit || submitting}>
-          {submitting ? "作成中..." : "作成する"}
-        </Button>
+        <DialogFooter>
+          <Button className="w-full" onClick={handleSubmit} disabled={!canSubmit || submitting} data-testid="circle-create-submit">
+            {submitting ? "作成中..." : "作成する"}
+          </Button>
+        </DialogFooter>
       </DialogContent>
     </Dialog>
   );

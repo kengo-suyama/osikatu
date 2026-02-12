@@ -9,6 +9,7 @@ import {
   DialogHeader,
   DialogTitle,
   DialogTrigger,
+  DialogFooter,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -42,10 +43,12 @@ export default function QuickLogDialog() {
           <div className="space-y-2">
             <Input placeholder="タイトル" />
             <Textarea placeholder="メモ" rows={3} />
-            <Button className="w-full" onClick={handleSave}>
+          </div>
+          <DialogFooter>
+            <Button className="w-full" onClick={handleSave} data-testid="quicklog-save">
               保存
             </Button>
-          </div>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
 
