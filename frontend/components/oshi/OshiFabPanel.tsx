@@ -170,8 +170,6 @@ export default function OshiFabPanel({
               }
             : { touchAction: "none" }
         }
-        animate={{ y: [0, -4, 0] }}
-        transition={{ duration: 3, repeat: Infinity, ease: "easeInOut" }}
         aria-label="プロフィールを開く"
         data-testid="fab-oshi-profile"
       >
